@@ -15,6 +15,7 @@
 """
 共通関数 module
 """
+from flask import g
 import secrets
 import string
 import base64
@@ -24,12 +25,13 @@ import pytz
 import datetime
 import re
 import os
-from flask import g
 import requests
 import json
 import shutil
+import inspect
 import traceback
 from urllib.parse import urlparse
+
 from common_libs.common.exception import AppException
 from common_libs.common.encrypt import *
 from common_libs.common.storage_access import storage_base, storage_write, storage_write_text, storage_read_text
@@ -62,13 +64,20 @@ def ky_decrypt(lcstr, input_encrypt_key=None):
     Returns:
         Decoded string
     """
+
     if lcstr is None:
         return ""
 
-    if len(lcstr) == 0:
+    if len(str(lcstr)) == 0:
         return ""
 
-    return decrypt_str(lcstr, input_encrypt_key)
+    # パラメータシート更新で任意の項目からパスワード項目に変更した場合システムエラーになるので、
+    # try~exceptで対応する
+    try:
+        return decrypt_str(lcstr, input_encrypt_key)
+    except Exception as e:
+        print_exception_msg(e)
+        return ""
 
 
 def ky_file_encrypt(src_file, dest_file):
@@ -85,7 +94,7 @@ def ky_file_encrypt(src_file, dest_file):
         # ファイル読み込み
         # #2079 /storage配下は/tmpを経由してアクセスする
         r_obj = storage_read_text()
-        lcstr = r_obj.read_text(src_file,encoding="utf-8")
+        lcstr = r_obj.read_text(src_file, encoding="utf-8")
 
         # エンコード関数呼び出し
         enc_data = ky_encrypt(lcstr)
@@ -95,7 +104,9 @@ def ky_file_encrypt(src_file, dest_file):
         w_obj = storage_write_text()
         w_obj.write_text(dest_file, enc_data, encoding="utf-8")
 
-    except Exception:
+    except Exception as e:
+        msg = "src_file:{} dest_file:{} err_msg:{}".format(src_file, dest_file, e)
+        print_exception_msg(msg)
         return False
     finally:
         pass
@@ -117,7 +128,7 @@ def ky_file_decrypt(src_file, dest_file):
         # ファイル読み込み
         # #2079 /storage配下は/tmpを経由してアクセスする
         r_obj = storage_read_text()
-        lcstr = r_obj.read_text(src_file,encoding="utf-8")
+        lcstr = r_obj.read_text(src_file, encoding="utf-8")
 
         # デコード関数呼び出し
         enc_data = ky_decrypt(lcstr)
@@ -127,7 +138,9 @@ def ky_file_decrypt(src_file, dest_file):
         w_obj = storage_write_text()
         w_obj.write_text(dest_file, enc_data, encoding="utf-8")
 
-    except Exception:
+    except Exception as e:
+        msg = "src_file:{} dest_file:{} err_msg:{}".format(src_file, dest_file, e)
+        print_exception_msg(msg)
         return False
     finally:
         pass
@@ -268,7 +281,19 @@ def file_encode(file_path):
         # /storage
         tmp_file_path = obj.make_temp_path(file_path)
         # /storageから/tmpにコピー
-        shutil.copy2(file_path, tmp_file_path)
+        i = 0
+        while True:
+            # issue2432対策。azureストレージの初回アクセス時に、不規則に「FileNotFoundError: [Errno 2] No such file or directory」が出るため、一度だけリトライを行う
+            i = i + 1
+            try:
+                shutil.copy2(file_path, tmp_file_path)
+                break
+            except Exception as e:
+                g.applogger.info("copy failed. file_path={}, tmp_file_path={}".format(file_path, tmp_file_path))
+                if i == 2:
+                    raise e
+                t = traceback.format_exc()
+                g.applogger.info(arrange_stacktrace_format(t))
     else:
         # not /storage
         tmp_file_path = file_path
@@ -369,7 +394,7 @@ def get_upload_file_path_specify(workspace_id, place, uuid, file_name, uuid_jnl)
     return {"file_path": file_path, "old_file_path": old_file_path}
 
 
-def upload_file(file_path, text):
+def upload_file(file_path, text, mode="bw"):
     """
     Upload a file
 
@@ -393,17 +418,19 @@ def upload_file(file_path, text):
     try:
         # #2079 /storage配下は/tmpを経由してアクセスする
         obj = storage_write()
-        fd = obj.open(file_path, "bx")
+        fd = obj.open(file_path, mode)
         obj.write(text)
         obj.close()
 
-    except Exception:
+    except Exception as e:
+        msg = "file_path:{} err_msg:{}".format(file_path, e)
+        print_exception_msg(msg)
         return False
 
     return True
 
 
-def encrypt_upload_file(file_path, text):
+def encrypt_upload_file(file_path, text, mode="w"):
     """
     Encode and upload file
 
@@ -416,7 +443,9 @@ def encrypt_upload_file(file_path, text):
     try:
         text = base64.b64decode(text.encode()).decode()
         text = ky_encrypt(text)
-    except Exception:
+    except Exception as e:
+        msg = "file_path:{} err_msg:{}".format(file_path, e)
+        print_exception_msg(msg)
         return False
 
     path = os.path.dirname(file_path)
@@ -427,11 +456,13 @@ def encrypt_upload_file(file_path, text):
     try:
         # #2079 /storage配下は/tmpを経由してアクセスする
         obj = storage_write()
-        fd = obj.open(file_path, "w")
+        fd = obj.open(file_path, mode)
         obj.write(text)
         obj.close()
 
-    except Exception:
+    except Exception as e:
+        msg = "file_path:{} err_msg:{}".format(file_path, e)
+        print_exception_msg(msg)
         return False
 
     return True
@@ -697,6 +728,52 @@ def get_org_execution_limit(limit_key):
     return limit_list
 
 
+def get_org_upload_file_size_limit():
+    """
+    Organization毎のアップロードファイルサイズ上限取得
+
+    Returns:
+        org_upload_file_size_limit: Organization毎のアップロードファイルサイズ上限
+    """
+
+    if 'ORG_UPLOAD_FILE_SIZE_LIMIT' in g:
+        org_upload_file_size_limit = g.get('ORG_UPLOAD_FILE_SIZE_LIMIT')
+
+    else:
+        host_name = os.environ.get('PLATFORM_API_HOST')
+        port = os.environ.get('PLATFORM_API_PORT')
+        limit_key = 'ita.organization.common.upload_file_size_limit'
+
+        header_para = {
+            "Content-Type": "application/json",
+            "User-Id": "dummy",
+            "Roles": "dummy",
+            "Language": g.get('LANGUAGE')
+        }
+
+        # API呼出
+        api_url = "http://{}:{}/internal-api/platform/limits".format(host_name, port)
+        request_response = requests.get(api_url, headers=header_para)
+
+        response_data = json.loads(request_response.text)
+
+        if request_response.status_code != 200:
+            raise AppException('999-00005', [api_url, response_data])
+
+        # Organization毎のアップロードファイルサイズ上限取得
+        org_upload_file_size_limit = None
+        for record in response_data['data']:
+            if g.ORGANIZATION_ID in record['organization_id']:
+                if limit_key in record["limits"]:
+                    org_upload_file_size_limit = record["limits"][limit_key]
+                    break
+
+        # gに値を設定しておく
+        g.ORG_UPLOAD_FILE_SIZE_LIMIT = org_upload_file_size_limit
+
+    return org_upload_file_size_limit
+
+
 def create_dirs(config_file_path, dest_dir):
     """
     config_file_pathのファイルに記載されているディレクトリをdest_dir配下に作成する
@@ -746,6 +823,46 @@ def put_uploadfiles(config_file_path, src_dir, dest_dir):
                         os.makedirs(old_file_path)
 
                     shutil.copy(org_file, old_file_path + file)
+                    try:
+                        os.symlink(old_file_path + file, file_path + file)
+                    except FileExistsError:
+                        pass
+
+    return True
+
+
+def put_uploadfiles_not_override(config_file_path, src_dir, dest_dir):
+    """
+    config_file_pathのファイルに記載されているファイルをdest_dir配下に作成する
+    ファイル、リンクありの場合配置しない
+
+    Arguments:
+        config_file_path: 設定ファイル
+        src_dir: コピー元のファイル格納ディレクトリ
+        dest_dir: 作成するディレクトリ
+    Returns:
+        is success:(bool)
+    """
+    # #2079 /storage配下ではないので対象外
+    with open(config_file_path, 'r') as material_conf_json:
+        material_conf = json.load(material_conf_json)
+        for menu_id, file_info_list in material_conf.items():
+            for file_info in file_info_list:
+                for file, copy_cfg in file_info.items():
+                    # org_file = src_dir + "/".join([menu_id, file])
+                    org_file = os.path.join(os.path.join(src_dir, menu_id), file)
+                    old_file_path = os.path.join(dest_dir, menu_id) + copy_cfg[0]
+                    file_path = os.path.join(dest_dir, menu_id) + copy_cfg[1]
+
+                    if os.path.isfile(old_file_path + file) and os.path.islink(file_path + file):
+                        # ファイル、リンクありの場合配置しない
+                        continue
+
+                    if not os.path.isdir(old_file_path):
+                        os.makedirs(old_file_path)
+
+                    shutil.copy(org_file, old_file_path + file)
+
                     try:
                         os.symlink(old_file_path + file, file_path + file)
                     except FileExistsError:
@@ -810,3 +927,61 @@ def url_check(url_string, scheme='', path=False, params=False, query=False, frag
         return False, e
 
     return True, parse_obj
+
+
+def print_exception_msg(e):
+    """
+    例外メッセージを、infoログに出力する
+    """
+
+    # 例外と、発生したファイ名と行番号を出力
+    info = inspect.getouterframes(inspect.currentframe())[1]
+    msg_line = "({}:{})".format(os.path.basename(info.filename), info.lineno)
+    exception_msg = "exception_msg='{}'".format(e)
+    g.applogger.info('[timestamp={}] {} {}'.format(get_iso_datetime(), exception_msg, msg_line))
+
+
+def get_ita_version(common_db):
+    """
+        ITAのバージョン、ドライバ情報を取得する
+        ARGS:
+            common_db:DB接クラス  DBConnectCommon()
+        RETRUN:
+            version_data
+    """
+
+    # 変数定義
+    lang = g.get('LANGUAGE')
+
+    # 『バージョン情報』テーブルからバージョン情報を取得
+    ret = common_db.table_select('T_COMN_VERSION', 'WHERE DISUSE_FLAG = %s', [0])
+
+    # 件数確認
+    if len(ret) != 1:
+        raise AppException("499-00601")
+
+    version = ret[0].get('VERSION')
+    installed_driver_ja = json.loads(ret[0].get('INSTALLED_DRIVER_JA'))
+    installed_driver_en = json.loads(ret[0].get('INSTALLED_DRIVER_EN'))
+    installed_driver =  installed_driver_ja if lang == 'ja' else installed_driver_en
+
+    # NO_INSTALL_DRIVERを取得
+    _nid = common_db.table_select('T_COMN_ORGANIZATION_DB_INFO', 'WHERE ORGANIZATION_ID = %s AND DISUSE_FLAG = %s', [g.get('ORGANIZATION_ID'),0])
+    # 件数確認
+    if len(ret) != 1:
+        raise AppException("499-00601")
+
+    no_installed_driver = json.loads(_nid[0]["NO_INSTALL_DRIVER"]) \
+        if _nid[0].get("NO_INSTALL_DRIVER", None) is not None else []
+
+    default_installed_driver = ["paramer_sheet", "hostgroup", "ansible"]
+    version_data = {
+        "version": version,
+        "installed_driver": installed_driver,
+        "installed_driver_ja": installed_driver_ja,
+        "installed_driver_en": installed_driver_en,
+        "no_installed_driver": no_installed_driver,
+        "default_installed_driver": default_installed_driver
+    }
+
+    return version_data

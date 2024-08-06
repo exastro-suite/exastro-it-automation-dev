@@ -29,7 +29,7 @@ const fn = ( function() {
     'use strict';
 
     // バージョン
-    const version = '2.4.0';
+    const version = '2.5.0';
 
     // AbortController
     const controller = new AbortController();
@@ -140,6 +140,14 @@ getCommonParams: function() {
 */
 getCmmonAuthFlag: function() {
     return cmmonAuthFlag;
+},
+/*
+##################################################
+   UIバージョンを返す
+##################################################
+*/
+getUiVersion: function() {
+    return version;
 },
 /*
 ##################################################
@@ -261,63 +269,25 @@ fetch: function( url, token, method = 'GET', data, option = {} ) {
                 if ( errorCount === 0 ) {
 
                     if( response.ok ) {
-                        //200の場合
+                        // 200の場合
                         response.json().then(function( result ){
                             if ( option.message ) {
                                 resolve( [ result.data, result.message ] );
                             } else {
                                 resolve( result.data );
                             }
+                        }).catch(function( error ){
+                            cmn.systemErrorAlert();
                         });
                     } else {
                         errorCount++;
-
-                        switch ( response.status ) {
-                            // 呼び出し元に返す
-                            case 498: // メンテナンス中
-                            case 499: // バリデーションエラー
-                                response.json().then(function( result ){
-                                    reject( result );
-                                }).catch(function( e ) {
-                                    cmn.systemErrorAlert();
-                                });
-                            break;
-                            // 権限無しの場合、トップページに戻す
-                            case 401:
-                                response.json().then(function( result ){
-                                    if ( option.authorityErrMove !== false ) {
-                                        if ( !iframeFlag ) {
-                                            fetchController.abort();
-                                            alert(result.message);
-                                            location.replace('/' + organization_id + '/workspaces/' + workspace_id + '/ita/');
-                                        } else {
-                                            cmn.iframeMessage( result.message );
-                                        }
-                                    } else {
-                                        reject( result );
-                                    }
-                                }).catch(function( e ) {
-                                    cmn.systemErrorAlert();
-                                });
-                            break;
-                            // ワークスペース一覧に飛ばす
-                            case 403:
-                                response.json().then(function( result ){
-                                    if ( !iframeFlag ) {
-                                        fetchController.abort();
-                                        alert(result.message);
-                                        window.location.href = `/${organization_id}/platform/workspaces`;
-                                    } else {
-                                        cmn.iframeMessage( result.message );
-                                    }
-                                }).catch(function( e ) {
-                                    cmn.systemErrorAlert();
-                                });
-                            break;
-                            // その他のエラー
-                            default:
-                                cmn.systemErrorAlert();
-                        }
+                        response.json().then(function( json ){
+                            cmn.responseError( response.status, json, fetchController, option ).then(function( result ){
+                                reject( result );
+                            });
+                        }).catch(function( error ){
+                            cmn.systemErrorAlert();
+                        });
                     }
                 }
             }).catch(function( error ){
@@ -341,7 +311,50 @@ fetch: function( url, token, method = 'GET', data, option = {} ) {
 },
 /*
 ##################################################
-   システムエラーAleat
+    データ読み込み エラー
+##################################################
+*/
+responseError: function( status, responseJson, fetchController, option = {}) {
+    return new Promise(function( resolve ){
+        switch ( status ) {
+            // 呼び出し元に返す
+            case 498: // メンテナンス中
+            case 499: // バリデーションエラー
+                resolve( responseJson );
+            break;
+            // 権限無しの場合、トップページに戻す
+            case 401:
+                if ( option.authorityErrMove !== false ) {
+                    if ( !iframeFlag ) {
+                        if ( fetchController ) fetchController.abort();
+                        alert( responseJson.message );
+                        location.replace('/' + organization_id + '/workspaces/' + workspace_id + '/ita/');
+                    } else {
+                        cmn.iframeMessage( responseJson.message );
+                    }
+                } else {
+                    resolve( responseJson );
+                }
+            break;
+            // ワークスペース一覧に飛ばす
+            case 403:
+                if ( !iframeFlag ) {
+                    if ( fetchController ) fetchController.abort();
+                    alert( responseJson.message );
+                    window.location.href = `/${organization_id}/platform/workspaces`;
+                } else {
+                    cmn.iframeMessage( responseJson.message );
+                }
+            break;
+            // その他のエラー
+            default:
+                cmn.systemErrorAlert();
+        }
+    });
+},
+/*
+##################################################
+    システムエラーAleat
 ##################################################
 */
 systemErrorAlert: function() {
@@ -354,7 +367,7 @@ systemErrorAlert: function() {
 },
 /*
 ##################################################
-   編集フラグ
+    編集フラグ
 ##################################################
 */
 editFlag: function( menuInfo ) {
@@ -395,6 +408,15 @@ zeroPadding: function( num, digit, zeroSpan = false ){
 */
 cv: function( value, subValue, escape ){
     const type = typeofValue( value );
+    if ( type === 'boolean') {
+        if ( value === true ) {
+            value = 'true';
+        } else if ( value === false ) {
+            value = 'false';
+        } else {
+            value = '';
+        }
+    }
     if ( type === 'undefined' || type === 'null') value = subValue;
     if ( value && escape ) value = cmn.escape( value );
 
@@ -611,7 +633,7 @@ clipboard: {
    ファイル名のチェック
 ##################################################
 */
-fileNameCheck( fileName ) {
+fileNameCheck: function( fileName ) {
     // \ / : * ? " > < |
     if ( fileName && cmn.typeof( fileName ) === 'string' ) {
         return fileName.replace(/\\|\/|:|\*|\?|\"|>|<\|/g,'_');
@@ -624,7 +646,7 @@ fileNameCheck( fileName ) {
    配列コピー
 ##################################################
 */
-arrayCopy( array ) {
+arrayCopy: function( array ) {
     if ( fn.typeof( structuredClone ) === 'function') {
         return structuredClone( array );
     } else {
@@ -633,87 +655,252 @@ arrayCopy( array ) {
 },
 /*
 ##################################################
+   ファイルの取得
+   option.fileName: true ファイル名も返す
+##################################################
+*/
+getFile: function( endPoint, method = 'GET', data, option = {} ) {
+    return new Promise( async function( resolve, reject ){
+        try {
+            let progressModal = cmn.progressModal( getMessage.FTE00180 );
+
+            const token = ( cmmonAuthFlag )? CommonAuth.getToken():
+                ( iframeFlag && window.parent.getToken )? window.parent.getToken(): null;
+
+            const init = {
+                method: method,
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            // body
+            if ( ( method === 'POST' || method === 'PATCH' ) && data !== undefined ) {
+                try {
+                    init.body = JSON.stringify( data );
+                } catch ( e ) {
+                    reject( e );
+                }
+            }
+
+            // データ読込開始
+            if ( windowFlag ) endPoint = cmn.getRestApiUrl( endPoint );
+            const response = await fetch( endPoint, init );
+
+            if ( response.ok ) {
+                // 成功
+                const reader = response.body.getReader();
+                const contentLength = response.headers.get('Content-Length');
+
+                // ファイル名
+                const disposition = response.headers.get('Content-Disposition');
+                let fileName = 'noname';
+                if ( disposition && disposition.indexOf('attachment') !== -1 ) {
+                    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+                    const matches = filenameRegex.exec( disposition );
+                    if ( matches != null && matches[1] ) {
+                        fileName = decodeURIComponent(matches[1].replace(/['"]/g, ''));
+                    }
+                }
+
+                // データ読込
+                let receivedLength = 0;
+                let chunks = [];
+                while( true ) {
+                    const { done, value } = await reader.read();
+                    if ( done ) break;
+
+                    chunks.push( value );
+                    receivedLength += value.length;
+
+                    const rate = Math.round( receivedLength / contentLength * 100 );
+                    progressModal.progress( rate );
+                }
+
+                // Uint8Array連結
+                let chunksAll = new Uint8Array( receivedLength );
+                let position = 0;
+                for ( const chunk of chunks ) {
+                    chunksAll.set( chunk, position );
+                    position += chunk.length;
+                }
+
+                let fileData;
+                if ( option.base64 === true ) {
+                    // BASE64に変換する
+                    const maxLength = 1024;
+                    let binaryString = '';
+                    for ( let i = 0; i < chunksAll.length; i += maxLength ){
+                        binaryString += String.fromCharCode( ...chunksAll.slice( i, i + maxLength ) );
+                    }
+                    fileData = btoa( binaryString );
+                } else {
+                    fileData = chunksAll;
+                }
+
+                // バーのtransition-duration: .2s;分ずらす
+                setTimeout(function(){
+                    progressModal.close();
+                    progressModal = null;
+                    if ( option.fileName ) {
+                        resolve({
+                            file: fileData,
+                            fileName: fileName
+                         });
+                    } else {
+                        resolve( fileData );
+                    }
+                }, 200 );
+            } else {
+                // 失敗
+                response.json().then(function( json ){
+                    cmn.responseError( response.status, json ).then(function( result ){
+                        progressModal.close();
+                        progressModal = null;
+                        reject( result );
+                    });
+                }).catch(function( error ){
+                    cmn.systemErrorAlert();
+                });
+            }
+        } catch ( e ) {
+            reject( e );
+        }
+    });
+},
+/*
+##################################################
+   データ登録（進捗表示）
+##################################################
+*/
+xhr: function( url, formData ) {
+    return new Promise(function( resolve, reject ){
+        let progressModal = cmn.progressModal( getMessage.FTE00184 );
+
+        const token = ( cmmonAuthFlag )? CommonAuth.getToken():
+            ( iframeFlag && window.parent.getToken )? window.parent.getToken(): null;
+
+        if ( windowFlag ) url = cmn.getRestApiUrl( url );
+
+        const progress = function( e ) {
+            const rate = Math.round( e.loaded / e.total * 100 );
+            progressModal.progress( rate );
+        };
+
+        $.ajax({
+            url: url,
+            method: 'post',
+            dataType: 'json',
+            data: formData,
+            processData: false,
+            contentType: false,
+            headers: {
+                Authorization: 'Bearer ' + token,
+            },
+            async: true,
+            xhr: function() {
+                const xhr = $.ajaxSettings.xhr();
+                xhr.upload.addEventListener('progress', progress );
+                return xhr;
+            }
+        }).done(function( result, status, jqXHR ){
+            if ( status === 'success') {
+                progressModal.close();
+                progressModal = null;
+                resolve( result.data, progressModal );
+            } else {
+                reject( null );
+            }
+        }).fail(function( jqXHR ){
+            setTimeout(function(){
+                cmn.responseError( jqXHR.status, jqXHR.responseJSON ).then(function( result ){
+                    progressModal.close();
+                    progressModal = null;
+                    reject( result );
+                });
+            }, 200 );
+        });
+    });
+},
+/*
+##################################################
    ダウンロード
 ##################################################
 */
-download: function( type, data, fileName = 'noname', endPoint ) {
-
-    if ( endPoint ) {
-        const _this = this;
-
-        return new Promise(function( resolve ){
-            _this.fetch( endPoint ).then(function( result ){
-                _this.download('base64', result, fileName );
-            }).catch(function( error ){
-                window.console.error( error );
-                if ( error.message ) window.alert( error.message );
-            }).then(function(){
-                resolve();
-            });
-        });
-    } else {
-        let url;
-
+download: async function( type, data, fileName = 'noname') {
+    let url;
+    try {
         // URL形式に変換
-        try {
-            switch ( type ) {
+        switch ( type ) {
+            // ファイル
+            case 'file': {
+                // File > BASE64
+                const base64 = await cmn.fileToBase64( data );
+                url = 'data:;base64,' + base64;
+            } break;
 
-                // エクセル
-                case 'excel': {
-                    // BASE64 > Binary > Unicode変換
-                    const binary = window.atob( data ),
-                        decode = new Uint8Array( Array.prototype.map.call( binary, function( c ){ return c.charCodeAt(); }));
+            // エクセル
+            case 'excel': {
+                // BASE64 > Binary > Unicode変換
+                const binary = window.atob( data ),
+                    decode = new Uint8Array( Array.prototype.map.call( binary, function( c ){ return c.charCodeAt(); }));
 
-                    const blob = new Blob([ decode ], {
-                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    });
-                    fileName += '.xlsx';
-                    url = URL.createObjectURL( blob );
-                } break;
+                const blob = new Blob([ decode ], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                });
+                fileName += '.xlsx';
+                url = URL.createObjectURL( blob );
+            } break;
 
-                // テキスト
-                case 'text': {
-                    const blob = new Blob([ data ], {'type': 'text/plain'});
-                    fileName += '.txt';
-                    url = URL.createObjectURL( blob );
-                } break;
+            // テキスト
+            case 'text': {
+                const blob = new Blob([ data ], {'type': 'text/plain'});
+                fileName += '.txt';
+                url = URL.createObjectURL( blob );
+            } break;
 
-                // JSON
-                case 'json': {
-                    const blob = new Blob([ JSON.stringify( data, null, '\t') ], {'type': 'application/json'});
-                    fileName += '.json';
-                    url = URL.createObjectURL( blob );
-                } break;
+            // JSON
+            case 'json': {
+                const blob = new Blob([ JSON.stringify( data, null, '\t') ], {'type': 'application/json'});
+                fileName += '.json';
+                url = URL.createObjectURL( blob );
+            } break;
 
-                // BASE64
-                case 'base64': {
-                    url = 'data:;base64,' + data;
-                } break;
+            // BASE64
+            case 'base64': {
+                url = 'data:;base64,' + data;
+            } break;
 
-                // Exceljs
-                case 'exceljs': {
-                    const blob = new Blob([ data ], {
-                        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    });
-                    fileName += '.xlsx';
-                    url = URL.createObjectURL( blob );
-                } break;
+            // Exceljs
+            case 'exceljs': {
+                const blob = new Blob([ data ], {
+                    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                });
+                fileName += '.xlsx';
+                url = URL.createObjectURL( blob );
+            } break;
 
-            }
-        } catch ( e ) {
-            window.console.error( e );
+            // バイナリ
+            case 'binary':
+                const blob = new Blob([ data ], {
+                    type: 'application/octet-stream',
+                });
+                url = URL.createObjectURL( blob );
         }
-
-        const a = document.createElement('a');
-
-        fileName = cmn.fileNameCheck( fileName );
-
-        a.href = url;
-        a.download = fileName;
-        a.click();
-
-        if ( type !== 'base64') URL.revokeObjectURL( url );
+    } catch ( e ) {
+        window.console.error( e );
     }
+
+    const a = document.createElement('a');
+
+    fileName = cmn.fileNameCheck( fileName );
+
+    a.href = url;
+    a.download = fileName;
+    a.click();
+
+    if ( type !== 'base64') URL.revokeObjectURL( url );
 },
 /*
 ##################################################
@@ -2059,7 +2246,7 @@ html: {
                   inputClass = ['operationMenuInput'],
                   inputOption = { widthAdjustment: true, before: input.before, after: input.after };
             if ( input.className ) inputClass.push( input.className );
-            itemHtml.push( cmn.html.inputText( inputClass, input.value, null, null, inputOption ) );
+            itemHtml.push( cmn.html.inputText( inputClass, input.value, input.type, null, inputOption ) );
         }
 
         // select
@@ -2218,7 +2405,7 @@ checkHexColorCode: function( code, nullCheckFlag = true ) {
 },
 /*
 ##################################################
-  背景色からテキストカラーを判定
+    背景色からテキストカラーを判定
 ##################################################
 */
 blackOrWhite: function( hexcolor, num ) {
@@ -2232,7 +2419,7 @@ blackOrWhite: function( hexcolor, num ) {
 },
 /*
 ##################################################
-   処理中モーダル
+    処理中モーダル
 ##################################################
 */
 processingModal: function( title ) {
@@ -2252,7 +2439,40 @@ processingModal: function( title ) {
 },
 /*
 ##################################################
-   登録成功モーダル
+    進捗モーダル
+##################################################
+*/
+progressModal: function( title ) {
+    const config = {
+        mode: 'modeless',
+        position: 'center',
+        header: {
+            title: title
+        },
+        width: '320px'
+    };
+
+    const dialog = new Dialog( config );
+    const html = ``
+    + `<div class="progressConteinar">`
+        + `<div class="progressWrap">`
+            + `<div class="progressBar"></div>`
+            + `<div class="progressPercentage">0<span>%</span></div>`
+        + `</div>`
+    + `</div>`;
+    dialog.open( html );
+
+    dialog.progress = function( percentage ) {
+        const text = percentage + '%';
+        dialog.$.dbody.find('.progressBar').css('width', text);
+        dialog.$.dbody.find('.progressPercentage').text( text );
+    };
+
+    return dialog;
+},
+/*
+##################################################
+    登録成功モーダル
 ##################################################
 */
 resultModal: function( result ) {
@@ -2907,12 +3127,14 @@ gotoErrPage: function( message ) {
     // windowFlagでWorker内か判定
     if ( windowFlag ) {
         controller.abort();
-        if ( message ) {
-            window.alert( message );
-        } else {
-            window.alert('Unknown error.');
+        if ( message !== 'Failed to fetch') {
+            if ( message ) {
+                window.alert( message );
+            } else {
+                window.alert('Unknown error.');
+            }
+            window.location.href = './system_error/';
         }
-        window.location.href = './system_error/';
     } else {
         if ( message ) {
             console.error( message );
@@ -3759,9 +3981,7 @@ fileTypeCheck: function( fileName ) {
 
     const fileTypes = {
         image: ['gif','jpe','jpg','jpeg','png','svg','webp','bmp','ico'],
-        text: ['txt','yaml','yml','json','hc','hcl','tf','sentinel','py','j2'],
-        style: ['css'],
-        script: ['js']
+        text: ['txt','yaml','yml','json','hc','hcl','tf','sentinel','py','j2','css','html','htm']
     }
 
     for ( const fileType in fileTypes ) {
@@ -3888,7 +4108,7 @@ fileOrBase64ToBase64: function( data ) {
    Aceエディター
 ##################################################
 */
-fileEditor( fileData, fileName, mode = 'edit') {
+fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
     return new Promise( function( resolve ){
         const fileType = cmn.fileTypeCheck( fileName );
         let fileMode = cmn.fileModeCheck( fileName );
@@ -3979,10 +4199,12 @@ fileEditor( fileData, fileName, mode = 'edit') {
         };
 
         let modal = new Dialog( config, funcs );
+        modal.open();
 
         if ( fileType === 'text') {
+            if ( fileData === null ) fileData = '';
             cmn.fileOrBase64ToText( fileData ).then(function( text ){
-                modal.open( modalHtmlSelect() );
+                modal.setBody( modalHtmlSelect() );
                 if ( mode === 'edit') {
                     modal.$.dbody.find('.editorFileName').val( fileName );
                 }
@@ -4091,7 +4313,8 @@ fileEditor( fileData, fileName, mode = 'edit') {
                     });
                 };
             });
-        } else {
+        } else if ( fileType === 'image') {
+            if ( fileData === null ) fileData = '';
             cmn.fileOrBase64ToBase64( fileData ).then(function( base64 ){
                 // ダウンロード
                 modal.btnFn.download = function() {
@@ -4101,7 +4324,7 @@ fileEditor( fileData, fileName, mode = 'edit') {
                     cmn.download('base64', base64, fileName );
                 };
 
-                modal.open( modalHtmlSelect() );
+                modal.setBody( modalHtmlSelect() );
                 if ( mode === 'edit') {
                     modal.$.dbody.find('.editorFileName').val( fileName );
 
@@ -4127,6 +4350,44 @@ fileEditor( fileData, fileName, mode = 'edit') {
                     modal.$.dbody.find('.editorImage').attr('src', src );
                 }
             });
+        } else {
+            // 編集不可ファイル
+            // ファイル名のみ変更可能
+
+            // ダウンロード
+            modal.btnFn.download = async function() {
+                if ( mode === 'edit') {
+                    fileName = modal.$.dbody.find('.editorFileName').val();
+                }
+                if ( fileData !== null ) {
+                    cmn.download('file', fileData, fileName );
+                } else {
+                    try {
+                        const binary = await fn.getFile( option.endPoint );
+                        cmn.download('binary', binary, fileName );
+                    } catch ( e ) {
+                        console.error( e );
+                        alert( getMessage.FTE00179 );
+                    }
+                }
+            };
+
+            modal.setBody( modalHtmlSelect() );
+            if ( mode === 'edit') {
+                modal.$.dbody.find('.editorFileName').val( fileName );
+
+                // 更新
+                modal.btnFn.update = function() {
+                    fileName = modal.$.dbody.find('.editorFileName').val();
+                    modal.close();
+                    modal = null;
+
+                    resolve({
+                        name: fileName,
+                        file: fileData
+                    });
+                };
+            }            
         }
     });
 

@@ -12,7 +12,8 @@ CREATE TABLE T_ANSC_DEVICE
     SSH_KEY_FILE_PASSPHRASE         TEXT,                                       -- パスフレーズ
     LOGIN_AUTH_TYPE                 VARCHAR(2),                                 -- 認証方式
     WINRM_PORT                      INT,                                        -- ポート番号
-    WINRM_SSL_CA_FILE               VARCHAR(255),                               -- サーバー証明書
+    WINRM_CERT_PEM_FILE             VARCHAR(255),                               -- winrm公開鍵ファイル
+    WINRM_CERT_KEY_PEM_FILE         VARCHAR(255),                               -- winrm秘密鍵ファイル
     PROTOCOL_ID                     VARCHAR(2),                                 -- プロトコル
     OS_TYPE_ID                      VARCHAR(40),                                -- OS種別
     PIONEER_LANG_ID                 VARCHAR(2),                                 -- LANG
@@ -43,7 +44,8 @@ CREATE TABLE T_ANSC_DEVICE_JNL
     SSH_KEY_FILE_PASSPHRASE         TEXT,                                       -- パスフレーズ
     LOGIN_AUTH_TYPE                 VARCHAR(2),                                 -- 認証方式
     WINRM_PORT                      INT,                                        -- ポート番号
-    WINRM_SSL_CA_FILE               VARCHAR(255),                               -- サーバー証明書
+    WINRM_CERT_PEM_FILE             VARCHAR(255),                               -- winrm公開鍵ファイル
+    WINRM_CERT_KEY_PEM_FILE         VARCHAR(255),                               -- winrm秘密鍵ファイル
     PROTOCOL_ID                     VARCHAR(2),                                 -- プロトコル
     OS_TYPE_ID                      VARCHAR(40),                                -- OS種別
     PIONEER_LANG_ID                 VARCHAR(2),                                 -- LANG
@@ -359,9 +361,83 @@ CREATE TABLE T_ANSC_CMDB_LINK_JNL
 
 
 
+-- 20110 実行環境定義テンプレート管理
+CREATE TABLE T_ANSC_EXECDEV_TEMPLATE_FILE
+(
+    ROW_ID                          VARCHAR(40),                                -- 項番
+    TEMPLATE_NAME                   VARCHAR(255),                               -- テンプレート名
+    TEMPLATE_FILE                   VARCHAR(255),                               -- テンプレートファイル
+    NOTE                            TEXT,                                       -- 備考
+    DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
+    LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
+    LAST_UPDATE_USER                VARCHAR(40),                                -- 最終更新者
+    PRIMARY KEY(ROW_ID)
+)ENGINE = InnoDB, CHARSET = utf8mb4, COLLATE = utf8mb4_bin, ROW_FORMAT=COMPRESSED ,KEY_BLOCK_SIZE=8;
+
+CREATE TABLE T_ANSC_EXECDEV_TEMPLATE_FILE_JNL
+(
+    JOURNAL_SEQ_NO                  VARCHAR(40),                                -- 履歴用シーケンス
+    JOURNAL_REG_DATETIME            DATETIME(6),                                -- 履歴用変更日時
+    JOURNAL_ACTION_CLASS            VARCHAR (8),                                -- 履歴用変更種別
+    ROW_ID                          VARCHAR(40),                                -- 項番
+    TEMPLATE_NAME                   VARCHAR(255),                               -- テンプレート名
+    TEMPLATE_FILE                   VARCHAR(255),                               -- テンプレートファイル
+    NOTE                            TEXT,                                       -- 備考
+    DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
+    LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
+    LAST_UPDATE_USER                VARCHAR(40),                                -- 最終更新者
+    PRIMARY KEY(JOURNAL_SEQ_NO)
+)ENGINE = InnoDB, CHARSET = utf8mb4, COLLATE = utf8mb4_bin, ROW_FORMAT=COMPRESSED ,KEY_BLOCK_SIZE=8;
+
+
+
+-- 20111 実行環境管理
+CREATE TABLE T_ANSC_EXECDEV
+(
+    ROW_ID                          VARCHAR(40),                                -- 項番
+    EXECUTION_ENVIRONMENT_NAME      VARCHAR(255),                               -- 実行環境名
+    BUILD_TYPE                      VARCHAR(40),                                -- 実行環境構築方法
+    TAG_NAME                        VARCHAR(255),                               -- タグ名
+    EXECUTION_ENVIRONMENT_ID        VARCHAR(100),                               -- 実行環境定義名
+    TEMPLATE_ID                     VARCHAR(40),                                -- テンプレート名
+    BASE_IMAGE_OS_TYPE              VARCHAR(40),                                -- ベースイメージOS種別
+    USER_NAME                       VARCHAR(255),                               -- ユーザー
+    PASSWORD                        TEXT,                                       -- パスワード
+    ATTACH_REPOSITORY               VARCHAR(255),                               -- アタッチリポジトリ
+    NOTE                            TEXT,                                       -- 備考
+    DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
+    LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
+    LAST_UPDATE_USER                VARCHAR(40),                                -- 最終更新者
+    PRIMARY KEY(ROW_ID)
+)ENGINE = InnoDB, CHARSET = utf8mb4, COLLATE = utf8mb4_bin, ROW_FORMAT=COMPRESSED ,KEY_BLOCK_SIZE=8;
+
+CREATE TABLE T_ANSC_EXECDEV_JNL
+(
+    JOURNAL_SEQ_NO                  VARCHAR(40),                                -- 履歴用シーケンス
+    JOURNAL_REG_DATETIME            DATETIME(6),                                -- 履歴用変更日時
+    JOURNAL_ACTION_CLASS            VARCHAR (8),                                -- 履歴用変更種別
+    ROW_ID                          VARCHAR(40),                                -- 項番
+    EXECUTION_ENVIRONMENT_NAME      VARCHAR(255),                               -- 実行環境名
+    BUILD_TYPE                      VARCHAR(40),                                -- 実行環境構築方法
+    TAG_NAME                        VARCHAR(255),                               -- タグ名
+    EXECUTION_ENVIRONMENT_ID        VARCHAR(100),                               -- 実行環境定義名
+    TEMPLATE_ID                     VARCHAR(40),                                -- テンプレート名
+    BASE_IMAGE_OS_TYPE              VARCHAR(40),                                -- ベースイメージOS種別
+    USER_NAME                       VARCHAR(255),                               -- ユーザー
+    PASSWORD                        TEXT,                                       -- パスワード
+    ATTACH_REPOSITORY               VARCHAR(255),                               -- アタッチリポジトリ
+    NOTE                            TEXT,                                       -- 備考
+    DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
+    LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
+    LAST_UPDATE_USER                VARCHAR(40),                                -- 最終更新者
+    PRIMARY KEY(JOURNAL_SEQ_NO)
+)ENGINE = InnoDB, CHARSET = utf8mb4, COLLATE = utf8mb4_bin, ROW_FORMAT=COMPRESSED ,KEY_BLOCK_SIZE=8;
+
+
+
 -- 20201 Legacy Movemnet一覧
 CREATE VIEW V_ANSL_MOVEMENT AS
-SELECT
+SELECT 
 MOVEMENT_ID,
 MOVEMENT_NAME,
 ITA_EXT_STM_ID,
@@ -371,18 +447,20 @@ ANS_PARALLEL_EXE,
 ANS_WINRM_ID,
 ANS_PLAYBOOK_HED_DEF,
 ANS_EXEC_OPTIONS,
+AG_EXECUTION_ENVIRONMENT_NAME,
+AG_BUILDER_OPTIONS,
 ANS_EXECUTION_ENVIRONMENT_NAME,
 ANS_ANSIBLE_CONFIG_FILE,
 NOTE,
 DISUSE_FLAG,
 LAST_UPDATE_TIMESTAMP,
 LAST_UPDATE_USER
-FROM
+FROM 
   T_COMN_MOVEMENT
-WHERE
+WHERE 
   ITA_EXT_STM_ID = 1;
 CREATE VIEW V_ANSL_MOVEMENT_JNL AS
-SELECT
+SELECT 
 JOURNAL_SEQ_NO,
 JOURNAL_REG_DATETIME,
 JOURNAL_ACTION_CLASS,
@@ -395,15 +473,17 @@ ANS_PARALLEL_EXE,
 ANS_WINRM_ID,
 ANS_PLAYBOOK_HED_DEF,
 ANS_EXEC_OPTIONS,
+AG_EXECUTION_ENVIRONMENT_NAME,
+AG_BUILDER_OPTIONS,
 ANS_EXECUTION_ENVIRONMENT_NAME,
 ANS_ANSIBLE_CONFIG_FILE,
 NOTE,
 DISUSE_FLAG,
 LAST_UPDATE_TIMESTAMP,
 LAST_UPDATE_USER
-FROM
+FROM 
   T_COMN_MOVEMENT_JNL
-WHERE
+WHERE 
   ITA_EXT_STM_ID = 1;
 
 
@@ -502,6 +582,7 @@ CREATE TABLE T_ANSL_MVMT_MATL_LINK_JNL
 CREATE TABLE T_ANSL_VALUE_AUTOREG
 (
     COLUMN_ID                       VARCHAR(40),                                -- 項番
+    MENU_NAME_REST                  VARCHAR(40),                                -- メニュー名(REST)
     MENU_ID                         VARCHAR(40),                                -- メニュー名
     COLUMN_LIST_ID                  VARCHAR(40),                                -- 項目名
     COLUMN_ASSIGN_SEQ               INT,                                        -- 代入順序
@@ -523,6 +604,7 @@ CREATE TABLE T_ANSL_VALUE_AUTOREG_JNL
     JOURNAL_REG_DATETIME            DATETIME(6),                                -- 履歴用変更日時
     JOURNAL_ACTION_CLASS            VARCHAR (8),                                -- 履歴用変更種別
     COLUMN_ID                       VARCHAR(40),                                -- 項番
+    MENU_NAME_REST                  VARCHAR(40),                                -- メニュー名(REST)
     MENU_ID                         VARCHAR(40),                                -- メニュー名
     COLUMN_LIST_ID                  VARCHAR(40),                                -- 項目名
     COLUMN_ASSIGN_SEQ               INT,                                        -- 代入順序
@@ -589,6 +671,7 @@ CREATE TABLE T_ANSL_EXEC_STS_INST
     RUN_MODE                        VARCHAR(2),                                 -- 実行種別
     STATUS_ID                       VARCHAR(2),                                 -- ステータス
     EXEC_MODE                       VARCHAR(2),                                 -- 実行エンジン
+    ABORT_EXECUTE_FLAG              VARCHAR(2),                                 -- 緊急停止フラグ
     CONDUCTOR_NAME                  VARCHAR(255),                               -- 呼出元Conductor
     EXECUTION_USER                  VARCHAR(255),                               -- 実行ユーザ
     TIME_REGISTER                   DATETIME(6),                                -- 登録日時
@@ -599,6 +682,8 @@ CREATE TABLE T_ANSL_EXEC_STS_INST
     I_ANS_PARALLEL_EXE              INT,                                        -- Movement/Ansible利用情報/並列実行数
     I_ANS_WINRM_ID                  VARCHAR(2),                                 -- Movement/Ansible利用情報/WinRM接続
     I_ANS_PLAYBOOK_HED_DEF          TEXT,                                       -- Movement/Ansible利用情報/ヘッダーセクション
+    I_AG_EXECUTION_ENVIRONMENT_NAME VARCHAR(255),                               -- Movement/Ansible Agent利用情報/実行環境
+    I_AG_BUILDER_OPTIONS            TEXT,                                       -- Movement/Ansible Agent利用情報/ansible-builder パラメータ
     I_EXECUTION_ENVIRONMENT_NAME    VARCHAR(255),                               -- Movement/Ansible Automation Controller利用情報/実行環境
     I_ANSIBLE_CONFIG_FILE           VARCHAR(255),                               -- Movement/ansible.cfg
     OPERATION_ID                    VARCHAR(40),                                -- オペレーション/No.
@@ -631,6 +716,7 @@ CREATE TABLE T_ANSL_EXEC_STS_INST_JNL
     RUN_MODE                        VARCHAR(2),                                 -- 実行種別
     STATUS_ID                       VARCHAR(2),                                 -- ステータス
     EXEC_MODE                       VARCHAR(2),                                 -- 実行エンジン
+    ABORT_EXECUTE_FLAG              VARCHAR(2),                                 -- 緊急停止フラグ
     CONDUCTOR_NAME                  VARCHAR(255),                               -- 呼出元Conductor
     EXECUTION_USER                  VARCHAR(255),                               -- 実行ユーザ
     TIME_REGISTER                   DATETIME(6),                                -- 登録日時
@@ -641,6 +727,8 @@ CREATE TABLE T_ANSL_EXEC_STS_INST_JNL
     I_ANS_PARALLEL_EXE              INT,                                        -- Movement/Ansible利用情報/並列実行数
     I_ANS_WINRM_ID                  VARCHAR(2),                                 -- Movement/Ansible利用情報/WinRM接続
     I_ANS_PLAYBOOK_HED_DEF          TEXT,                                       -- Movement/Ansible利用情報/ヘッダーセクション
+    I_AG_EXECUTION_ENVIRONMENT_NAME VARCHAR(255),                               -- Movement/Ansible Agent利用情報/実行環境
+    I_AG_BUILDER_OPTIONS            TEXT,                                       -- Movement/Ansible Agent利用情報/ansible-builder パラメータ
     I_EXECUTION_ENVIRONMENT_NAME    VARCHAR(255),                               -- Movement/Ansible Automation Controller利用情報/実行環境
     I_ANSIBLE_CONFIG_FILE           VARCHAR(255),                               -- Movement/ansible.cfg
     OPERATION_ID                    VARCHAR(40),                                -- オペレーション/No.
@@ -668,7 +756,7 @@ CREATE TABLE T_ANSL_EXEC_STS_INST_JNL
 
 -- 20301 Pionner Movemnet一覧
 CREATE VIEW V_ANSP_MOVEMENT AS
-SELECT
+SELECT 
 MOVEMENT_ID,
 MOVEMENT_NAME,
 ITA_EXT_STM_ID,
@@ -678,18 +766,20 @@ ANS_PARALLEL_EXE,
 ANS_WINRM_ID,
 ANS_PLAYBOOK_HED_DEF,
 ANS_EXEC_OPTIONS,
+AG_EXECUTION_ENVIRONMENT_NAME,
+AG_BUILDER_OPTIONS,
 ANS_EXECUTION_ENVIRONMENT_NAME,
 ANS_ANSIBLE_CONFIG_FILE,
 NOTE,
 DISUSE_FLAG,
 LAST_UPDATE_TIMESTAMP,
 LAST_UPDATE_USER
-FROM
+FROM 
   T_COMN_MOVEMENT
-WHERE
+WHERE 
   ITA_EXT_STM_ID = 2;
 CREATE VIEW V_ANSP_MOVEMENT_JNL AS
-SELECT
+SELECT 
 JOURNAL_SEQ_NO,
 JOURNAL_REG_DATETIME,
 JOURNAL_ACTION_CLASS,
@@ -702,15 +792,17 @@ ANS_PARALLEL_EXE,
 ANS_WINRM_ID,
 ANS_PLAYBOOK_HED_DEF,
 ANS_EXEC_OPTIONS,
+AG_EXECUTION_ENVIRONMENT_NAME,
+AG_BUILDER_OPTIONS,
 ANS_EXECUTION_ENVIRONMENT_NAME,
 ANS_ANSIBLE_CONFIG_FILE,
 NOTE,
 DISUSE_FLAG,
 LAST_UPDATE_TIMESTAMP,
 LAST_UPDATE_USER
-FROM
+FROM 
   T_COMN_MOVEMENT_JNL
-WHERE
+WHERE 
   ITA_EXT_STM_ID = 2;
 
 
@@ -873,6 +965,7 @@ CREATE TABLE T_ANSP_MVMT_MATL_LINK_JNL
 CREATE TABLE T_ANSP_VALUE_AUTOREG
 (
     COLUMN_ID                       VARCHAR(40),                                -- 項番
+    MENU_NAME_REST                  VARCHAR(40),                                -- メニュー名(REST)
     MENU_ID                         VARCHAR(40),                                -- メニュー名
     COLUMN_LIST_ID                  VARCHAR(40),                                -- 項目名
     COLUMN_ASSIGN_SEQ               INT,                                        -- 代入順序
@@ -894,6 +987,7 @@ CREATE TABLE T_ANSP_VALUE_AUTOREG_JNL
     JOURNAL_REG_DATETIME            DATETIME(6),                                -- 履歴用変更日時
     JOURNAL_ACTION_CLASS            VARCHAR (8),                                -- 履歴用変更種別
     COLUMN_ID                       VARCHAR(40),                                -- 項番
+    MENU_NAME_REST                  VARCHAR(40),                                -- メニュー名(REST)
     MENU_ID                         VARCHAR(40),                                -- メニュー名
     COLUMN_LIST_ID                  VARCHAR(40),                                -- 項目名
     COLUMN_ASSIGN_SEQ               INT,                                        -- 代入順序
@@ -959,6 +1053,7 @@ CREATE TABLE T_ANSP_EXEC_STS_INST
     EXECUTION_NO                    VARCHAR(40),                                -- 作業番号
     RUN_MODE                        VARCHAR(2),                                 -- 実行種別
     STATUS_ID                       VARCHAR(2),                                 -- ステータス
+    ABORT_EXECUTE_FLAG              VARCHAR(2),                                 -- 緊急停止フラグ
     EXEC_MODE                       VARCHAR(2),                                 -- 実行エンジン
     CONDUCTOR_NAME                  VARCHAR(255),                               -- 呼出元Conductor
     EXECUTION_USER                  VARCHAR(255),                               -- 実行ユーザ
@@ -970,6 +1065,8 @@ CREATE TABLE T_ANSP_EXEC_STS_INST
     I_ANS_PARALLEL_EXE              INT,                                        -- Movement/Ansible利用情報/並列実行数
     I_ANS_WINRM_ID                  VARCHAR(2),                                 -- Movement/Ansible利用情報/WinRM接続
     I_ANS_PLAYBOOK_HED_DEF          TEXT,                                       -- Movement/Ansible利用情報/ヘッダーセクション
+    I_AG_EXECUTION_ENVIRONMENT_NAME VARCHAR(255),                               -- Movement/Ansible Agent利用情報/実行環境
+    I_AG_BUILDER_OPTIONS            TEXT,                                       -- Movement/Ansible Agent利用情報/ansible-builder パラメータ
     I_EXECUTION_ENVIRONMENT_NAME    VARCHAR(255),                               -- Movement/Ansible Automation Controller利用情報/実行環境
     I_ANSIBLE_CONFIG_FILE           VARCHAR(255),                               -- Movement/ansible.cfg
     OPERATION_ID                    VARCHAR(40),                                -- オペレーション/No.
@@ -1001,6 +1098,7 @@ CREATE TABLE T_ANSP_EXEC_STS_INST_JNL
     EXECUTION_NO                    VARCHAR(40),                                -- 作業番号
     RUN_MODE                        VARCHAR(2),                                 -- 実行種別
     STATUS_ID                       VARCHAR(2),                                 -- ステータス
+    ABORT_EXECUTE_FLAG              VARCHAR(2),                                 -- 緊急停止フラグ
     EXEC_MODE                       VARCHAR(2),                                 -- 実行エンジン
     CONDUCTOR_NAME                  VARCHAR(255),                               -- 呼出元Conductor
     EXECUTION_USER                  VARCHAR(255),                               -- 実行ユーザ
@@ -1012,6 +1110,8 @@ CREATE TABLE T_ANSP_EXEC_STS_INST_JNL
     I_ANS_PARALLEL_EXE              INT,                                        -- Movement/Ansible利用情報/並列実行数
     I_ANS_WINRM_ID                  VARCHAR(2),                                 -- Movement/Ansible利用情報/WinRM接続
     I_ANS_PLAYBOOK_HED_DEF          TEXT,                                       -- Movement/Ansible利用情報/ヘッダーセクション
+    I_AG_EXECUTION_ENVIRONMENT_NAME VARCHAR(255),                               -- Movement/Ansible Agent利用情報/実行環境
+    I_AG_BUILDER_OPTIONS            TEXT,                                       -- Movement/Ansible Agent利用情報/ansible-builder パラメータ
     I_EXECUTION_ENVIRONMENT_NAME    VARCHAR(255),                               -- Movement/Ansible Automation Controller利用情報/実行環境
     I_ANSIBLE_CONFIG_FILE           VARCHAR(255),                               -- Movement/ansible.cfg
     OPERATION_ID                    VARCHAR(40),                                -- オペレーション/No.
@@ -1055,7 +1155,7 @@ CREATE TABLE T_ANSR_ROLE_NAME
 
 -- 20402 Role Movemnet一覧
 CREATE VIEW V_ANSR_MOVEMENT AS
-SELECT
+SELECT 
 MOVEMENT_ID,
 MOVEMENT_NAME,
 ITA_EXT_STM_ID,
@@ -1065,18 +1165,20 @@ ANS_PARALLEL_EXE,
 ANS_WINRM_ID,
 ANS_PLAYBOOK_HED_DEF,
 ANS_EXEC_OPTIONS,
+AG_EXECUTION_ENVIRONMENT_NAME,
+AG_BUILDER_OPTIONS,
 ANS_EXECUTION_ENVIRONMENT_NAME,
 ANS_ANSIBLE_CONFIG_FILE,
 NOTE,
 DISUSE_FLAG,
 LAST_UPDATE_TIMESTAMP,
 LAST_UPDATE_USER
-FROM
+FROM 
   T_COMN_MOVEMENT
-WHERE
+WHERE 
   ITA_EXT_STM_ID = 3;
 CREATE VIEW V_ANSR_MOVEMENT_JNL AS
-SELECT
+SELECT 
 JOURNAL_SEQ_NO,
 JOURNAL_REG_DATETIME,
 JOURNAL_ACTION_CLASS,
@@ -1089,15 +1191,17 @@ ANS_PARALLEL_EXE,
 ANS_WINRM_ID,
 ANS_PLAYBOOK_HED_DEF,
 ANS_EXEC_OPTIONS,
+AG_EXECUTION_ENVIRONMENT_NAME,
+AG_BUILDER_OPTIONS,
 ANS_EXECUTION_ENVIRONMENT_NAME,
 ANS_ANSIBLE_CONFIG_FILE,
 NOTE,
 DISUSE_FLAG,
 LAST_UPDATE_TIMESTAMP,
 LAST_UPDATE_USER
-FROM
+FROM 
   T_COMN_MOVEMENT_JNL
-WHERE
+WHERE 
   ITA_EXT_STM_ID = 3;
 
 
@@ -1233,6 +1337,7 @@ CREATE TABLE T_ANSR_NESTVAR_MEMBER_MAX_COL_JNL
 CREATE TABLE T_ANSR_VALUE_AUTOREG
 (
     COLUMN_ID                       VARCHAR(40),                                -- 項番
+    MENU_NAME_REST                  VARCHAR(40),                                -- メニュー名(REST)
     MENU_ID                         VARCHAR(40),                                -- メニュー名
     COLUMN_LIST_ID                  VARCHAR(40),                                -- 項目名
     COLUMN_ASSIGN_SEQ               INT,                                        -- 代入順序
@@ -1255,6 +1360,7 @@ CREATE TABLE T_ANSR_VALUE_AUTOREG_JNL
     JOURNAL_REG_DATETIME            DATETIME(6),                                -- 履歴用変更日時
     JOURNAL_ACTION_CLASS            VARCHAR (8),                                -- 履歴用変更種別
     COLUMN_ID                       VARCHAR(40),                                -- 項番
+    MENU_NAME_REST                  VARCHAR(40),                                -- メニュー名(REST)
     MENU_ID                         VARCHAR(40),                                -- メニュー名
     COLUMN_LIST_ID                  VARCHAR(40),                                -- 項目名
     COLUMN_ASSIGN_SEQ               INT,                                        -- 代入順序
@@ -1322,6 +1428,7 @@ CREATE TABLE T_ANSR_EXEC_STS_INST
     EXECUTION_NO                    VARCHAR(40),                                -- 作業番号
     RUN_MODE                        VARCHAR(2),                                 -- 実行種別
     STATUS_ID                       VARCHAR(2),                                 -- ステータス
+    ABORT_EXECUTE_FLAG              VARCHAR(2),                                 -- 緊急停止フラグ
     EXEC_MODE                       VARCHAR(2),                                 -- 実行エンジン
     CONDUCTOR_NAME                  VARCHAR(255),                               -- 呼出元Conductor
     EXECUTION_USER                  VARCHAR(255),                               -- 実行ユーザ
@@ -1333,6 +1440,8 @@ CREATE TABLE T_ANSR_EXEC_STS_INST
     I_ANS_PARALLEL_EXE              INT,                                        -- Movement/Ansible利用情報/並列実行数
     I_ANS_WINRM_ID                  VARCHAR(2),                                 -- Movement/Ansible利用情報/WinRM接続
     I_ANS_PLAYBOOK_HED_DEF          TEXT,                                       -- Movement/Ansible利用情報/ヘッダーセクション
+    I_AG_EXECUTION_ENVIRONMENT_NAME VARCHAR(255),                               -- Movement/Ansible Agent利用情報/実行環境
+    I_AG_BUILDER_OPTIONS            TEXT,                                       -- Movement/Ansible Agent利用情報/ansible-builder パラメータ
     I_EXECUTION_ENVIRONMENT_NAME    VARCHAR(255),                               -- Movement/Ansible Automation Controller利用情報/実行環境
     I_ANSIBLE_CONFIG_FILE           VARCHAR(255),                               -- Movement/ansible.cfg
     OPERATION_ID                    VARCHAR(40),                                -- オペレーション/No.
@@ -1364,6 +1473,7 @@ CREATE TABLE T_ANSR_EXEC_STS_INST_JNL
     EXECUTION_NO                    VARCHAR(40),                                -- 作業番号
     RUN_MODE                        VARCHAR(2),                                 -- 実行種別
     STATUS_ID                       VARCHAR(2),                                 -- ステータス
+    ABORT_EXECUTE_FLAG              VARCHAR(2),                                 -- 緊急停止フラグ
     EXEC_MODE                       VARCHAR(2),                                 -- 実行エンジン
     CONDUCTOR_NAME                  VARCHAR(255),                               -- 呼出元Conductor
     EXECUTION_USER                  VARCHAR(255),                               -- 実行ユーザ
@@ -1375,6 +1485,8 @@ CREATE TABLE T_ANSR_EXEC_STS_INST_JNL
     I_ANS_PARALLEL_EXE              INT,                                        -- Movement/Ansible利用情報/並列実行数
     I_ANS_WINRM_ID                  VARCHAR(2),                                 -- Movement/Ansible利用情報/WinRM接続
     I_ANS_PLAYBOOK_HED_DEF          TEXT,                                       -- Movement/Ansible利用情報/ヘッダーセクション
+    I_AG_EXECUTION_ENVIRONMENT_NAME VARCHAR(255),                               -- Movement/Ansible Agent利用情報/実行環境
+    I_AG_BUILDER_OPTIONS            TEXT,                                       -- Movement/Ansible Agent利用情報/ansible-builder パラメータ
     I_EXECUTION_ENVIRONMENT_NAME    VARCHAR(255),                               -- Movement/Ansible Automation Controller利用情報/実行環境
     I_ANSIBLE_CONFIG_FILE           VARCHAR(255),                               -- Movement/ansible.cfg
     OPERATION_ID                    VARCHAR(40),                                -- オペレーション/No.
@@ -1709,6 +1821,38 @@ CREATE TABLE T_ANSC_PARSE_TYPE
 
 
 
+-- M017_実行環境構築方法マスタ
+CREATE TABLE T_ANSC_EXECDEV_BUILD_TYPE
+(
+    ROW_ID                          VARCHAR(2),                                 -- ROW_ID
+    NAME                            VARCHAR(64),                                -- 構築方法名
+    DISP_SEQ                        INT,                                        -- 表示順序
+    NOTE                            TEXT,                                       -- 備考
+    DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
+    LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
+    LAST_UPDATE_USER                VARCHAR(40),                                -- 最終更新者
+    PRIMARY KEY(ROW_ID)
+)ENGINE = InnoDB, CHARSET = utf8mb4, COLLATE = utf8mb4_bin, ROW_FORMAT=COMPRESSED ,KEY_BLOCK_SIZE=8;
+
+
+
+
+-- M018_ベースイメージOS種別マスタ
+CREATE TABLE T_ANSC_BASE_IMAGE_OS_TYPE
+(
+    ROW_ID                          VARCHAR(2),                                 -- ROW_ID
+    NAME                            VARCHAR(255),                               -- OS種別名
+    DISP_SEQ                        INT,                                        -- 表示順序
+    NOTE                            TEXT,                                       -- 備考
+    DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
+    LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
+    LAST_UPDATE_USER                VARCHAR(40),                                -- 最終更新者
+    PRIMARY KEY(ROW_ID)
+)ENGINE = InnoDB, CHARSET = utf8mb4, COLLATE = utf8mb4_bin, ROW_FORMAT=COMPRESSED ,KEY_BLOCK_SIZE=8;
+
+
+
+
 -- AACインスタンスグループ管理
 CREATE TABLE T_ANSC_TWR_INSTANCE_GROUP
 (
@@ -1727,17 +1871,17 @@ CREATE TABLE T_ANSC_TWR_INSTANCE_GROUP
 
 -- AAC用ログイン認証方式マスタ
 CREATE VIEW V_ANSC_TWR_LOGIN_AUTH_TYPE AS
-SELECT
+SELECT 
   *
-FROM
+FROM 
   T_ANSC_LOGIN_AUTH_TYPE
-WHERE
+WHERE 
   LOGIN_AUTH_TYPE_ID <= 4;
 
 
 
 -- V001_代入値自動登録用項目表示ビュー
-CREATE VIEW V_ANSC_COLUMN_LIST AS
+CREATE VIEW V_ANSC_COLUMN_LIST AS 
 SELECT
 TAB_A.COLUMN_DEFINITION_ID,
 TAB_A.MENU_ID,
@@ -1780,11 +1924,11 @@ ELSE
     concat(TAB_D.MENU_GROUP_NAME_JA, ":", concat(TAB_C.MENU_NAME_JA, ":" , TAB_E.FULL_COL_GROUP_NAME_JA, '/', TAB_A.COLUMN_NAME_JA))
 END as GROUP_MENU_COLUMN_NAME_JA,
 CASE WHEN TAB_E.FULL_COL_GROUP_NAME_EN IS NULL OR TAB_E.FULL_COL_GROUP_NAME_EN = '' THEN
-    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN))
+    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN)) 
 ELSE
     concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_E.FULL_COL_GROUP_NAME_EN, '/', TAB_A.COLUMN_NAME_EN))
 END as GROUP_MENU_COLUMN_NAME_EN
-FROM T_COMN_MENU_COLUMN_LINK TAB_A
+FROM T_COMN_MENU_COLUMN_LINK TAB_A 
 LEFT JOIN T_COMN_MENU_TABLE_LINK TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN T_COMN_MENU TAB_C ON (TAB_B.MENU_ID = TAB_C.MENU_ID)
 LEFT JOIN T_COMN_MENU_GROUP TAB_D ON ( TAB_C.MENU_GROUP_ID = TAB_D.MENU_GROUP_ID )
@@ -1797,7 +1941,7 @@ AND TAB_B.SUBSTITUTION_VALUE_LINK_FLAG =1
 AND TAB_C.DISUSE_FLAG = 0
 AND TAB_D.DISUSE_FLAG = 0
 AND (TAB_E.DISUSE_FLAG = 0 OR TAB_E.DISUSE_FLAG is NULL);
-CREATE VIEW V_ANSC_COLUMN_LIST_JNL AS
+CREATE VIEW V_ANSC_COLUMN_LIST_JNL AS 
 SELECT
 TAB_A.JOURNAL_SEQ_NO,
 TAB_A.JOURNAL_REG_DATETIME,
@@ -1843,11 +1987,11 @@ ELSE
     concat(TAB_D.MENU_GROUP_NAME_JA, ":", concat(TAB_C.MENU_NAME_JA, ":" , TAB_E.FULL_COL_GROUP_NAME_JA, '/', TAB_A.COLUMN_NAME_JA))
 END as GROUP_MENU_COLUMN_NAME_JA,
 CASE WHEN TAB_E.FULL_COL_GROUP_NAME_EN IS NULL OR TAB_E.FULL_COL_GROUP_NAME_EN = '' THEN
-    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN))
+    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN)) 
 ELSE
     concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_E.FULL_COL_GROUP_NAME_EN, '/', TAB_A.COLUMN_NAME_EN))
 END as GROUP_MENU_COLUMN_NAME_EN
-FROM T_COMN_MENU_COLUMN_LINK_JNL TAB_A
+FROM T_COMN_MENU_COLUMN_LINK_JNL TAB_A 
 LEFT JOIN T_COMN_MENU_TABLE_LINK_JNL TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN T_COMN_MENU_JNL TAB_C ON (TAB_B.MENU_ID = TAB_C.MENU_ID)
 LEFT JOIN T_COMN_MENU_GROUP_JNL TAB_D ON ( TAB_C.MENU_GROUP_ID = TAB_D.MENU_GROUP_ID )
@@ -1889,7 +2033,7 @@ WHERE
 
 
 -- V003_代表ホストビュー
-CREATE VIEW V_ANSC_HOST AS
+CREATE VIEW V_ANSC_HOST AS 
 SELECT
 TAB_A.ANSTWR_HOST_ID,
 TAB_A.ANSTWR_HOSTNAME,
@@ -1903,13 +2047,13 @@ TAB_A.NOTE,
 TAB_A.DISUSE_FLAG,
 TAB_A.LAST_UPDATE_TIMESTAMP,
 TAB_A.LAST_UPDATE_USER
-FROM
+FROM 
 T_ANSC_TOWER_HOST TAB_A
-WHERE
+WHERE 
 TAB_A.DISUSE_FLAG = 0
-AND
+AND 
 (TAB_A.ANSTWR_ISOLATED_TYPE is NULL OR TAB_A.ANSTWR_ISOLATED_TYPE <> '1');
-CREATE VIEW V_ANSC_HOST_JNL AS
+CREATE VIEW V_ANSC_HOST_JNL AS 
 SELECT
 TAB_A.JOURNAL_SEQ_NO,
 TAB_A.JOURNAL_REG_DATETIME,
@@ -1926,11 +2070,11 @@ TAB_A.NOTE,
 TAB_A.DISUSE_FLAG,
 TAB_A.LAST_UPDATE_TIMESTAMP,
 TAB_A.LAST_UPDATE_USER
-FROM
+FROM 
 T_ANSC_TOWER_HOST_JNL TAB_A
-WHERE
+WHERE 
 TAB_A.DISUSE_FLAG = 0
-AND
+AND 
 (TAB_A.ANSTWR_ISOLATED_TYPE is NULL OR TAB_A.ANSTWR_ISOLATED_TYPE <> '1');
 
 
@@ -1977,7 +2121,7 @@ TAB_B.DISUSE_FLAG = 0;
 
 -- V005_変数ネスト管理 move_varビュー
 CREATE VIEW V_ANSR_NESTVAR_MOVEMENT AS
-SELECT
+SELECT 
 TAB_A.MAX_COL_SEQ_ID,
 TAB_A.MVMT_VAR_LINK_ID,
 TAB_A.ARRAY_MEMBER_ID,
@@ -1991,7 +2135,7 @@ FROM
 T_ANSR_NESTVAR_MEMBER_MAX_COL TAB_A
 LEFT JOIN T_ANSR_MVMT_VAR_LINK TAB_B ON (TAB_A.MVMT_VAR_LINK_ID = TAB_B.MVMT_VAR_LINK_ID);
 CREATE VIEW V_ANSR_NESTVAR_MOVEMENT_JNL AS
-SELECT
+SELECT 
 JOURNAL_SEQ_NO,
 JOURNAL_REG_DATETIME,
 JOURNAL_ACTION_CLASS,
@@ -2011,7 +2155,7 @@ LEFT JOIN T_ANSR_MVMT_VAR_LINK TAB_B ON (TAB_A.MVMT_VAR_LINK_ID = TAB_B.MVMT_VAR
 
 
 -- V006_代入値自動登録_メニュー名ビュー
-CREATE VIEW V_ANSC_MENU AS
+CREATE VIEW V_ANSC_MENU AS 
 SELECT
 TAB_A.COLUMN_DEFINITION_ID,
 TAB_A.MENU_ID,
@@ -2050,7 +2194,7 @@ TAB_A.LAST_UPDATE_USER,
 TAB_C.MENU_NAME_JA,
 TAB_C.MENU_NAME_EN
 FROM
-T_COMN_MENU_COLUMN_LINK TAB_A
+T_COMN_MENU_COLUMN_LINK TAB_A 
 LEFT JOIN
 T_COMN_MENU_TABLE_LINK TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN
@@ -2061,7 +2205,7 @@ AND (TAB_B.SHEET_TYPE = 1 OR TAB_B.SHEET_TYPE = 4)
 AND TAB_B.DISUSE_FLAG = 0
 AND TAB_B.SUBSTITUTION_VALUE_LINK_FLAG =1
 AND TAB_C.DISUSE_FLAG = 0;
-CREATE VIEW V_ANSC_MENU_JNL AS
+CREATE VIEW V_ANSC_MENU_JNL AS 
 SELECT
 TAB_A.JOURNAL_SEQ_NO,
 TAB_A.JOURNAL_REG_DATETIME,
@@ -2103,7 +2247,7 @@ TAB_A.LAST_UPDATE_USER,
 TAB_C.MENU_NAME_JA,
 TAB_C.MENU_NAME_EN
 FROM
-T_COMN_MENU_COLUMN_LINK_JNL TAB_A
+T_COMN_MENU_COLUMN_LINK_JNL TAB_A 
 LEFT JOIN
 T_COMN_MENU_TABLE_LINK_JNL TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN
@@ -2337,7 +2481,7 @@ TAB_B.DISUSE_FLAG = 0;
 
 
 -- V013_代入値自動登録用項目表示ビュー
-CREATE VIEW V_ANSP_COLUMN_LIST AS
+CREATE VIEW V_ANSP_COLUMN_LIST AS 
 SELECT
 TAB_A.COLUMN_DEFINITION_ID,
 TAB_A.MENU_ID,
@@ -2380,11 +2524,11 @@ ELSE
     concat(TAB_D.MENU_GROUP_NAME_JA, ":", concat(TAB_C.MENU_NAME_JA, ":" , TAB_E.FULL_COL_GROUP_NAME_JA, '/', TAB_A.COLUMN_NAME_JA))
 END as GROUP_MENU_COLUMN_NAME_JA,
 CASE WHEN TAB_E.FULL_COL_GROUP_NAME_EN IS NULL OR TAB_E.FULL_COL_GROUP_NAME_EN = '' THEN
-    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN))
+    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN)) 
 ELSE
     concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_E.FULL_COL_GROUP_NAME_EN, '/', TAB_A.COLUMN_NAME_EN))
 END as GROUP_MENU_COLUMN_NAME_EN
-FROM T_COMN_MENU_COLUMN_LINK TAB_A
+FROM T_COMN_MENU_COLUMN_LINK TAB_A 
 LEFT JOIN T_COMN_MENU_TABLE_LINK TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN T_COMN_MENU TAB_C ON (TAB_B.MENU_ID = TAB_C.MENU_ID)
 LEFT JOIN T_COMN_MENU_GROUP TAB_D ON ( TAB_C.MENU_GROUP_ID = TAB_D.MENU_GROUP_ID )
@@ -2392,13 +2536,13 @@ LEFT JOIN T_COMN_COLUMN_GROUP TAB_E ON ( TAB_A.COL_GROUP_ID = TAB_E.COL_GROUP_ID
 WHERE TAB_A.AUTOREG_HIDE_ITEM = 0
 AND TAB_A.DISUSE_FLAG = 0
 AND (TAB_B.SHEET_TYPE = 1 OR TAB_B.SHEET_TYPE = 4)
-AND TAB_A.COLUMN_CLASS <> 2
+AND TAB_A.COLUMN_CLASS <> 2 
 AND TAB_B.DISUSE_FLAG = 0
 AND TAB_B.SUBSTITUTION_VALUE_LINK_FLAG =1
 AND TAB_C.DISUSE_FLAG = 0
 AND TAB_D.DISUSE_FLAG = 0
 AND (TAB_E.DISUSE_FLAG = 0 OR TAB_E.DISUSE_FLAG is NULL);
-CREATE VIEW V_ANSP_COLUMN_LIST_JNL AS
+CREATE VIEW V_ANSP_COLUMN_LIST_JNL AS 
 SELECT
 TAB_A.JOURNAL_SEQ_NO,
 TAB_A.JOURNAL_REG_DATETIME,
@@ -2444,11 +2588,11 @@ ELSE
     concat(TAB_D.MENU_GROUP_NAME_JA, ":", concat(TAB_C.MENU_NAME_JA, ":" , TAB_E.FULL_COL_GROUP_NAME_JA, '/', TAB_A.COLUMN_NAME_JA))
 END as GROUP_MENU_COLUMN_NAME_JA,
 CASE WHEN TAB_E.FULL_COL_GROUP_NAME_EN IS NULL OR TAB_E.FULL_COL_GROUP_NAME_EN = '' THEN
-    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN))
+    concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_A.COLUMN_NAME_EN)) 
 ELSE
     concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_E.FULL_COL_GROUP_NAME_EN, '/', TAB_A.COLUMN_NAME_EN))
 END as GROUP_MENU_COLUMN_NAME_EN
-FROM T_COMN_MENU_COLUMN_LINK_JNL TAB_A
+FROM T_COMN_MENU_COLUMN_LINK_JNL TAB_A 
 LEFT JOIN T_COMN_MENU_TABLE_LINK_JNL TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN T_COMN_MENU_JNL TAB_C ON (TAB_B.MENU_ID = TAB_C.MENU_ID)
 LEFT JOIN T_COMN_MENU_GROUP_JNL TAB_D ON ( TAB_C.MENU_GROUP_ID = TAB_D.MENU_GROUP_ID )
@@ -2456,7 +2600,7 @@ LEFT JOIN T_COMN_COLUMN_GROUP_JNL TAB_E ON ( TAB_A.COL_GROUP_ID = TAB_E.COL_GROU
 WHERE TAB_A.AUTOREG_HIDE_ITEM = 0
 AND TAB_A.DISUSE_FLAG = 0
 AND (TAB_B.SHEET_TYPE = 1 OR TAB_B.SHEET_TYPE = 4)
-AND TAB_A.COLUMN_CLASS <> 2
+AND TAB_A.COLUMN_CLASS <> 2 
 AND TAB_B.DISUSE_FLAG = 0
 AND TAB_B.SUBSTITUTION_VALUE_LINK_FLAG =1
 AND TAB_C.DISUSE_FLAG = 0
@@ -2536,7 +2680,7 @@ CREATE INDEX IND_T_ANSC_TWR_ORGANIZATION_01   ON T_ANSC_TWR_ORGANIZATION(DISUSE_
 
 
 -- V014_入力用項目表示ビュー
-CREATE VIEW V_ANSC_INPUT_COLUMN_LIST AS
+CREATE VIEW V_ANSC_INPUT_COLUMN_LIST AS 
 SELECT
 TAB_A.COLUMN_DEFINITION_ID,
 TAB_A.MENU_ID,
@@ -2575,7 +2719,7 @@ TAB_A.LAST_UPDATE_USER,
 TAB_B.VERTICAL,
 concat(TAB_D.MENU_GROUP_NAME_JA, ":", concat(TAB_C.MENU_NAME_JA, ":" , TAB_E.FULL_COL_GROUP_NAME_JA, '/', TAB_A.COLUMN_NAME_JA)) as GROUP_MENU_COLUMN_NAME_JA,
 concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_E.FULL_COL_GROUP_NAME_EN, '/', TAB_A.COLUMN_NAME_EN)) as GROUP_MENU_COLUMN_NAME_EN
-FROM T_COMN_MENU_COLUMN_LINK TAB_A
+FROM T_COMN_MENU_COLUMN_LINK TAB_A 
 LEFT JOIN T_COMN_MENU_TABLE_LINK TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN T_COMN_MENU TAB_C ON (TAB_B.MENU_ID = TAB_C.MENU_ID)
 LEFT JOIN T_COMN_MENU_GROUP TAB_D ON ( TAB_C.MENU_GROUP_ID = TAB_D.MENU_GROUP_ID )
@@ -2589,7 +2733,7 @@ AND TAB_B.SUBSTITUTION_VALUE_LINK_FLAG =0
 AND TAB_C.DISUSE_FLAG = 0
 AND TAB_D.DISUSE_FLAG = 0
 AND TAB_E.DISUSE_FLAG = 0;
-CREATE VIEW V_ANSC_INPUT_COLUMN_LIST_JNL AS
+CREATE VIEW V_ANSC_INPUT_COLUMN_LIST_JNL AS 
 SELECT
 TAB_A.JOURNAL_SEQ_NO,
 TAB_A.JOURNAL_REG_DATETIME,
@@ -2631,7 +2775,7 @@ TAB_A.LAST_UPDATE_USER,
 TAB_B.VERTICAL,
 concat(TAB_D.MENU_GROUP_NAME_JA, ":", concat(TAB_C.MENU_NAME_JA, ":" , TAB_E.FULL_COL_GROUP_NAME_JA, '/', TAB_A.COLUMN_NAME_JA)) as GROUP_MENU_COLUMN_NAME_JA,
 concat(TAB_D.MENU_GROUP_NAME_EN, ":", concat(TAB_C.MENU_NAME_EN, ":" , TAB_E.FULL_COL_GROUP_NAME_EN, '/', TAB_A.COLUMN_NAME_EN)) as GROUP_MENU_COLUMN_NAME_EN
-FROM T_COMN_MENU_COLUMN_LINK_JNL TAB_A
+FROM T_COMN_MENU_COLUMN_LINK_JNL TAB_A 
 LEFT JOIN T_COMN_MENU_TABLE_LINK_JNL TAB_B ON (TAB_A.MENU_ID = TAB_B.MENU_ID)
 LEFT JOIN T_COMN_MENU_JNL TAB_C ON (TAB_B.MENU_ID = TAB_C.MENU_ID)
 LEFT JOIN T_COMN_MENU_GROUP_JNL TAB_D ON ( TAB_C.MENU_GROUP_ID = TAB_D.MENU_GROUP_ID )

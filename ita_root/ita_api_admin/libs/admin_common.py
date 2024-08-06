@@ -20,7 +20,9 @@ import base64
 import re
 import json
 import copy
+import traceback
 
+from common_libs.common.util import arrange_stacktrace_format
 from common_libs.common.dbconnect import *  # noqa: F403
 from common_libs.common.exception import AppException
 from common_libs.common.logger import AppLog
@@ -46,8 +48,7 @@ def before_request_handler():
 
         # request-header check
         # ヘルスチェック用のURLの場合にUser-IdとRolesを確認しない
-        url = request.url
-        ret = re.search("/internal-api/health-check/liveness$|/internal-api/health-check/readiness$", url)
+        ret = re.search("/internal-api/health-check/liveness$|/internal-api/health-check/readiness$", request.url)
         if ret is None:
             user_id = request.headers.get("User-Id")
             roles_org = request.headers.get("Roles")
@@ -430,6 +431,10 @@ def loglevel_settings_container(common_db, parameter):
     except Exception:
         # transaction end:rollback
         common_db.db_transaction_end(False)
+
+        t = traceback.format_exc()
+        g.applogger.error("[ts={}] {}".format(get_api_timestamp(), arrange_stacktrace_format(t)))
+
         msg_args = [service_name, log_level]
         raise AppException("499-01401", msg_args, msg_args)
 
