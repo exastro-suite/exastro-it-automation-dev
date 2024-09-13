@@ -22,7 +22,7 @@ from flask import g
 
 
 @api_filter
-def get_unexecuted_instance(organization_id, workspace_id):  # noqa: E501
+def post_unexecuted_instance(organization_id, workspace_id, body):  # noqa: E501
     """get_unexecuted_instance
 
     未実行インスタンス確認 # noqa: E501
@@ -35,13 +35,25 @@ def get_unexecuted_instance(organization_id, workspace_id):  # noqa: E501
     :rtype: InlineResponse2006
     """
 
+    # メンテナンスモードのチェック
+    if g.maintenance_mode.get('data_update_stop') == '1':
+        status_code = "498-00004"
+        raise AppException(status_code, [], [])  # noqa: F405
+
     # DB接続
     objdbca = DBConnectWs(workspace_id)  # noqa: F405
 
     try:
+        # bodyのjson形式チェック
+        check_request_body()
+
+        if connexion.request.is_json:
+            body = dict(connexion.request.get_json())
+        else:
+            body = {}
 
         # 作業実行関連のメニューの基本情報および項目情報の取得
-        result_data = unexecuted_instance(objdbca)
+        result_data = unexecuted_instance(objdbca, body)
         # result_data.setdefault("menu_info", tmp_data[0]["data"])
     except Exception as e:
         raise e
@@ -63,6 +75,11 @@ def execution_status_notification(organization_id, workspace_id, execution_no, b
 
     :rtype: InlineResponse2006
     """
+
+    # メンテナンスモードのチェック
+    if g.maintenance_mode.get('data_update_stop') == '1':
+        status_code = "498-00004"
+        raise AppException(status_code, [], [])  # noqa: F405
 
     # DB接続
     objdbca = DBConnectWs(workspace_id)  # noqa: F405
@@ -102,6 +119,11 @@ def get_populated_data(organization_id, workspace_id, execution_no, driver_id): 
     :rtype: InlineResponse2006
     """
 
+    # メンテナンスモードのチェック
+    if g.maintenance_mode.get('data_update_stop') == '1':
+        status_code = "498-00004"
+        raise AppException(status_code, [], [])  # noqa: F405
+
     # DB接続
     objdbca = DBConnectWs(workspace_id)  # noqa: F405
 
@@ -130,6 +152,11 @@ def update_result_data(organization_id, workspace_id, execution_no, body=None, *
     :rtype: InlineResponse2006
     """
 
+    # メンテナンスモードのチェック
+    if g.maintenance_mode.get('data_update_stop') == '1':
+        status_code = "498-00004"
+        raise AppException(status_code, [], [])  # noqa: F405
+
     # DB接続
     objdbca = DBConnectWs(workspace_id)  # noqa: F405
 
@@ -140,7 +167,7 @@ def update_result_data(organization_id, workspace_id, execution_no, body=None, *
         retBool, parameters, file_paths = create_file_path(connexion.request, tmp_path, execution_no)
 
         # 作業実行関連のメニューの基本情報および項目情報の取得
-        result_data = update_result(organization_id, workspace_id, execution_no, parameters, file_paths)
+        result_data = update_result(objdbca, organization_id, workspace_id, execution_no, parameters, file_paths)
         # result_data.setdefault("menu_info", tmp_data[0]["data"])
     except Exception as e:
         raise e
@@ -163,8 +190,10 @@ def agent_version(organization_id, workspace_id, body):  # noqa: E501
     :rtype: InlineResponse2006
     """
 
-    # DB接続
-    objdbca = DBConnectWs(workspace_id)  # noqa: F405
+    # メンテナンスモードのチェック
+    if g.maintenance_mode.get('data_update_stop') == '1':
+        status_code = "498-00004"
+        raise AppException(status_code, [], [])  # noqa: F405
 
     try:
         # DB接続
@@ -199,6 +228,11 @@ def execution_notification(organization_id, workspace_id, body):  # noqa: E501
 
     :rtype: InlineResponse2006
     """
+
+    # メンテナンスモードのチェック
+    if g.maintenance_mode.get('data_update_stop') == '1':
+        status_code = "498-00004"
+        raise AppException(status_code, [], [])  # noqa: F405
 
     # DB接続
     objdbca = DBConnectWs(workspace_id)  # noqa: F405

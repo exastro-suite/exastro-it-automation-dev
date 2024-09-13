@@ -94,17 +94,28 @@ def main_logic(organization_id, workspace_id, exastro_api, baseUrl):
     start_up_list = []
 
     # 未実行インスタンス取得
-    status_code, response = get_unexecuted_instance(organization_id, workspace_id, exastro_api)
+    body = {}
+    str_een = os.getenv('EXECUTION_ENVIRONMENT_NAMES', None)
+    if str_een:
+        execution_environment_names = str_een.split(',')
+        body = {
+            "execution_environment_names": execution_environment_names
+        }
+    status_code, response = post_unexecuted_instance(organization_id, workspace_id, exastro_api, body=body)
     if status_code == 200:
         target_executions = response["data"] if isinstance(response["data"], dict) else {}
         for execution_no, value in target_executions.items():
             g.applogger.debug(f"{execution_no=}: \n {json.dumps(value, indent=4) if value else {}}")
+            # 子プロ起動時の引数対応: None -> ""
+            user_name = value["user_name"] if value["user_name"] else ""
+            password = value["password"] if value["password"] else ""
+
             # 子プロ起動
-            command = ["python3", "agent/agent_child_init.py", organization_id, workspace_id, execution_no, value["driver_id"], value["build_type"], str(value["user_name"]), str(value["password"])]
+            command = ["python3", "agent/agent_child_init.py", organization_id, workspace_id, execution_no, value["driver_id"], value["build_type"], user_name, password, value["base_image"]]
             cp = subprocess.Popen(command)  # noqa: F841
 
             # 子プロ死活監視
-            child_process_exist_check(organization_id, workspace_id, execution_no, value["driver_id"], value["build_type"], value["user_name"], value["password"])
+            child_process_exist_check(organization_id, workspace_id, execution_no, value["driver_id"], value["build_type"], user_name, password, value["base_image"])
 
             # 起動した未実行インスタンスを保存
             start_up_list.append(execution_no)
@@ -161,16 +172,16 @@ def conductor_decode_tar_file(base_64data, dir_path):
         raise AppException('MSG-10947', [])
 
 
-def child_process_exist_check(organization_id, workspace_id, execution_no, driver_id, build_type=None, user_name=None, password=None, reboot=True):
+def child_process_exist_check(organization_id, workspace_id, execution_no, driver_id, build_type=None, user_name="", password="", base_image=None ,reboot=True):
     """
     実行中の子プロの起動確認
 
     Returns:
         bool
     """
-    # psコマンドでbackyard_child_init.pyの起動プロセスリストを作成
+    # psコマンドでagent/agent_child_init.pyの起動プロセスリストを作成
     # psコマンドがマレに起動プロセスリストを取りこぼすことがあるので3回分を作成
-    # command = ["python3", "backyard/backyard_child_init.py", organization_id, workspace_id, execution_no, driver_id]
+    # command = ["python3", "agent/agent_child_init.py", organization_id, workspace_id, execution_no, driver_id]
 
     child_process_1 = child_process_exist_check_ps()
     time.sleep(0.05)
@@ -183,8 +194,8 @@ def child_process_exist_check(organization_id, workspace_id, execution_no, drive
 
     # 子プロ起動確認
     is_running = False
-    # command = ["python3", "backyard/backyard_child_init.py", organization_id, workspace_id, execution_no]
-    command_args = "{} {} {} {}".format('backyard/backyard_child_init.py', organization_id, workspace_id, execution_no)
+    # command = ["python3", "agent/agent_child_init.py", organization_id, workspace_id, execution_no]
+    command_args = "{} {} {} {}".format('agent/agent_child_init.py', organization_id, workspace_id, execution_no)
 
     child_process_arr = child_process_1.split('\n')
     for r_child_process in child_process_arr:
@@ -227,7 +238,7 @@ def child_process_exist_check(organization_id, workspace_id, execution_no, drive
                 obj.close()
 
                 # 子プロ再起動
-                command = ["python3", "agent/agent_child_init.py", organization_id, workspace_id, execution_no, driver_id, str(user_name), str(password)]
+                command = ["python3", "agent/agent_child_init.py", organization_id, workspace_id, execution_no, driver_id, user_name, password, base_image]
                 cp = subprocess.Popen(command)  # noqa: F841
             else:
                 g.applogger.info(g.appmsg.get_log_message("MSG-10056", [execution_no, workspace_id]))
@@ -244,7 +255,7 @@ def child_process_exist_check_ps():
     Returns:
         stdout row
     """
-    # ps -efw | grep backyard/backyard_child_init.py | grep -v grep
+    # ps -efw | grep agent/agent_child_init.py | grep -v grep
     cp1 = subprocess.run(
         ["ps", "-efw"],
         capture_output=True,
@@ -254,7 +265,7 @@ def child_process_exist_check_ps():
         cp1.check_returncode()
 
     cp2 = subprocess.run(
-        ["grep", "agent_child.py"],
+        ["grep", "agent/agent_child_init.py"],
         capture_output=True,
         text=True,
         input=cp1.stdout
@@ -462,9 +473,9 @@ def update_error_executions(organization_id, workspace_id, exastro_api, error_ps
             # 作業状態通知(ファイル)
 
             # 各種tar＋ファイルパス取得
-            # out_gztar_path, parameters_gztar_path, parameters_file_gztar_path, conductor_gztar_path\
-            #     = arcive_tar_data(organization_id, workspace_id, driver_id, del_execution, status_id, mode="parent")
-            out_gztar_path, parameters_gztar_path, parameters_file_gztar_path, conductor_gztar_path = ("","","","")
+            out_gztar_path, parameters_gztar_path, parameters_file_gztar_path, conductor_gztar_path\
+                = arcive_tar_data(organization_id, workspace_id, driver_id, del_execution, status_id, mode="parent")
+
             g.applogger.debug(f"{out_gztar_path=}, {parameters_gztar_path=}, {parameters_file_gztar_path=}, {conductor_gztar_path=}")
 
             body = {
@@ -498,11 +509,11 @@ def update_error_executions(organization_id, workspace_id, exastro_api, error_ps
                     open(conductor_gztar_path, "rb"),
                     mimetypes.guess_type(conductor_gztar_path, False)[0])
 
-            # status_code, response = post_upload_execution_files(organization_id, workspace_id, exastro_api, del_execution, body, form_data=form_data)
-            # if not status_code == 200:
-            #     # g.applogger.info(f"作業状態通知(ファイル)に失敗しました。(execution={del_execution}, {status_id=})")
-            #     g.applogger.info(g.appmsg.get_log_message("MSG-10983", [del_execution, f"{status_id=}"]))
-            #     status_update = False
+            status_code, response = post_upload_execution_files(organization_id, workspace_id, exastro_api, del_execution, body, form_data=form_data)
+            if not status_code == 200:
+                # g.applogger.info(f"作業状態通知(ファイル)に失敗しました。(execution={del_execution}, {status_id=})")
+                g.applogger.info(g.appmsg.get_log_message("MSG-10983", [del_execution, f"{status_id=}"]))
+                status_update = False
 
             # 作業状態通知
             if status_update:
