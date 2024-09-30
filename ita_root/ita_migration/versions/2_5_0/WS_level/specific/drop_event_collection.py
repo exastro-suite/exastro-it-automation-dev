@@ -38,6 +38,7 @@ def main(work_dir_path, wsdb):
 
     ws_mong = MONGOConnectWs()
     ws_mong.collection("event_collection").drop()
+    ws_mong.disconnect()
 
     return 0
 
