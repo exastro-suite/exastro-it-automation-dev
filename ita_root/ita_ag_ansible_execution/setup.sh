@@ -10,8 +10,15 @@ set -ue
 REQUIRED_MEM_TOTAL=4000000
 REQUIRED_FREE_FOR_CONTAINER_IMAGE=25600
 REQUIRED_FREE_FOR_EXASTRO_DATA=1024
+DOCKER_COMPOSE_VER="v2.20.3"
 LOG_FILE="${HOME}/exastro-installation.log"
 EXASTRO_UNAME=$(id -u -n)
+EXASTRO_UID=$(id -u)
+EXASTRO_GID=1000
+AGENT_INSTALLER_VERSION=2.5.1
+AGENT_INSTALLER_VNC=20501
+
+POETRY_VERSION=1.6.0
 
 SETUP_VERSION=""
 EXECUTE_PATH=""
@@ -40,15 +47,21 @@ dnf_install_list_common=(
     # "python39-devel"
     "langpacks-en"
     "wget"
-    # "zip"
+    "zip"
     "unzip"
     "git"
 )
 
 # dnf install list: specific
-dnf_install_list_rhel8=()
-dnf_install_list_rhel9=()
-dnf_install_list_almaLinux8=()
+dnf_install_list_rhel8=(
+    "python3-requests"
+)
+dnf_install_list_rhel9=(
+    "python3-requests"
+)
+dnf_install_list_almaLinux8=(
+    "docker"
+)
 
 # install source_path src->dst
 declare -A src_source_paths
@@ -56,10 +69,11 @@ declare -A dct_source_paths
 
 src_source_paths["0"]="ita_root/ita_ag_ansible_execution/*"
 src_source_paths["1"]="ita_root/messages"
-src_source_paths["2"]="ita_root/agent"
+src_source_paths["2"]="ita_root/agent/"
 src_source_paths["3"]="ita_root/common_libs/common"
 src_source_paths["4"]="ita_root/common_libs/ag"
 src_source_paths["5"]="ita_root/common_libs/ansible_driver"
+src_source_paths["6"]="ita_root/common_libs/ansible_execution"
 
 dct_source_paths["0"]="/ita_ag_ansible_execution"
 dct_source_paths["1"]="/ita_ag_ansible_execution/"
@@ -67,27 +81,37 @@ dct_source_paths["2"]="/ita_ag_ansible_execution/"
 dct_source_paths["3"]="/ita_ag_ansible_execution/common_libs/"
 dct_source_paths["4"]="/ita_ag_ansible_execution/common_libs/"
 dct_source_paths["5"]="/ita_ag_ansible_execution/common_libs/"
+dct_source_paths["6"]="/ita_ag_ansible_execution/common_libs/"
 
 dct_create_paths["0"]="/ita_ag_ansible_execution"
 dct_create_paths["1"]="/ita_ag_ansible_execution/common_libs"
+
+declare -A dct_source_paths
+xadd_source_paths["0"]="agent/agent_init.py"
+xadd_source_paths["1"]="agent/agent_child_init.py"
 
 #########################################
 # .env default variable:
 #########################################
 declare -A default_env_values
 
-BASE_DIR=/exastro2 #*****
-STORAG_DIR=/storage/
+BASE_DIR=/exastro
+STORAG_DIR=/storage
+LOG_PATH=/log
 ENV_PATH=""
 STORAGE_PATH=""
 default_env_values=(
+    ["IS_NON_CONTAINER_LOG"]="1"
+    ["#LOGGING_MAX_SIZE"]="10485760"
+    ["#LOGGING_MAX_FILE"]="30"
     # ita_root/ita_ag_ansible_execution/Dockerfile
-    ["USERNAME"]=app_user
-    ["GROUPNAME"]=app_user
+    # ["USERNAME"]=app_user
+    # ["GROUPNAME"]=app_user
     ["APP_PATH"]=${BASE_DIR}
     ["PYTHONPATH"]=${BASE_DIR}/
     ["LANGUAGE"]=en
     ["STORAGEPATH"]=${STORAG_DIR}
+    ["LOGPATH"]=${LOG_PATH}
     ["SERVICE_NAME"]=ita-ag-ansible-execution
     ["USER_ID"]=ita-ag-ansible-execution
     # ita_root/ita_ag_ansible_execution/.env
@@ -95,7 +119,7 @@ default_env_values=(
     ["TZ"]=Asia/Tokyo
     ["DEFAULT_LANGUAGE"]=en
     # ag-agent
-    ["AGENT_NAME"]=agent-ansible-execution-01
+    ["AGENT_NAME"]=ita-agent-ansible-execution
     ["EXASTRO_ORGANIZATION_ID"]=""
     ["EXASTRO_WORKSPACE_ID"]=""
     ["EXASTRO_REFRESH_TOKEN"]=""
@@ -107,29 +131,36 @@ default_env_values=(
     ["EXECUTION_ENVIRONMENT_NAMES"]=""
     ["ENTRYPOINT"]=""
     ["REFERENCE_ENVPATH"]=""
+    ["PYTHON_CMD"]=""
 )
 # use .env key
 output_env_values=(
-    "USERNAME"
-    "GROUPNAME"
-    "APP_PATH"
-    "PYTHONPATH"
+    # "USERNAME"
+    # "GROUPNAME"
+    "IS_NON_CONTAINER_LOG"
+    "LOG_LEVEL"
+    "#LOGGING_MAX_SIZE"
+    "#LOGGING_MAX_FILE"
     "LANGUAGE"
-    "STORAGEPATH"
-    "SERVICE_NAME"
-    "USER_ID"
     "TZ"
-    "DEFAULT_LANGUAGE"
-    "AGENT_NAME"
+    "PYTHON_CMD"
+
+    "PYTHONPATH"
+    "APP_PATH"
+    "STORAGEPATH"
+    "LOGPATH"
+
     "EXASTRO_ORGANIZATION_ID"
     "EXASTRO_WORKSPACE_ID"
-    "EXASTRO_REFRESH_TOKEN"
     "EXASTRO_URL"
+    "EXASTRO_REFRESH_TOKEN"
+    "EXECUTION_ENVIRONMENT_NAMES"
+
+    "AGENT_NAME"
+    "USER_ID"
     "ITERATION"
     "EXECUTE_INTERVAL"
-    "LOG_LEVEL"
-    "CHILD_PROCESS_RETRY_LIMIT"
-    "EXECUTION_ENVIRONMENT_NAMES"
+    # "SERVICE_NAME"
 )
 
 #########################################
@@ -140,14 +171,14 @@ default_env_values["AGENT_VERSION"]="main"
 default_env_values["ANSIBLE_SUPPORT"]="1"
 default_env_values["INSTALLPATH"]=${HOME}${BASE_DIR}
 default_env_values["DATAPATH"]=${HOME}${BASE_DIR}
-default_env_values["AGENT_SERVICE_NAME"]=""
-default_env_values["AGENT_SERVICE_NAME_YN"]="y"
+default_env_values["AGENT_SERVICE_ID"]=""
+default_env_values["AGENT_SERVICE_ID_YN"]="y"
 
 #  interactive key
 additional_env_keys=(
-    "AGENT_SERVICE_NAME_YN"
-    "AGENT_SERVICE_NAME"
     "AGENT_VERSION"
+    "AGENT_SERVICE_ID_YN"
+    "AGENT_SERVICE_ID"
     "INSTALLPATH"
     "DATAPATH"
     "ANSIBLE_SUPPORT"
@@ -166,7 +197,7 @@ declare -A interactive_llist=(
     ["INSTALL_TYPE_MSG1"]="    1: ENVの作成 + インストール(dnf, pip, ソース配置) + サービスの登録"
     ["INSTALL_TYPE_MSG2"]="    2: ENVの作成 + サービスの登録"
     ["INSTALL_TYPE_MSG3"]="    3: サービスの登録"
-    ["INSTALL_TYPE_MSG4"]="    4: ソース配置"
+    ["INSTALL_TYPE_MSG4"]="    4: Envの作成"
     ["INSTALL_TYPE_MSGq"]="    q: インストーラ終了"
     ["INSTALL_TYPE_MSGr"]="select value: (1, 2, 3, q)  :"
     ["INVALID_VALUE_IT"]="Invalid value!! (1, 2, 3, q)"
@@ -189,8 +220,8 @@ declare -A interactive_llist=(
     ["STORAGE_PATH"]="STORAGE_PATHを入力してください。"
 
     # 環境情報
-    ["AGENT_SERVICE_NAME_YN"]="エージェントのサービス名は、${SERVICE_ID}です。個別に指定する場合は、「n」を選択して指定ください。(y/n) "
-    ["AGENT_SERVICE_NAME"]="エージェントのサービス名を入力してください。"
+    ["AGENT_SERVICE_ID_YN"]="エージェントのサービス名は、ita-agent-ansible-execution-${SERVICE_ID}です。個別に指定する場合は、「n」を選択して指定ください。(y/n) "
+    ["AGENT_SERVICE_ID"]="エージェントのサービス名を入力してください。ita-agent-ansible-execution-が接頭に付与されます。"
     ["AGENT_VERSION"]="エージェントバージョンを入力してください。タグ指定: X.Y.Z, ブランチ指定: X.Y [default: 未入力+Enter(最新のリリースバージョン)]"
     ["INSTALLPATH"]="インストール先をフルパスで指定してください。"
     ["DATAPATH"]="データ保存先をフルパスで指定してください。"
@@ -205,6 +236,9 @@ declare -A interactive_llist=(
     # ソース先重複
     ["SOURCE_UPDATE"]="インストール先に、既にソースが存在します。クリアして、インストールしますか？ (y:再インストール/n:インストールせずに、次の処理へ)  (y/n)"
     ["SOURCE_UPDATE_E1"]="※登録済みのサービスが存在する場合、再インストールすると動作に影響が発生する可能性があります。(y/n): "
+    # アンインストール
+    ["SERVICE_NAME"]="SERVICE_NAMEを入力してください。(e.g. ita-agent-ansible-execution-xxxxxxxxxxxxx)"
+    ["STORAGE_PATH"]="STORAGE_PATHを入力してください。(e.g. /${HOME}${BASE_DIR}/<SERVICE_ID>"
 )
 
 declare -A interactive_llist_adv=(
@@ -466,6 +500,125 @@ check_resource() {
     fi
 }
 
+### Installation container engine
+installation_container_engine() {
+    info "Installing container engine..."
+    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+        installation_podman_on_rhel8
+    elif [ "${DEP_PATTERN}" = "AlmaLinux8" ]; then
+        installation_docker_on_alamalinux8
+    # elif [ "${DEP_PATTERN}" = "Ubuntu20" ]; then
+    #     installation_docker_on_ubuntu
+    # elif [ "${DEP_PATTERN}" = "Ubuntu22" ]; then
+    #     installation_docker_on_ubuntu
+    fi
+}
+
+
+### Installation Podman on RHEL8
+installation_podman_on_rhel8() {
+    # info "Enable the extras repository"
+    # sudo subscription-manager repos --enable=rhel-8-for-x86_64-appstream-rpms --enable=rhel-8-for-x86_64-baseos-rpms
+
+    if [ "${DEP_PATTERN}" = "RHEL8" ]; then
+        info "Enable container-tools module"
+        sudo dnf module enable -y container-tools:rhel8
+
+        info "Install container-tools module"
+        sudo dnf module install -y container-tools:rhel8
+    fi
+
+    # info "Update packages"
+    # sudo dnf update -y
+
+    info "Install fuse-overlayfs"
+    sudo dnf install -y fuse-overlayfs
+
+    info "Install Podman"
+    sudo dnf install -y podman podman-docker git
+
+    info "Check if Podman is installed"
+    if ! command -v podman >/dev/null 2>&1; then
+        error "Podman installation failed!"
+    fi
+
+    info "Install docker-compose command"
+    if [ ! -f "/usr/local/bin/docker-compose" ]; then
+        if [ -z "${PROXY}" ]; then
+            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-${OS_TYPE}-${ARCH}" -o /usr/local/bin/docker-compose
+        else
+            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-${OS_TYPE}-${ARCH}" -o /usr/local/bin/docker-compose -x ${https_proxy}
+        fi
+        sudo chmod a+x /usr/local/bin/docker-compose
+    fi
+
+    info "Show Podman version"
+    podman --version
+
+    CONTAINERS_CONF=${HOME}/.config/containers/containers.conf
+    info "Change container netowrk driver"
+    mkdir -p ${HOME}/.config/containers/
+    cp /usr/share/containers/containers.conf ${HOME}/.config/containers/
+    sed -i.$(date +%Y%m%d-%H%M%S) -e 's|^network_backend = "cni"|network_backend = "netavark"|' ${CONTAINERS_CONF}
+
+    if [ ! -z "${PROXY}" ]; then
+        if ! (grep -q "^ *http_proxy *=" ${CONTAINERS_CONF}); then
+            sed -i -e '/^#http_proxy = \[\]/a http_proxy = true' ${CONTAINERS_CONF}
+        fi
+        if ! (grep -q "^ *http_proxy *=" ${CONTAINERS_CONF}); then
+            sed -i -e '/^#http_proxy *=.*/a http_proxy = true' ${CONTAINERS_CONF}
+        fi
+        if grep -q "^ *env *=" ${CONTAINERS_CONF}; then
+            if grep "^ *env *=" ${CONTAINERS_CONF} | grep -q -v "http_proxy"; then
+                sed -i -e 's/\(^ *env *=.*\)\]/\1,"http_proxy='${http_proxy//\//\\/}'"]/' ${CONTAINERS_CONF}
+            fi
+            if grep "^ *env *=" ${CONTAINERS_CONF} | grep -q -v "https_proxy"; then
+                sed -i -e 's/\(^ *env *=.*\)\]/\1,"https_proxy='${https_proxy//\//\\/}'"]/' ${CONTAINERS_CONF}
+            fi
+        else
+            sed -i -e '/^#env = \[\]/a env = ["http_proxy='${http_proxy}'","https_proxy='${https_proxy}'"]' ${CONTAINERS_CONF}
+        fi
+    fi
+
+    export XDG_RUNTIME_DIR="/run/user/${EXASTRO_UID}"
+    if grep -q "^export XDG_RUNTIME_DIR" ${HOME}/.bashrc; then
+        sed -i -e "s|^export XDG_RUNTIME_DIR.*|export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}|" ${HOME}/.bashrc
+    else
+        echo "export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" >> ${HOME}/.bashrc
+    fi
+    sudo systemctl start user@${EXASTRO_UID}
+
+    info "Start and enable Podman socket service"
+    systemctl --user enable --now podman.socket
+    systemctl --user status podman.socket --no-pager
+    podman unshare chown ${EXASTRO_UID}:${EXASTRO_GID} /run/user/${EXASTRO_UID}/podman/podman.sock
+
+    DOCKER_HOST="unix:///run/user/${EXASTRO_UID}/podman/podman.sock"
+    if grep -q "^export DOCKER_HOST" ${HOME}/.bashrc; then
+        sed -i -e "s|^export DOCKER_HOST.*|export DOCKER_HOST=${DOCKER_HOST}|" ${HOME}/.bashrc
+    else
+        echo "export DOCKER_HOST=${DOCKER_HOST}" >> ${HOME}/.bashrc
+        echo "alias docker-compose='podman unshare docker-compose'" >> ${HOME}/.bashrc
+    fi
+}
+
+### Installation Docker on AlmaLinux
+installation_docker_on_alamalinux8() {
+    # info "Update packages"
+    # sudo dnf update -y
+
+    info "Add Docker repository"
+    sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+
+    info "Install Docker and additional tools"
+    sudo dnf install -y docker-ce docker-ce-cli containerd.io git
+
+    info "Start and enable Docker service"
+    sudo systemctl enable --now docker
+
+    info "Add current user to the docker group (optional)"
+    sudo usermod -aG docker ${USER}
+}
 
 ### Check args
 check_args() {
@@ -497,9 +650,11 @@ dnf_install(){
     case "${DEP_PATTERN}" in
         RHEL8 )
             dnf_install_rhel8
+            update_pip_rhel8
             ;;
         RHEL9 )
             dnf_install_rhel8
+            update_pip_rhel8
             ;;
         AlmaLinux8 )
             dnf_install_almaLinux8
@@ -516,14 +671,19 @@ dnf_install(){
         chk=`dnf list git | grep git | wc -l`
         if [ $chk -eq 0 ]; then
             info "${install_pkg} install start"
-            info "dnf install -y ${install_pkg}"
-            sudo dnf install -y "${install_pkg}"
+            info "sudo dnf install -y ${install_pkg}"
+            sudo sudo dnf install -y "${install_pkg}"
             info "${install_pkg} install end"
         else
             info "${install_pkg} installed. skip"
         fi
     done
 }
+
+update_pip_rhel8(){
+    pip3 install -U requests
+}
+
 dnf_install_rhel8(){
     install_list=${dnf_install_list_common}
     install_list+=(${dnf_install_list_rhel8[@]})
@@ -612,7 +772,7 @@ inquiry_env(){
 
     for env_key in "${additional_env_keys[@]}"; do
         while true; do
-            if [ "${env_key}" = "AGENT_SERVICE_NAME" ] && [ "${default_env_values['AGENT_SERVICE_NAME_YN']}" = "y" ];then
+            if [ "${env_key}" = "AGENT_SERVICE_ID" ] && [ "${default_env_values['AGENT_SERVICE_ID_YN']}" = "y" ];then
                 break
             fi
 
@@ -652,7 +812,7 @@ inquiry_env(){
                         echo "${interactive_llist['INVALID_VALUE_URL']}"
                         continue
                     fi
-                elif [ ${env_key} = "AGENT_SERVICE_NAME" ]; then
+                elif [ ${env_key} = "AGENT_SERVICE_ID" ]; then
                     if echo $tmp_value | grep -q -e "^[0-9a-zA-Z\-_]*$"; then
                         default_env_values[$env_key]=$tmp_value
                         break
@@ -660,7 +820,7 @@ inquiry_env(){
                         echo "${interactive_llist['INVALID_VALUE_E1']}"
                         continue
                     fi
-                elif [ ${env_key} = "AGENT_SERVICE_NAME_YN" ]; then
+                elif [ ${env_key} = "AGENT_SERVICE_ID_YN" ]; then
                     if echo $tmp_value | grep -q -e "[yYnN]"; then
                         default_env_values[$env_key]=$tmp_value
                         break
@@ -676,6 +836,12 @@ inquiry_env(){
                         echo "${interactive_llist['INVALID_VALUE_F_ENV']}"
                         continue
                     fi
+                elif [ ${env_key} = "AGENT_VERSION" ]; then
+                    INPUT_VERSION=$(echo ${tmp_value} | awk -F. '{printf "%2d%02d%02d", $1,$2,$3}')
+                    if [ "$INPUT_VERSION" -gt $((AGENT_INSTALLER_VNC)) ]; then
+                        info "${interactive_llist['INVALID_SETUP_VERSION']} main or <= ${AGENT_INSTALLER_VERSION}"
+                        continue
+                    fi
                 fi
                 default_env_values[$env_key]=$tmp_value
                 break
@@ -683,15 +849,15 @@ inquiry_env(){
         done
     done
 
-    if [ "${default_env_values['AGENT_SERVICE_NAME']}" = "" ];then
-        default_env_values['AGENT_SERVICE_NAME']="${SERVICE_ID}"
+    if [ "${default_env_values['AGENT_SERVICE_ID']}" = "" ];then
+        default_env_values['AGENT_SERVICE_ID']="${SERVICE_ID}"
     fi
 
     # PATH関連
     default_env_values["APP_PATH"]=${default_env_values["INSTALLPATH"]}
-    default_env_values["PYTHONPATH"]=${default_env_values["INSTALLPATH"]}/ita_ag_ansible_execution/
-    default_env_values["AGENT_NAME"]="agent-ansible-execution-${default_env_values['AGENT_SERVICE_NAME']}"
-    default_env_values["USER_ID"]="ita-ag-ansible-execution-${default_env_values['AGENT_SERVICE_NAME']}"
+    default_env_values["PYTHONPATH"]=${default_env_values["INSTALLPATH"]}/ita_ag_ansible_execution
+    default_env_values["AGENT_NAME"]="ita-ag-ansible-execution-${default_env_values['AGENT_SERVICE_ID']}"
+    default_env_values["USER_ID"]="${default_env_values['AGENT_SERVICE_ID']}"
     default_env_values["SERVICE_NAME"]="ita-ag-ansible-execution"
 
     # entrypoint.sh
@@ -699,9 +865,11 @@ inquiry_env(){
 
     # DATAPATH
     if [ "${default_env_values["DATAPATH"]}" = "${HOME}${BASE_DIR}" ]; then
-        default_env_values["STORAGEPATH"]="${HOME}${BASE_DIR}/${default_env_values['AGENT_SERVICE_NAME']}${STORAG_DIR}"
+        default_env_values["STORAGEPATH"]="${HOME}${BASE_DIR}/${default_env_values['AGENT_SERVICE_ID']}${STORAG_DIR}"
+        default_env_values["LOGPATH"]="${HOME}${BASE_DIR}/${default_env_values['AGENT_SERVICE_ID']}${LOG_PATH}"
     else
-        default_env_values["STORAGEPATH"]="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_NAME']}${STORAG_DIR}"
+        default_env_values["STORAGEPATH"]="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_ID']}${STORAG_DIR}"
+        default_env_values["LOGPATH"]="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_ID']}${LOG_PATH}"
     fi
 
     info "inquiry_env :${DEP_PATTERN} end"
@@ -728,10 +896,8 @@ create_env(){
     info "create_env :${DEP_PATTERN} start"
 
     # .env作成
-    for env_key in "${!default_env_values[@]}"; do
-        if printf '%s\n' "${output_env_values[@]}" | grep -qx $env_key; then
-            echo -e "${env_key}=${default_env_values[${env_key}]}" >> ${ENV_TMP_PATH}
-        fi
+    for env_key in "${output_env_values[@]}"; do
+        echo -e "${env_key}=${default_env_values[${env_key}]}" >> ${ENV_TMP_PATH}
     done
 
     info "create_env :${DEP_PATTERN} end"
@@ -756,16 +922,23 @@ poetry_install(){
     echo ""
     cd "${default_env_values['PYTHONPATH']}"
     # poetry
-    pip3.9 install poetry==1.6.0
+    pip3 install poetry==$POETRY_VERSION
+    # poetry config --local virtualenvs.in-project true ###
+    poetry config virtualenvs.in-project true ###
     poetry config virtualenvs.create true
     poetry install --only first_install
     poetry install --without develop_build
+
+    which_poetry=`which poetry`
+    poetry_path=`ls ${which_poetry}`
+    default_env_values["PYTHON_CMD"]="${poetry_path} run python3"
+    echo ${default_env_values["PYTHON_CMD"]}
 }
 
 ansible_additional_install(){
     if [ ${default_env_values["ANSIBLE_SUPPORT"]} != "1" ]; then
         echo "install redhat ansible"
-        sudo pip3.9 uninstall -y ansible-builder ansible-runner
+        sudo pip3 uninstall -y ansible-builder ansible-runner
         case "${DEP_PATTERN}" in
             RHEL8 )
                 shift
@@ -796,7 +969,7 @@ install_agent_source(){
             echo "${interactive_llist['SOURCE_UPDATE']}"
             read -r -p  "${interactive_llist['SOURCE_UPDATE_E1']}" confirm
             if echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"; then
-                rm -rfd $source_path
+                sudo rm -rfd $source_path
                 break
             elif echo $confirm | grep -q -e "[nN]" -e "[nN][oO]"; then
                 install_flg=2
@@ -820,6 +993,19 @@ install_agent_source(){
     else
         echo "install skip"
     fi
+
+    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+        podman unshare chown ${EXASTRO_UID}:${EXASTRO_GID} "${source_path}"
+        sudo chcon -R -h -t container_file_t "${base_path}"
+    elif [ "${DEP_PATTERN}" = "AlmaLinux8" ]; then
+        sudo chown -R ${EXASTRO_UID}:${HOST_DOCKER_GID} "${source_path}"
+    fi
+
+    for xadd_key in "${!xadd_source_paths[@]}"; do
+        info "sudo chmod 755 ${source_path}/${xadd_source_paths[${xadd_key}]}"
+        sudo chmod 755 ${source_path}/${xadd_source_paths[${xadd_key}]}
+    done
+
     info "install_agent_source end"
 }
 
@@ -832,8 +1018,15 @@ install_agent_service(){
     info "mkdir -m 777 -p ${STORAGE_PATH}"
     mkdir -m 777 -p "${STORAGE_PATH}"
 
+    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+        podman unshare chown ${EXASTRO_UID}:${EXASTRO_GID} "${STORAGE_PATH}/"
+        sudo chcon -R -h -t container_file_t "${default_env_values["DATAPATH"]}"
+    elif [ "${DEP_PATTERN}" = "AlmaLinux8" ]; then
+        sudo chown -R ${EXASTRO_UID}:${HOST_DOCKER_GID} "${STORAGE_PATH}/"
+    fi
+
     # cp .env
-    ENV_PATH="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_NAME']}/.env"
+    ENV_PATH="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_ID']}/.env"
     if [ "${default_env_values['REFERENCE_ENVPATH']}" != "" ]; then
         ENV_TMP_PATH="${default_env_values['REFERENCE_ENVPATH']}"
     fi
@@ -848,7 +1041,7 @@ install_agent_service(){
             install_agent_service_rhel8
             ;;
         AlmaLinux8 )
-            install_agent_service_rhel8
+            install_agent_service_almaLinux8
             ;;
         # Ubuntu20 )
         #     ;;
@@ -857,14 +1050,34 @@ install_agent_service(){
         * )
             ;;
     esac
+            cat <<_EOF_
+
+Install Ansible Execution Agent Infomation:
+    Agent Service id:   ${AGENT_SERVICE_ID}
+    Agent Service Name: ${default_env_values['AGENT_NAME']}
+    Storage Path:       ${STORAGE_PATH}
+    Env Path:           ${ENV_PATH}
+
+_EOF_
+
     info "install_agent_service :${DEP_PATTERN} end"
 }
 
 install_agent_service_rhel8(){
+
+    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+        HOST_DOCKER_GID=${EXASTRO_GID}
+        HOST_DOCKER_SOCKET_PATH="/run/user/${EXASTRO_UID}/podman/podman.sock"
+    else
+        HOST_DOCKER_GID=$(grep docker /etc/group|awk -F':' '{print $3}')
+        HOST_DOCKER_SOCKET_PATH="/var/run/docker.sock"
+    fi
+
     ENTRYPOINT=${default_env_values["ENTRYPOINT"]}
     PYTHONPATH=${default_env_values["PYTHONPATH"]}
-    AGENT_SERVICE_NAME=${default_env_values['AGENT_SERVICE_NAME']}
-    SERVICE_PATH="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_NAME']}/${default_env_values['AGENT_NAME']}.service"
+    PYTHON_CMD=${default_env_values["PYTHON_CMD"]}
+    AGENT_SERVICE_ID=${default_env_values['AGENT_SERVICE_ID']}
+    SERVICE_PATH="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_ID']}/${default_env_values['AGENT_NAME']}.service"
     info "create ${SERVICE_PATH}"
     cat << _EOF_ >${SERVICE_PATH}
 [Unit]
@@ -872,7 +1085,7 @@ Description=Ansible Execution agent for Exastro IT Automation (${SERVICE_ID})
 
 [Service]
 WorkingDirectory=${PYTHONPATH}
-ExecStart=${ENTRYPOINT} ${ENV_PATH} ${PYTHONPATH} ${STORAGE_PATH}
+ExecStart=${ENTRYPOINT} ${ENV_PATH} ${PYTHONPATH} ${STORAGE_PATH} "${PYTHON_CMD}"
 ExecReload=/bin/kill -HUP \$MAINPID
 ExecStop=/bin/kill \$MAINPID
 Restart=always
@@ -881,28 +1094,26 @@ Restart=always
 WantedBy=default.target
 
 _EOF_
-    # After=syslog.target network.target
-    # Requires=syslog.target network.target
-    # EnvironmentFile=-${ENV_PATH}
 
     #*****
-    info "cp -p ${SERVICE_PATH} /usr/lib/systemd/system/"
+    #
+    info "cp -p ${SERVICE_PATH}  ${HOME}/.config/systemd/user/"
     cat "${SERVICE_PATH}"
-    sudo cp -p ${SERVICE_PATH} /usr/lib/systemd/system/
-    # info "sudo systemctl daemon-reload"
-    # sudo systemctl daemon-reload
-    # info "systemctl enable ${default_env_values['AGENT_NAME']}"
-    # sudo systemctl enable "${default_env_values['AGENT_NAME']}"
+    sudo cp -p ${SERVICE_PATH}  ${HOME}/.config/systemd/user/
+    info "systemctl --user daemon-reload"
+    systemctl --user daemon-reload
+    info "systemctl --user enable ${default_env_values['AGENT_NAME']}"
+    systemctl --user enable "${default_env_values['AGENT_NAME']}"
 
-    # read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
-    # echo ""
-    # if ! (echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"); then
-    #     info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
-    #     info "Run manually!!! : systemctl start ${default_env_values['AGENT_NAME']}"
-    # else
-    #     info "systemctl start ${default_env_values['AGENT_NAME']}"
-    #     sudo systemctl start "${default_env_values['AGENT_NAME']}"
-    # fi
+    read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
+    echo ""
+    if ! (echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"); then
+        info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
+        info "Run manually!!! : systemctl start ${default_env_values['AGENT_NAME']}"
+    else
+        info "systemctl --user start ${default_env_values['AGENT_NAME']}"
+        systemctl --user start "${default_env_values['AGENT_NAME']}"
+    fi
 }
 
 install_agent_service_rhel9(){
@@ -910,7 +1121,63 @@ install_agent_service_rhel9(){
 }
 
 install_agent_service_almaLinux8(){
-    echo "install_agent_service_almaLinux8 :${DEP_PATTERN}"
+    ENTRYPOINT=${default_env_values["ENTRYPOINT"]}
+    PYTHONPATH=${default_env_values["PYTHONPATH"]}
+    PYTHON_CMD=${default_env_values["PYTHON_CMD"]}
+    AGENT_SERVICE_ID=${default_env_values['AGENT_SERVICE_ID']}
+    SERVICE_PATH="${default_env_values["DATAPATH"]}/${default_env_values['AGENT_SERVICE_ID']}/${default_env_values['AGENT_NAME']}.service"
+    info "create ${SERVICE_PATH}"
+    cat << _EOF_ >${SERVICE_PATH}
+[Unit]
+Description=Ansible Execution agent for Exastro IT Automation (${SERVICE_ID})
+
+[Service]
+WorkingDirectory=${PYTHONPATH}
+ExecStart=${ENTRYPOINT} ${ENV_PATH} ${PYTHONPATH} ${STORAGE_PATH} "${PYTHON_CMD}"
+ExecReload=/bin/kill -HUP \$MAINPID
+ExecStop=/bin/kill \$MAINPID
+Restart=always
+
+[Install]
+WantedBy=default.target
+
+_EOF_
+    #*****
+    info "cp -p ${SERVICE_PATH} /usr/lib/systemd/system/"
+    cat "${SERVICE_PATH}"
+    sudo cp -p ${SERVICE_PATH} /usr/lib/systemd/system/
+    info "sudo systemctl daemon-reload"
+    sudo systemctl daemon-reload
+    info "systemctl enable ${default_env_values['AGENT_NAME']}"
+    sudo systemctl enable "${default_env_values['AGENT_NAME']}"
+
+    read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
+    echo ""
+    if ! (echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"); then
+        info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
+        info "Run manually!!! : systemctl start ${default_env_values['AGENT_NAME']}"
+    else
+        info "systemctl start ${default_env_values['AGENT_NAME']}"
+        sudo systemctl start "${default_env_values['AGENT_NAME']}"
+    fi
+
+}
+
+set_vars_for_env(){
+    info "set_vars_for_env :${DEP_PATTERN} start"
+    default_env_values['STORAGEPATH']=`cat "${default_env_values['REFERENCE_ENVPATH']}" | grep "STORAGEPATH=" | awk -F"STORAGEPATH=" '{print $2}'`
+    default_env_values['AGENT_SERVICE_ID']=`basename ${default_env_values['REFERENCE_ENVPATH']} | awk -F"." '{print $1}'`
+    default_env_values["AGENT_NAME"]="ita-ag-ansible-execution-${default_env_values['AGENT_SERVICE_ID']}"
+    SERVICE_ID=${default_env_values['AGENT_SERVICE_ID']}
+    DP_PATH=${default_env_values['STORAGEPATH']%$STORAG_DIR}
+    default_env_values["DATAPATH"]=${DP_PATH%/$SERVICE_ID}
+
+    which_poetry=`which poetry`
+    poetry_path="`ls ${which_poetry}`"" run python3"
+    default_env_values["PYTHON_CMD"]=$poetry_path
+    sed -i "/PYTHON_CMD=/c PYTHON_CMD=${poetry_path}" ${default_env_values['REFERENCE_ENVPATH']}
+
+    info "set_vars_for_env :${DEP_PATTERN} end"
 }
 
 install_type(){
@@ -919,11 +1186,11 @@ install_type(){
         echo "${interactive_llist['INSTALL_TYPE_MSG1']}"
         echo "${interactive_llist['INSTALL_TYPE_MSG2']}"
         echo "${interactive_llist['INSTALL_TYPE_MSG3']}"
-        # echo "${interactive_llist['INSTALL_TYPE_MSG4']}"
+        echo "${interactive_llist['INSTALL_TYPE_MSG4']}"
         echo "${interactive_llist['INSTALL_TYPE_MSGq']}"
         read -r -p  "${interactive_llist['INSTALL_TYPE_MSGr']}" confirm
 
-        if echo $confirm | grep -q -e "[123]"; then
+        if echo $confirm | grep -q -e "[1234]"; then
             INSTALL_TYPE=$confirm
             break
         elif echo $confirm | grep -q -e "[q]"; then
@@ -947,7 +1214,7 @@ install(){
             install_service
             ;;
         4 )
-            install_source
+            create_envfile
             ;;
         * )
             info "no install type ${INSTALL_TYPE}"
@@ -962,11 +1229,12 @@ install_all(){
     # dnfインストール:
     dnf_install
 
+    # Installation container engine
+    installation_container_engine
+
     # 作業領域のセットアップ
     init_workdir
 
-    # .envファイルの作成
-    create_env
 
     # Git Clone
     git_clone
@@ -976,6 +1244,9 @@ install_all(){
 
     # pipインストール: poetry
     poetry_install
+
+    # .envファイルの作成
+    create_env
 
     # ansibleインストール: redhat
     ansible_additional_install
@@ -989,7 +1260,8 @@ install_all(){
 
 install_env_service(){
     additional_env_keys=(
-        "AGENT_SERVICE_NAME"
+        "AGENT_SERVICE_ID_YN"
+        "AGENT_SERVICE_ID"
         "DATAPATH"
         "EXASTRO_URL"
         "EXASTRO_ORGANIZATION_ID"
@@ -1013,8 +1285,7 @@ install_env_service(){
 }
 install_service(){
     additional_env_keys=(
-        "AGENT_SERVICE_NAME"
-        "DATAPATH"
+        "AGENT_SERVICE_ID"
         "REFERENCE_ENVPATH"
     )
     # 設定の入力
@@ -1022,6 +1293,9 @@ install_service(){
 
     # 作業領域のセットアップ
     init_workdir
+
+    # envから、設定値取得
+    set_vars_for_env
 
     # service
     install_agent_service
@@ -1059,6 +1333,26 @@ install_source(){
     clean_workdir
 }
 
+create_envfile(){
+    additional_env_keys=(
+        "AGENT_SERVICE_ID_YN"
+        "AGENT_SERVICE_ID"
+        "DATAPATH"
+        "EXASTRO_URL"
+        "EXASTRO_ORGANIZATION_ID"
+        "EXASTRO_WORKSPACE_ID"
+        "EXASTRO_REFRESH_TOKEN"
+    )
+    # 設定の入力
+    inquiry_env
+
+    ENV_TMP_PATH="./${default_env_values['AGENT_SERVICE_ID']}.env"
+
+    # .envファイルの作成
+    create_env
+
+}
+
 uninstall_type(){
     while true; do
         echo "${interactive_llist['UNINSTALL_TYPE_MSG0']}"
@@ -1081,13 +1375,29 @@ uninstall_type(){
 
     UNINSTALL_TYPE=$confirm
     SERVICE_ID=""
+    SERVICE_NAME=""
     STORAGE_PATH=""
     additional_uninstall_keys=(
-        "SERVICE_ID"
-        "STORAGE_PATH"
     )
-    interactive_llist["SERVICE_ID"]="SERVICE_IDを入力してください。"
-    interactive_llist["STORAGE_PATH"]="STORAGE_PATHを入力してください。"
+    case "${UNINSTALL_TYPE}" in
+        1 )
+            additional_uninstall_keys=(
+                "SERVICE_NAME"
+                "STORAGE_PATH"
+            )
+            ;;
+        2 )
+            additional_uninstall_keys=(
+                "SERVICE_NAME"
+            )
+            ;;
+        3 )
+            additional_uninstall_keys=(
+                "STORAGE_PATH"
+            )
+            ;;
+    esac
+
     for env_key in "${additional_uninstall_keys[@]}"; do
         while true; do
             read -r -p "${interactive_llist[${env_key}]}: " tmp_value
@@ -1101,8 +1411,12 @@ uninstall_type(){
                         echo "not found storage path: ${tmp_value}"
                         continue
                     fi
-                elif [ ${env_key} = "SERVICE_ID" ]; then
-                    chk_service=`ls /usr/lib/systemd/system/ | grep "agent-ansible-execution-" | grep ${tmp_value} | wc -l`
+                elif [ ${env_key} = "SERVICE_NAME" ]; then
+                    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+                        chk_service=`ls ${HOME}/.config/systemd/user/ | grep "ita-ag-ansible-execution-" | grep ${tmp_value} | wc -l`
+                    else
+                        chk_service=`ls /usr/lib/systemd/system/ | grep "ita-ag-ansible-execution-" | grep ${tmp_value} | wc -l`
+                    fi
                     if [ ${chk_service} -eq 0 ]; then
                         echo "not found service id: ${tmp_value}"
                         continue
@@ -1134,23 +1448,45 @@ uninstall(){
 }
 
 uninstall_service(){
-    SERVICE_ID="${default_env_values['SERVICE_ID']}"
-    SERVICE_NAME="agent-ansible-execution-${SERVICE_ID}"
-    info "sudo systemctl stop ${SERVICE_NAME}"
-    # sudo systemctl stop ${SERVICE_NAME}
-    info "sudo systemctl disable ${SERVICE_NAME}"
-    # sudo systemctl disable ${SERVICE_NAME}
-    info "sudo rm /usr/lib/systemd/system/${SERVICE_NAME}"
-    # sudo rm /usr/lib/systemd/system/${SERVICE_NAME}
-    info "sudo systemctl daemon-reload"
-    # sudo systemctl daemon-reload
+    SERVICE_NAME="${default_env_values['SERVICE_NAME']}"
+    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+        info "systemctl --user disable --now ${SERVICE_NAME}"
+        systemctl --user disable --now ${SERVICE_NAME}
+        info "rm ${HOME}/.config/systemd/user/${SERVICE_NAME}.service"
+        rm ${HOME}/.config/systemd/user/${SERVICE_NAME}.service
+        info "systemctl --user daemon-reload"
+        systemctl --user daemon-reload
+    else
+        info "sudo systemctl stop ${SERVICE_NAME}"
+        sudo systemctl stop ${SERVICE_NAME}
+        info "sudo systemctl disable ${SERVICE_NAME}"
+        sudo systemctl disable ${SERVICE_NAME}
+        info "sudo rm /usr/lib/systemd/system/${SERVICE_NAME}.service"
+        sudo rm /usr/lib/systemd/system/${SERVICE_NAME}.service
+        info "sudo systemctl daemon-reload"
+        sudo systemctl daemon-reload
+    fi
 }
 
 uninstall_data(){
-    SERVICE_NAME="agent-ansible-execution-${SERVICE_ID}"
-    STORAGE_PATH="/home/almalinux/exastro/${SERVICE_ID}/storage/"
-    info "sudo rm -rfd ${STORAGE_PATH}"
-    # sudo rm -rfd  ${STORAGE_PATH}
+    SERVICE_NAME="${default_env_values['SERVICE_NAME']}"
+    SERVICE_ID=${SERVICE_NAME/ita-agent-ansible-execution-/}
+    # STORAGE_PATH="/home/almalinux/exastro/${SERVICE_ID}/storage/"
+    STORAGE_PATH="${default_env_values['STORAGE_PATH']}"
+    if [[ "$STORAGE_PATH" == *"$SERVICE_ID"* ]]; then
+        shift
+    else
+        error "no exist SERVICE_ID storage path: ${STORAGE_PATH}"
+        exit 2
+    fi
+
+    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+        info "rm -rd ${STORAGE_PATH}"
+        rm -rfd  ${STORAGE_PATH}
+    else
+        info "rm -rd ${STORAGE_PATH}"
+        rm -rfd  ${STORAGE_PATH}
+    fi
 }
 #########################################
 # Main functions
@@ -1184,6 +1520,23 @@ main() {
             break
             ;;
         *)
+            cat <<'_EOF_'
+
+Usage:
+  sh <(curl -Ssf https://ita.exastro.org/setup) COMMAND [options]
+     or
+  setup.sh COMMAND [options]
+
+Commands:
+  install     Install Ansible Execution Agent
+        1: Create .env & Install & Service Register, Start
+        2: Create .env & Service Register, Start
+        3: Create .env & Service Register, Start
+  uninstall   Uninstall Ansible Execution Agent
+        1: Uninstall Service & Delete Data
+        2: Uninstall Service
+        3: Delete Data
+_EOF_
             exit 2
             ;;
     esac

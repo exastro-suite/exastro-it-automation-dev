@@ -24,7 +24,8 @@ from common_libs.common import storage_access
 from common_libs.ansible_driver.classes.AnscConstClass import AnscConst
 from common_libs.ansible_execution.version import AnsibleExexutionVersion
 from common_libs.ansible_execution.encrypt import agent_encrypt
-
+from common_libs.ansible_driver.functions.util import InstanceRecodeUpdate, createTmpZipFile, get_OSTmpPath
+from common_libs.common.util import get_timestamp
 
 def unexecuted_instance(objdbca, body={}):
     """
@@ -116,21 +117,11 @@ def unexecuted_instance(objdbca, body={}):
                 # 作業番号
                 execution_no = record.get("EXECUTION_NO")
 
-                # 複合化→暗号化（エージェント用）
-                password = execdev_record.get('PASSWORD')
-                password = ky_decrypt(password)
-                password = agent_encrypt(execdev_record.get('PASSWORD'), pass_phrase)\
-                    if execdev_record.get('PASSWORD') else execdev_record.get('PASSWORD')
-
                 # set result[execution_no]
                 result[execution_no] = {
                     "driver_id": driver_id
                 }
                 result[execution_no]["build_type"] = execdev_record.get('BUILD_TYPE')
-                result[execution_no]["user_name"] = execdev_record.get('USER_NAME')
-                result[execution_no]["password"] = password
-                result[execution_no]["base_image"] = execdev_record.get('BASE_IMAGE_OS_TYPE')
-                result[execution_no]["attach_repository"] = execdev_record.get('ATTACH_REPOSITORY')
                 result[execution_no]["anstwr_del_runtime_data"] = anstwr_del_runtime_data
 
                 # ステータスを実行待ちに変更
@@ -153,7 +144,7 @@ def unexecuted_instance(objdbca, body={}):
 
     return result
 
-def get_execution_status(objdbca, execution_no, body):
+def get_execution_status(objdbca, organization_id, workspace_id, execution_no, body):
     """
         緊急停止状態を返す
         ARGS:
@@ -190,46 +181,50 @@ def get_execution_status(objdbca, execution_no, body):
 
     if driver_id == "legacy":
         t_exec_sts_inst = t_ansl_exec_sts_inst
+        driver_mode_id = AnscConst.DF_LEGACY_DRIVER_ID
     elif driver_id == "pioneer":
         t_exec_sts_inst = t_ansp_exec_sts_inst
+        driver_mode_id = AnscConst.DF_PIONEER_DRIVER_ID
     elif driver_id == "legacy_role":
         t_exec_sts_inst = t_ansr_exec_sts_inst
+        driver_mode_id = AnscConst.DF_LEGACY_ROLE_DRIVER_ID
     else:
-        g.applogger.info(f"Not found {driver_id=}")
+        g.applogger.info(f"driver id is Not found {driver_id=}")
         return {}
 
     if status not in status_list:
-        g.applogger.info(f"Not found {status=}")
+        g.applogger.info(f"status id is Not found {status=}")
         return {}
 
     # ステータス更新、緊急停止状態取得
     result = {}
-    ret = objdbca.table_select(t_exec_sts_inst, 'WHERE  EXECUTION_NO=%s', [execution_no])
-    for record in ret:
-        current_status = record.get("STATUS_ID")
-        result["SCRAM_STATUS"] = record.get("ABORT_EXECUTE_FLAG")
+    rows = objdbca.table_select(t_exec_sts_inst, 'WHERE  EXECUTION_NO=%s', [execution_no])
+    for execute_row in rows:
+        current_status = execute_row.get("STATUS_ID")
+        result["SCRAM_STATUS"] = execute_row.get("ABORT_EXECUTE_FLAG")
 
     # ステータス更新制御
-    # 完了→実行中、実行中(遅延)、完了(異常)、想定外エラー、緊急停止にならないように
-    if current_status == AnscConst.COMPLETE and status in [AnscConst.PROCESSING, AnscConst.PROCESS_DELAYED, AnscConst.FAILURE, AnscConst.EXCEPTION, AnscConst.SCRAM]:
+    # 完了→実行中、完了(異常)、想定外エラー、緊急停止にならないように
+    if current_status == AnscConst.COMPLETE and status in [AnscConst.PROCESSING, AnscConst.FAILURE, AnscConst.EXCEPTION, AnscConst.SCRAM]:
         return result
-    # 完了(異常)→実行中、実行中(遅延)、完了、想定外エラー、緊急停止にならないように
-    if current_status == AnscConst.FAILURE and status in [AnscConst.PROCESSING, AnscConst.PROCESS_DELAYED, AnscConst.COMPLETE, AnscConst.EXCEPTION, AnscConst.SCRAM]:
+    # 完了(異常)→実行中、完了、想定外エラー、緊急停止にならないように
+    if current_status == AnscConst.FAILURE and status in [AnscConst.PROCESSING, AnscConst.COMPLETE, AnscConst.EXCEPTION, AnscConst.SCRAM]:
         return result
-    # 想定外エラー→実行中、実行中(遅延)、完了、完了(異常)、緊急停止にならないように
-    if current_status == AnscConst.EXCEPTION and status in [AnscConst.PROCESSING, AnscConst.PROCESS_DELAYED, AnscConst.COMPLETE, AnscConst.FAILURE, AnscConst.SCRAM]:
+    # 想定外エラー→実行中、完了、完了(異常)、緊急停止にならないように
+    if current_status == AnscConst.EXCEPTION and status in [AnscConst.PROCESSING, AnscConst.COMPLETE, AnscConst.FAILURE, AnscConst.SCRAM]:
         return result
-    # 緊急停止→実行中、実行中(遅延)、完了、完了(異常)、想定外エラーにならないように
-    if current_status == AnscConst.SCRAM and status in [AnscConst.PROCESSING, AnscConst.PROCESS_DELAYED, AnscConst.COMPLETE, AnscConst.FAILURE, AnscConst.EXCEPTION]:
+    # 緊急停止→実行中、完了、完了(異常)、想定外エラーにならないように
+    if current_status == AnscConst.SCRAM and status in [AnscConst.PROCESSING, AnscConst.COMPLETE, AnscConst.FAILURE, AnscConst.EXCEPTION]:
         return result
 
     update_status_flg = False
-    # パラメータのステータスが、実行中, 実行中(遅延)の場合 / 他
-    if status in [AnscConst.PROCESSING, AnscConst.PROCESS_DELAYED]:
-        # ステータス更新: 実行中->実行中(遅延)に変更する場合のみ
-        if current_status == AnscConst.PROCESSING and status == AnscConst.PROCESS_DELAYED:
-            update_status_flg = True
-        # ステータス更新: 実行待ち->実行中に変更する場合のみ
+    # パラメータのステータスが、実行中の場合
+    if status in [AnscConst.PROCESSING]:
+        # ステータス更新: 実行中(遅延)->実行中にならないように
+        if current_status == AnscConst.PROCESS_DELAYED and status == AnscConst.PROCESSING:
+            update_status_flg = False
+        # ステータス更新: 実行待ち->他のステータスに変更する
+        # elif current_status == AnscConst.PROCESSING_WAIT and status == AnscConst.PROCESSING:
         elif current_status == AnscConst.PROCESSING_WAIT and status == AnscConst.PROCESSING:
             update_status_flg = True
         else:
@@ -243,9 +238,45 @@ def get_execution_status(objdbca, execution_no, body):
     objdbca.db_transaction_start()
 
     if update_status_flg:
-        # ステータス更新
-        data_list = {"EXECUTION_NO": execution_no, "STATUS_ID": status}
-        objdbca.table_update(t_exec_sts_inst, data_list, "EXECUTION_NO")
+        if status == AnscConst.PROCESSING:
+            data_list = {"EXECUTION_NO": execution_no, "STATUS_ID": status}
+            objdbca.table_update(t_exec_sts_inst, data_list, "EXECUTION_NO")
+        else:
+            # /tmpに作成したファイル・ディレクトリパスを保存するファイル名
+            g.AnsibleCreateFilesPath = "{}/Ansible_{}".format(get_OSTmpPath(), execution_no)
+
+            # ステータス更新
+            execute_row["STATUS_ID"] = status
+            execute_row["TIME_END"] = get_timestamp()
+            zip_data_source_dir = f"/storage/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/out"
+            rmtmpfiles = False
+            retBool, err_msg, zip_result_file, rm_tmp_files_list = createTmpZipFile(
+                        execution_no,
+                        zip_data_source_dir,
+                        'FILE_RESULT',
+                        'ResultData_',
+                        rmtmpfiles)
+
+            if retBool is True:
+                execute_row['FILE_RESULT'] = zip_result_file
+                if execute_row['FILE_RESULT']:
+                    zip_tmp_save_path = get_OSTmpPath() + "/" + execute_row['FILE_RESULT']
+                else:
+                    zip_tmp_save_path = ''
+                # 作業インスタンス更新
+                ret = InstanceRecodeUpdate(objdbca, driver_mode_id, execution_no, execute_row, 'FILE_RESULT', zip_tmp_save_path)
+
+            else:
+                # ZIPファイル作成の作成に失敗しても、ログに出して次に進む
+                g.applogger.info(g.appmsg.get_log_message("BKY-00004", ["createTmpZipFile", err_msg]))
+
+            # zip作成時のゴミ掃除
+            for del_path in rm_tmp_files_list:
+                if os.path.isdir(del_path):
+                    shutil.rmtree(del_path)
+                elif os.path.isfile(del_path):
+                    os.remove(del_path)
+
     else:
         # 最終更新日時のみ更新: 履歴なし
         data_list = {"EXECUTION_NO": execution_no}
@@ -255,7 +286,6 @@ def get_execution_status(objdbca, execution_no, body):
     objdbca.db_transaction_end(True)
 
     return result
-
 
 def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no, driver_id):
     """
@@ -291,7 +321,7 @@ def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no
 
     # パス
     dir_path = f"/storage/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}"
-    tmp_basse_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/"
+    tmp_base_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/"
     tmp_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/{execution_no}"
     conductor_dir_path = f"/storage/{organization_id}/{workspace_id}/driver/conductor/{conductor_instance_no}"
     tmp_c_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/conductor"
@@ -299,7 +329,7 @@ def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no
 
     try:
         # tmp_pathの初期化
-        shutil.rmtree(tmp_basse_path) if os.path.exists(tmp_basse_path) else None
+        shutil.rmtree(tmp_base_path) if os.path.exists(tmp_base_path) else None
 
         # execution_no/*
         # dir_path -> tmp_path に移動
@@ -328,14 +358,19 @@ def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no
 
         # tar.gz
         with tarfile.open(gztar_path, "w:gz") as tar:
-            tar.add(tmp_basse_path, arcname="")
-        g.applogger.debug(f"tarfile.open({gztar_path}, 'w:gz'):  tar.add({tmp_basse_path})")
+            tar.add(tmp_base_path, arcname="")
+        g.applogger.debug(f"tarfile.open({gztar_path}, 'w:gz'):  tar.add({tmp_base_path})")
 
+        # move gztar_path
+        gztar_path = shutil.move(gztar_path, tmp_base_path)
+        g.applogger.debug(f"{gztar_path=}")
     finally:
-        # clear tmp_path
-        if os.path.isdir(tmp_path):
-            for _tp in glob.glob(f"{tmp_path}/*", recursive=True):
-                if os.path.isdir(_tp):
+        # clear tmp_base_path
+        if os.path.isdir(tmp_base_path):
+            for _tp in glob.glob(f"{tmp_base_path}/*", recursive=True):
+                if os.path.exists(_tp) and _tp == gztar_path:
+                    continue
+                elif os.path.exists(_tp):
                     shutil.rmtree(_tp)
                     g.applogger.debug(f"shutil.rmtree({_tp})")
 
@@ -409,44 +444,15 @@ def update_result(objdbca, organization_id, workspace_id, execution_no, paramete
         conductor_directory_path = "/storage/" + organization_id + "/" + workspace_id + "/driver/ansible/legacy_role/" + execution_no + "/conductor"
         tmp_path = "/tmp/" + organization_id + "/" + workspace_id + "/driver/ansible/legacy_role/" + execution_no + "/"
 
-    for file_key, record_file_paths in file_path.items():
-        if not os.path.exists(tmp_path + file_key):
-            os.makedirs(tmp_path + file_key)
-        with tarfile.open(record_file_paths, 'r:gz') as tar:
-            tar.extractall(path=tmp_path + file_key)
+    try:
+        for file_key, record_file_paths in file_path.items():
+            if not os.path.exists(tmp_path + file_key):
+                os.makedirs(tmp_path + file_key)
+            with tarfile.open(record_file_paths, 'r:gz') as tar:
+                tar.extractall(path=tmp_path + file_key)
 
-        # outディレクトリ更新
-        if file_key == "out_tar_data":
-            # 展開したファイルの一覧を取得
-            lst = glob.glob(tmp_path + file_key + "/**", recursive=True)
-            file_list = []
-            for path in lst:
-                if os.path.isfile(path):
-                    file_list.append(path)
-
-            for file_path in file_list:
-                # 通知されたファイルで上書き
-                shutil.move(file_path, out_directory_path + "/" + os.path.basename(file_path))
-
-        # parameters, parameters_fileディレクトリ更新
-        if file_key == "parameters_tar_data" or file_key == "parameters_file_tar_data":
-            # ステータスが完了、完了(異常)の場合
-            if status == AnscConst.COMPLETE or status == AnscConst.FAILURE:
-                # 展開したファイルの一覧を取得
-                lst = glob.glob(tmp_path + file_key + "/**", recursive=True)
-                file_list = {}
-                for path in lst:
-                    if os.path.isfile(path):
-                        path = Path(path)
-                        parent_dirctory = str(path.parent)
-                        file_list[parent_dirctory] = os.path.basename(path)
-                for dir_name, file_name in file_list.items():
-                    # 通知されたファイルで上書き
-                    shutil.move(dir_name + "/" + file_name, in_directory_path + "/" + os.path.basename(dir_name) + "/" + os.path.basename(file_name))
-
-        # conductorディレクトリ更新
-        if file_key == "conductor_tar_data":
-            if status == AnscConst.COMPLETE or status == AnscConst.FAILURE:
+            # outディレクトリ更新
+            if file_key == "out_tar_data":
                 # 展開したファイルの一覧を取得
                 lst = glob.glob(tmp_path + file_key + "/**", recursive=True)
                 file_list = []
@@ -456,7 +462,42 @@ def update_result(objdbca, organization_id, workspace_id, execution_no, paramete
 
                 for file_path in file_list:
                     # 通知されたファイルで上書き
-                    shutil.move(file_path, conductor_directory_path + "/" + os.path.basename(file_path))
+                    shutil.move(file_path, out_directory_path + "/" + os.path.basename(file_path))
+
+            # parameters, parameters_fileディレクトリ更新
+            if file_key == "parameters_tar_data" or file_key == "parameters_file_tar_data":
+                # ステータスが完了、完了(異常)の場合
+                if status == AnscConst.COMPLETE or status == AnscConst.FAILURE:
+                    # 展開したファイルの一覧を取得
+                    lst = glob.glob(tmp_path + file_key + "/**", recursive=True)
+                    file_list = {}
+                    for path in lst:
+                        if os.path.isfile(path):
+                            path = Path(path)
+                            parent_dirctory = str(path.parent)
+                            file_list[parent_dirctory] = os.path.basename(path)
+                    for dir_name, file_name in file_list.items():
+                        # 通知されたファイルで上書き
+                        shutil.move(dir_name + "/" + file_name, in_directory_path + "/" + os.path.basename(dir_name) + "/" + os.path.basename(file_name))
+
+            # conductorディレクトリ更新
+            if file_key == "conductor_tar_data":
+                if status == AnscConst.COMPLETE or status == AnscConst.FAILURE:
+                    # 展開したファイルの一覧を取得
+                    lst = glob.glob(tmp_path + file_key + "/**", recursive=True)
+                    file_list = []
+                    for path in lst:
+                        if os.path.isfile(path):
+                            file_list.append(path)
+
+                    for file_path in file_list:
+                        # 通知されたファイルで上書き
+                        shutil.move(file_path, conductor_directory_path + "/" + os.path.basename(file_path))
+    finally:
+        # clear tmp_path
+        if os.path.isdir(tmp_path):
+            shutil.rmtree(tmp_path)
+            g.applogger.debug(f"shutil.rmtree({tmp_path})")
 
     return {}
 
