@@ -220,8 +220,8 @@ declare -A interactive_llist=(
     ["STORAGE_PATH"]="Input STORAGE_PATH."
 
     # install env
-    ["AGENT_SERVICE_ID_YN"]="The Agent service name is in the following format: ita-agent-ansible-execution-${SERVICE_ID}. Select "n" to specify individual names. (y/n)"
-    ["AGENT_SERVICE_ID"]="Input the Agent service name . The string "ita-agent-ansible-execution-" is added to the start of the name."
+    ["AGENT_SERVICE_ID_YN"]="The Agent service name is in the following format: ita-ag-ansible-execution-${SERVICE_ID}. Select "n" to specify individual names. (y/n)"
+    ["AGENT_SERVICE_ID"]="Input the Agent service name . The string "ita-ag-ansible-execution-" is added to the start of the name."
     ["AGENT_VERSION"]="Input the version of the Agent. Tag specification: X.Y.Z, Branch specification: X.Y [default: No Input+Enter(Latest release version)]"
     ["INSTALLPATH"]="Specify full path for the install location."
     ["DATAPATH"]="Specify full path for the data storage location."
@@ -237,7 +237,7 @@ declare -A interactive_llist=(
     ["SOURCE_UPDATE"]="A source already exists in the installation destination. Do you want to delete it and re-install?  (y:Re-install/n:Move to the next process without installing) (y/n)"
     ["SOURCE_UPDATE_E1"]="※If a registered service already exists with a different version, the existing service might be affected.(y/n): "
     # uninstall service
-    ["SERVICE_NAME"]="Input a SERVICE_NAME.(e.g. ita-agent-ansible-execution-xxxxxxxxxxxxx)"
+    ["SERVICE_NAME"]="Input a SERVICE_NAME.(e.g. ita-ag-ansible-execution-xxxxxxxxxxxxx)"
     ["STORAGE_PATH"]="Input a STORAGE_PATH.(e.g. /${HOME}${BASE_DIR}/<SERVICE_ID>)"
 )
 
@@ -586,6 +586,10 @@ installation_podman_on_rhel8() {
     else
         echo "export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" >> ${HOME}/.bashrc
     fi
+
+    # use rootless mode
+    echo "export BUILDAH_ISOLATION=chroot" >> ${HOME}/.bashrc
+
     sudo systemctl start user@${EXASTRO_UID}
 
     info "Start and enable Podman socket service"
@@ -860,7 +864,7 @@ inquiry_env(){
 
     # PATH
     default_env_values["APP_PATH"]=${default_env_values["INSTALLPATH"]}
-    default_env_values["PYTHONPATH"]=${default_env_values["INSTALLPATH"]}/ita_ag_ansible_execution
+    default_env_values["PYTHONPATH"]=${default_env_values["INSTALLPATH"]}/ita_ag_ansible_execution/
     default_env_values["AGENT_NAME"]="ita-ag-ansible-execution-${default_env_values['AGENT_SERVICE_ID']}"
     default_env_values["USER_ID"]="${default_env_values['AGENT_SERVICE_ID']}"
     default_env_values["SERVICE_NAME"]="ita-ag-ansible-execution"
@@ -900,9 +904,15 @@ create_env(){
     echo ""
     info "create_env :${DEP_PATTERN} start"
 
-    which_poetry=`which poetry`
-    poetry_path="`ls ${which_poetry}`"" run python3"
-    default_env_values["PYTHON_CMD"]=$poetry_path
+    if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ]; then
+        which_poetry=`which poetry`
+        poetry_path="`ls ${which_poetry}`"" run python3"
+        default_env_values["PYTHON_CMD"]=$poetry_path
+    else
+        which_poetry=`which poetry`
+        poetry_path="`ls ${which_poetry}`"" run python3"
+        default_env_values["PYTHON_CMD"]=$poetry_path
+    fi
 
     # .env crate
     for env_key in "${output_env_values[@]}"; do
@@ -929,9 +939,11 @@ init_appdir(){
 
 poetry_install(){
     echo ""
+
+
     cd "${default_env_values['PYTHONPATH']}"
     # poetry
-    sudo pip3 install poetry==$POETRY_VERSION
+    pip3 install poetry==$POETRY_VERSION
 
     poetry config virtualenvs.in-project true
     poetry config virtualenvs.create true
@@ -1147,7 +1159,7 @@ ExecStart=${ENTRYPOINT} ${ENV_PATH} ${PYTHONPATH} ${STORAGE_PATH} "${PYTHON_CMD}
 ExecReload=/bin/kill -HUP \$MAINPID
 ExecStop=/bin/kill \$MAINPID
 Restart=always
-
+User=${USER}
 [Install]
 WantedBy=default.target
 
@@ -1158,7 +1170,7 @@ _EOF_
     sudo cp -p ${SERVICE_PATH} /usr/lib/systemd/system/
     info "sudo systemctl daemon-reload"
     sudo systemctl daemon-reload
-    info "systemctl enable ${default_env_values['AGENT_NAME']}"
+    info "sudo systemctl enable ${default_env_values['AGENT_NAME']}"
     sudo systemctl enable "${default_env_values['AGENT_NAME']}"
 
     read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
@@ -1167,7 +1179,7 @@ _EOF_
         info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
         info "Run manually!!! : systemctl start ${default_env_values['AGENT_NAME']}"
     else
-        info "systemctl start ${default_env_values['AGENT_NAME']}"
+        info "sudo systemctl start ${default_env_values['AGENT_NAME']}"
         sudo systemctl start "${default_env_values['AGENT_NAME']}"
     fi
 
