@@ -210,8 +210,8 @@ declare -A interactive_llist=(
     ["INSTALL_TYPE_MSG3"]="    3: Register service"
     ["INSTALL_TYPE_MSG4"]="    4: Create Env"
     ["INSTALL_TYPE_MSGq"]="    q: Quit installer"
-    ["INSTALL_TYPE_MSGr"]="select value: (1, 2, 3, 4, q)  :"
-    ["INVALID_VALUE_IT"]="Invalid value!! (1, 2, 3, 4, q)"
+    ["INSTALL_TYPE_MSGr"]="select value: (1, 2, 3, q)  :"
+    ["INVALID_VALUE_IT"]="Invalid value!! (1, 2, 3, q)"
     ["_TOP_MSG"]="'No value + Enter' is input while default value exists, the default value will be used."
     ["INVALID_VALUE_YN"]="Invalid value!! (y/n)"
     ["INVALID_VALUE_AS"]="Invalid value!! (1, 2)"
@@ -220,6 +220,7 @@ declare -A interactive_llist=(
     ["INVALID_SETUP_VERSION"]="The specified version is invalid."
     ["SERVICE_MSG_START"]="Do you want to start the Agent service? (y/n)"
     ["INVALID_VALUE_F_ENV"]="No .env exists. Check the path and try again."
+    ["INVALID_VALUE_IS_DIR"]="Invalid value!! Not found "
     # uninstall
     ["UNINSTALL_TYPE_MSG0"]="Please select which process to execute."
     ["UNINSTALL_TYPE_MSG1"]="    1: Delete service, Delete Data"
@@ -684,31 +685,31 @@ dnf_install(){
     echo ""
     info "Install additional tools: ${DEP_PATTERN}"
 
-    set +e
-    ANSIBLE_SUPPORT=${default_env_values["ANSIBLE_SUPPORT"]}
-    if [ "${ANSIBLE_SUPPORT}" = "2" ] && [ "${DEP_PATTERN}" = "RHEL8" ];then
-        info "sudo subscription-manager repos --enable=${rhel8_repos['base']}"
-        sudo subscription-manager repos --enable=${rhel8_repos['base']}
-        info "sudo subscription-manager repos --enable=${rhel8_repos['appstream']}"
-        sudo subscription-manager repos --enable=${rhel8_repos['appstream']}
-        info "sudo subscription-manager repos --enable=${rhel8_repos['aap']}"
-        sudo subscription-manager repos --enable=${rhel8_repos['aap']}
-    elif [ "${ANSIBLE_SUPPORT}" = "2" ] && [ "${DEP_PATTERN}" = "RHEL9" ];then
-        info "sudo subscription-manager repos --enable=${rhel9_repos['base']}"
-        sudo subscription-manager repos --enable=${rhel9_repos['base']}
-        info "sudo subscription-manager repos --enable=${rhel9_repos['appstream']}"
-        sudo subscription-manager repos --enable=${rhel9_repos['appstream']}
-        info "sudo subscription-manager repos --enable=${rhel9_repos['aap']}"
-        sudo subscription-manager repos --enable=${rhel9_repos['aap']}
-    fi
+    # set +e
+    # ANSIBLE_SUPPORT=${default_env_values["ANSIBLE_SUPPORT"]}
+    # if [ "${ANSIBLE_SUPPORT}" = "2" ] && [ "${DEP_PATTERN}" = "RHEL8" ];then
+    #     info "sudo subscription-manager repos --enable=${rhel8_repos['base']}"
+    #     sudo subscription-manager repos --enable=${rhel8_repos['base']}
+    #     info "sudo subscription-manager repos --enable=${rhel8_repos['appstream']}"
+    #     sudo subscription-manager repos --enable=${rhel8_repos['appstream']}
+    #     info "sudo subscription-manager repos --enable=${rhel8_repos['aap']}"
+    #     sudo subscription-manager repos --enable=${rhel8_repos['aap']}
+    # elif [ "${ANSIBLE_SUPPORT}" = "2" ] && [ "${DEP_PATTERN}" = "RHEL9" ];then
+    #     info "sudo subscription-manager repos --enable=${rhel9_repos['base']}"
+    #     sudo subscription-manager repos --enable=${rhel9_repos['base']}
+    #     info "sudo subscription-manager repos --enable=${rhel9_repos['appstream']}"
+    #     sudo subscription-manager repos --enable=${rhel9_repos['appstream']}
+    #     info "sudo subscription-manager repos --enable=${rhel9_repos['aap']}"
+    #     sudo subscription-manager repos --enable=${rhel9_repos['aap']}
+    # fi
 
-    if [ $? -eq 0 ]; then
-        echo ""
-    else
-        warn "Please check your subscription-manager and repository settings."
-    fi
+    # if [ $? -eq 0 ]; then
+    #     echo ""
+    # else
+    #     warn "Please check your subscription-manager and repository settings."
+    # fi
 
-    set -e
+    # set -e
 
     case "${DEP_PATTERN}" in
         RHEL8 )
@@ -733,7 +734,7 @@ dnf_install(){
     for install_pkg in "${install_list[@]}" ; do
         info "${install_pkg} install start"
         info "sudo dnf install -y ${install_pkg}"
-        sudo sudo dnf install -y "${install_pkg}"
+        sudo dnf install -y "${install_pkg}"
         info "${install_pkg} install end"
     done
 }
@@ -905,6 +906,16 @@ inquiry_env(){
                         info "${interactive_llist['INVALID_SETUP_VERSION']} main or <= ${AGENT_INSTALLER_VERSION}"
                         continue
                     fi
+                elif [ ${env_key} = "INSTALLPATH" ]; then
+                    if [ "${INSTALL_TYPE}" = "2" ]; then
+                        if [ -d $tmp_value ]; then
+                            default_env_values[$env_key]=$tmp_value
+                            break
+                        else
+                            echo "${interactive_llist['INVALID_VALUE_IS_DIR']} ${tmp_value}"
+                            continue
+                        fi
+                    fi
                 fi
                 default_env_values[$env_key]=$tmp_value
                 break
@@ -1075,6 +1086,10 @@ install_agent_service(){
     if [ "${default_env_values['REFERENCE_ENVPATH']}" != "" ]; then
         ENV_TMP_PATH="${default_env_values['REFERENCE_ENVPATH']}"
     fi
+
+    if [ -f $ENV_PATH ]; then
+        rm -rf $ENV_PATH
+    fi
     info "cp -rf $ENV_TMP_PATH $ENV_PATH"
     cp -rf $ENV_TMP_PATH $ENV_PATH
 
@@ -1137,7 +1152,7 @@ if [ -z "${PROXY}" ]; then
 else
     cat << _EOF_ >>${SERVICE_PATH}
 Environment=HTTP_PROXY=${http_proxy}
-Environment=http_proxy=${Environment=http_proxy=${http_proxy}}
+Environment=http_proxy=${http_proxy}
 Environment=HTTPS_PROXY=${http_proxy}
 Environment=https_proxy=${http_proxy}
 _EOF_
@@ -1167,7 +1182,7 @@ _EOF_
     echo ""
     if ! (echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"); then
         info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
-        info "Run manually!!! : systemctl start ${default_env_values['AGENT_NAME']}"
+        info "Run manually!!! : systemctl --user start ${default_env_values['AGENT_NAME']}"
     else
         info "systemctl --user start ${default_env_values['AGENT_NAME']}"
         systemctl --user start "${default_env_values['AGENT_NAME']}"
@@ -1240,7 +1255,10 @@ _EOF_
 set_vars_for_env(){
     info "set_vars_for_env :${DEP_PATTERN} start"
     default_env_values['STORAGEPATH']=`cat "${default_env_values['REFERENCE_ENVPATH']}" | grep "STORAGEPATH=" | awk -F"STORAGEPATH=" '{print $2}'`
-    default_env_values['AGENT_SERVICE_ID']=`basename ${default_env_values['REFERENCE_ENVPATH']} | awk -F"." '{print $1}'`
+    default_env_values['APP_PATH']=`cat "${default_env_values['REFERENCE_ENVPATH']}" | grep "APP_PATH=" | awk -F"APP_PATH=" '{print $2}'`
+    default_env_values['PYTHONPATH']=`cat "${default_env_values['REFERENCE_ENVPATH']}" | grep "PYTHONPATH=" | awk -F"PYTHONPATH=" '{print $2}'`
+    default_env_values["ENTRYPOINT"]="${default_env_values['APP_PATH']}/ita_ag_ansible_execution/agent/entrypoint.sh"
+    default_env_values['AGENT_SERVICE_ID']=`cat "${default_env_values['REFERENCE_ENVPATH']}" | grep "AGENT_NAME=" | awk -F"AGENT_NAME=" '{print $2}' | awk -F"ita-ag-ansible-execution-" '{print $2}'`
     default_env_values["AGENT_NAME"]="ita-ag-ansible-execution-${default_env_values['AGENT_SERVICE_ID']}"
     SERVICE_ID=${default_env_values['AGENT_SERVICE_ID']}
     DP_PATH=${default_env_values['STORAGEPATH']%$STORAG_DIR}
@@ -1260,7 +1278,7 @@ install_type(){
         echo "${interactive_llist['INSTALL_TYPE_MSG1']}"
         echo "${interactive_llist['INSTALL_TYPE_MSG2']}"
         echo "${interactive_llist['INSTALL_TYPE_MSG3']}"
-        echo "${interactive_llist['INSTALL_TYPE_MSG4']}"
+        # echo "${interactive_llist['INSTALL_TYPE_MSG4']}"
         echo "${interactive_llist['INSTALL_TYPE_MSGq']}"
         read -r -p  "${interactive_llist['INSTALL_TYPE_MSGr']}" confirm
 
@@ -1287,9 +1305,9 @@ install(){
         3 )
             install_service
             ;;
-        4 )
-            create_envfile
-            ;;
+        # 4 )
+        #     create_envfile
+        #     ;;
         * )
             info "no install type ${INSTALL_TYPE}"
             ;;
@@ -1329,12 +1347,17 @@ install_all(){
 
     # clean workdir
     clean_workdir
+
+    info ""
+    info "Install completed."
+
 }
 
 install_env_service(){
     additional_env_keys=(
         "AGENT_SERVICE_ID_YN"
         "AGENT_SERVICE_ID"
+        "INSTALLPATH"
         "DATAPATH"
         "EXASTRO_URL"
         "EXASTRO_ORGANIZATION_ID"
@@ -1355,6 +1378,10 @@ install_env_service(){
 
     # acclean workdir
     clean_workdir
+
+    info ""
+    info "Install completed."
+
 }
 install_service(){
     additional_env_keys=(
@@ -1375,6 +1402,10 @@ install_service(){
 
     # acclean workdir
     clean_workdir
+
+    info ""
+    info "Install completed."
+
 }
 
 install_source(){
@@ -1423,6 +1454,10 @@ create_envfile(){
 
     # acreate .env
     create_env
+
+    info ""
+    info "export env: ${ENV_TMP_PATH}"
+    info "Create env completed."
 
 }
 
@@ -1507,15 +1542,19 @@ uninstall(){
         1 )
             uninstall_service
             uninstall_data
+            info "Remove service & Delete storage"
+            info "Uninstall completed."
             ;;
         2 )
             uninstall_service
+            info "Remove service completed."
             ;;
         3 )
             S_NAME=${default_env_values['STORAGE_PATH']}
             SERVICE_NAME=${S_NAME##*/}
             default_env_values['SERVICE_NAME']="ita-ag-ansible-execution-${SERVICE_NAME}"
             uninstall_data
+            info "Delete storage completed."
             ;;
         * )
             info "no install type ${INSTALL_TYPE}"
