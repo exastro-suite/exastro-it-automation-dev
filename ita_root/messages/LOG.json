@@ -1719,4 +1719,16 @@
     "BKY-90074": "calling 'apply API'.(action_log_id={})",
     "BKY-90075": "Cannnot execute the Action because {} is invalid.(action_log_id={})",
     "BKY-90076": "Failrue to call 'apply API'.(action_log_id={}, error = {})"
+
+    ,
+    "JBM-10001": "Receive signal: {}",
+    "JBM-10002": "Start termination processing",
+    "JBM-10003": "Start job",
+    "JBM-10004": "Finish job",
+    "JBM-10005": "Exception job",
+    "JBM-10006": "Timeout job",
+    "JBM-10007": "Start job cancelling",
+    "JBM-10008": "Finish job cancelling",
+    "JBM-10009": "Exception job cancelling",
+    "JBM-10010": "Timeout job cancelling"
 }
