@@ -12,22 +12,38 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+# sub processの起動数（sub process交代のタイミングでこの数を超えることがあります）
 SUB_PROCESS_ACCEPTABLE = 2
 
+# メイン処理の実行間隔
+# この間隔でprocessやthreadの状態の監視、および各種間隔実行の時間経過を確認する
+# （他の間隔指定は本間隔単位以下にしても機能しません）
 SUB_PROCESS_WATCH_INTERVAL_SECONDS = 1
+
+# QUEUE監視のDBへの再接続間隔
 SUB_PROCESS_DB_RECONNECT_INTERVAL_SECONDS = 30
 
+# 例外発生後の処理再開までの間隔（エラーログのラッシュ防止用）
 EXCEPTION_RESTART_INTERVAL_SECONDS = 5
 
+# sub process当たりの最大同時実行JOB数
 MAX_JOB_PER_PROCESS = 10
 
-QUEUE_LOAD_ROWS = MAX_JOB_PER_PROCESS * (SUB_PROCESS_ACCEPTABLE + 1)
+# QUEUEの最大読み出し数
+# JOBが長時間ためられてしまった時にメモリを食いつぶさないようにする処置
+QUEUE_LOAD_ROWS = MAX_JOB_PER_PROCESS * (SUB_PROCESS_ACCEPTABLE * 2 + 1)
+
+# QUEUEの読み出し間隔
 QUEUE_WATCH_INTERVAL_SECONDS = 3
 
+# メンテナンスモードのチェック間隔
 MAINTENANCE_MODE_CHECK_INTERVAL_SECONDS = 10
+
+# CLEAN UPの呼び出し間隔
 CLEANUP_INTERVAL_SECONDS = 3600
 # CLEANUP_INTERVAL_SECONDS = 30
 
+# JOBのCANCELのTimeout時間
 JOB_CANCEL_TIMEOUT_SECONDS = 3
 
 JOB_CONFIG = {
@@ -35,7 +51,7 @@ JOB_CONFIG = {
         "timeout_seconds": 20,
         "module": "jobs.test_job1_executor",
         "class": "TestJob1Executor",
-        "max_job_per_process": 10,
+        "max_job_per_process": MAX_JOB_PER_PROCESS,
         "extra_config": {
         }
     }
