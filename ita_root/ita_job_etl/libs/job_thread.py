@@ -17,7 +17,7 @@ from enum import Enum, auto
 
 from libs.job_classes import JobClasses
 from libs.job_queue_row import JobQueueRow
-from jobs.base_job_executor import BaseJobExecutor
+# from jobs.base_job_executor import BaseJobExecutor
 
 import job_config as config
 import ulid
@@ -25,6 +25,18 @@ import ulid
 THREAD_NAME_MAX_LENGTH=15
 
 class JobThreadStatus(Enum):
+    """Job threadの状態 / Job thread status
+    """
+    # status遷移 / status transition
+    #
+    #   NOT_RUNNING                                 new JobTread()
+    #   ->   RUNNING                                CALL JobTread().run()
+    #       ->  FINISHED                            When job finished
+    #       ->  TIMEOUT                             jobを開始して所定のtimeout時間が経過した(cancel未実施) / The specified timeout time has passed since the job was started (cancellation has not been performed)
+    #           ->  CANCELING                       jobのcancelを実施中 / Job is being canceled
+    #               ->  CANCELED                    jobのcancelの完了 / finish of job cancellation
+    #               ->  CANCELLATION_TIMEOUT        jobをキャンセルを開始して所定のtimeout時間が経過した / The specified timeout period has passed since the job was canceled.
+    #                   -> CANCELED                 ジョブの取り消しの中止が完了 / Job cancellation abort completed
     NOT_RUNNING = auto()
     RUNNING = auto()
     FINISHED = auto()
@@ -35,7 +47,15 @@ class JobThreadStatus(Enum):
 
 
 class JobThread():
+    """job thread
+    """
+
     def __init__(self, queue: JobQueueRow):
+        """constructor
+
+        Args:
+            queue (JobQueueRow): queue
+        """
         self.__queue = queue
         self.__job_config = config.JOB_CONFIG[queue.job_name]
         self.__job_executor_class = JobClasses.get_job_executor_class(queue.job_name)
@@ -48,10 +68,20 @@ class JobThread():
         self.__cancel_timeout_time = None
         self.__ulid = ulid.new().str
 
-    def update_queue_to_start(self):
+
+    def update_queue_to_start(self) -> bool:
+        """queueを開始した状態に更新する / Update queue to started state
+
+        Returns:
+            bool:   True: 成功(job開始OK) / Success (job start OK)
+                    False: 失敗(job開始NG) / Failure (job cannot start)
+        """
         return self.__job_executor_instance.call_update_queue_to_start()
 
+
     def run(self):
+        """job threadの起動 / Starting a job thread
+        """
         self.__execute_thread = threading.Thread(
                 name=f'E-{self.__ulid}'[:THREAD_NAME_MAX_LENGTH+1],
                 target=self.__job_executor_instance.call_execute,
@@ -63,10 +93,12 @@ class JobThread():
 
 
     def cancel(self):
-        # timeout exceptionをthrow
+        """jobのキャンセル / Cancel job
+        """
+        # job threadにtimeout exceptionをthrowさせる / Make the job thread throw a timeout exception
         self.__job_executor_instance.send_execute_timeout_exception()
 
-        # cancel処理を起動
+        # cancel処理を起動 / Start cancel processing
         self.__cancel_thread = threading.Thread(
                 name=f'C-{self.__ulid}'[:THREAD_NAME_MAX_LENGTH+1],
                 target=self.__job_executor_instance.call_cancel,
@@ -78,6 +110,8 @@ class JobThread():
 
 
     def send_thread_timeout(self):
+        """thread timeoutの送信 / Sending thread timeout
+        """
         if self.__execute_thread.is_alive():
             self.__job_executor_instance.send_execute_timeout_exception()
 
@@ -86,28 +120,52 @@ class JobThread():
 
 
     def join(self):
+        """job threadをjoinする / join job thread
+        """
         self.__execute_thread.join()
         if self.__cancel_thread is not None:
+            # cancel threadがいる場合はcancel threadもjoinする / If there is a cancel thread, also join the cancel thread
             self.__cancel_thread.join()
 
 
-    def is_erasable(self):
+    def is_erasable(self) -> bool:
+        """job threadのインスタンスを消してよいかを返す / Returns whether the job thread instance can be deleted
+
+        Returns:
+            bool:   True: 削除可能 / erasable
+                    False: 削除不可 / not erasable
+        """
         if self.__execute_start_time is None:
+            # 開始前の段階では削除不可とする
+            # Cannot be deleted before starting
             return False
 
         if self.__execute_thread.is_alive():
+            # job threadが実行中の場合は削除不可とする
+            # Cannot be deleted if job thread is running
             return False
 
         if self.__cancel_thread is None:
+            # job threadが完了していて、cancel threadがいない場合は削除可とする
+            # If the job thread is completed and there is no cancel thread, it can be deleted
             return True
 
         if self.__cancel_thread.is_alive():
+            # cancel threadが存在していて実行中の場合は削除不可とする
+            # If a cancel thread exists and is running, it cannot be deleted.
             return False
 
+        # job threadもcancel threadも完了している場合は削除可とする
+        # Can be deleted if both job thread and cancel thread are completed
         return True
 
 
     def get_status(self) -> JobThreadStatus:
+        """get job thread status
+
+        Returns:
+            JobThreadStatus: job thread status
+        """
         if self.__execute_start_time is None:
             return JobThreadStatus.NOT_RUNNING
 
@@ -130,3 +188,22 @@ class JobThread():
                     return JobThreadStatus.CANCELING
                 else:
                     return JobThreadStatus.CANCELED
+
+
+    def get_job_name(self) -> str:
+        """get job name
+
+        Returns:
+            str: job name
+        """
+        return self.__queue.job_name
+
+
+    def get_organization_id(self) -> str:
+        """get organization id
+
+        Returns:
+            str: organization id
+        """
+        return self.__queue.organization_id
+

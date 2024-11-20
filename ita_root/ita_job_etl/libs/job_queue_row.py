@@ -13,7 +13,14 @@
 #   limitations under the License.
 
 class JobQueueRow():
+    """queueのレコードclass / queue record class
+    """
     def __init__(self, row: dict):
+        """constructor
+
+        Args:
+            row (dict): job queue record
+        """
         self.organization_id = row.get('ORGANIZATION_ID', None)
         self.workspace_id = row.get('WORKSPACE_ID', None)
         self.job_name = row.get('JOB_NAME', None)
