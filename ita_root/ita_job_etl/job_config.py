@@ -47,11 +47,22 @@ CLEANUP_INTERVAL_SECONDS = 3600
 JOB_CANCEL_TIMEOUT_SECONDS = 3
 
 JOB_CONFIG = {
-    "test_job1": {
+    # "test_job1": {
+    #     "timeout_seconds": 20,
+    #     "module": "jobs.test_job1_executor",
+    #     "class": "TestJob1Executor",
+    #     "max_job_per_process": 10,
+    #     "extra_config": {
+    #     }
+    # },
+    "menu_create": {
         "timeout_seconds": 20,
         "module": "jobs.test_job1_executor",
         "class": "TestJob1Executor",
         "max_job_per_process": MAX_JOB_PER_PROCESS,
+        "module": "jobs.menu_create_executor",
+        "class": "MenuCreateExecutor",
+        "max_job_per_process": 10,
         "extra_config": {
         }
     }

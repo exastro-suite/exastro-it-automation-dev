@@ -183,16 +183,14 @@ def job_manager_sub_process(teminating_time: datetime.datetime, clean_up_info: C
 
             if maintenance_mode is None or maintenance_mode_check_interval.is_passed():
                 # 一定時間毎にmaintenance_modeの状態を更新する
-                # Update the maintenance_mode status at regular intervals
-                priv_maintenance_mode = maintenance_mode if maintenance_mode is not None else {'data_update_stop': 0}
+                priv_maintenance_mode = maintenance_mode if maintenance_mode is not None else {'data_update_stop': 0, 'backyard_execute_stop': 0}
                 maintenance_mode = get_maintenance_mode_setting()
 
-                if str(priv_maintenance_mode['data_update_stop']) != "1" and str(maintenance_mode['data_update_stop']) == "1":
-                    # メンテナンスモードへ切り替え時
-                    # When switching to maintenance mode
+                if (str(priv_maintenance_mode['data_update_stop']) != "1" and str(maintenance_mode['data_update_stop']) == "1") or str(priv_maintenance_mode['backyard_execute_stop']) != "1" and str(maintenance_mode['backyard_execute_stop']) == "1":
+                    # メンテナンスモード時へ切り替え時
                     g.applogger.info(g.appmsg.get_log_message("BKY-00005", []))
 
-            if str(maintenance_mode['data_update_stop']) != "1" and queue_watch_interval.is_passed():
+            if str(maintenance_mode['data_update_stop']) != "1" and str(maintenance_mode['backyard_execute_stop']) != "1" and queue_watch_interval.is_passed():
                 # メンテナンスモード中ではなく、queueの取得インターバルになった時
                 # When the queue acquisition interval is reached instead of in maintenance mode
 
