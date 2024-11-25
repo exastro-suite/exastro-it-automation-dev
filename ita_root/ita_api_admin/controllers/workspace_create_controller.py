@@ -308,13 +308,27 @@ def workspace_create(organization_id, workspace_id, body=None):  # noqa: E501
         view_sql += "SELECT %s as ORGANIZATION_ID, %s as WORKSPACE_ID, HISTORY_ID AS JOB_KEY, STATUS_ID AS JOB_STATUS, LAST_UPDATE_TIMESTAMP "
         view_sql += "FROM T_MENU_CREATE_HISTORY "
         view_sql += "WHERE STATUS_ID = %s or STATUS_ID = %s"
-        ws_db.sql_execute(view_sql, [organization_id, workspace_id, 1, 2])
+        ws_db.sql_execute(view_sql, [organization_id, workspace_id, "1", "2"])
         ws_db.db_commit()
         g.applogger.info("sql of pamrameter sheet create is executed")
 
         view_sql = "GRANT SELECT ,UPDATE ON TABLE `{ws_db_name}`.`V_MENU_CREATE_HISTORY` TO '{db_user}'@'%'".format(ws_db_name=ws_db_name, db_user=os.getenv("DB_USER"))
         org_root_db.sql_execute(view_sql, [])
         g.applogger.info("view of pamrameter sheet create is granted")
+
+        # Ansible系vars listupのVIEW作成（試験利用で一時的にここに記載）
+        ws_db.db_transaction_start()
+        view_sql = "CREATE OR REPLACE VIEW V_COMN_PROC_LOADED_LIST AS "
+        view_sql += "SELECT %s as ORGANIZATION_ID, %s as WORKSPACE_ID, ROW_ID AS JOB_KEY, LOADED_FLG AS JOB_STATUS, LAST_UPDATE_TIMESTAMP "
+        view_sql += "FROM T_COMN_PROC_LOADED_LIST "
+        view_sql += "WHERE LOADED_FLG = %s"
+        ws_db.sql_execute(view_sql, [organization_id, workspace_id, "0"])
+        ws_db.db_commit()
+        g.applogger.info("sql of Ansible vars listup is executed")
+
+        view_sql = "GRANT SELECT ,UPDATE ON TABLE `{ws_db_name}`.`V_COMN_PROC_LOADED_LIST` TO '{db_user}'@'%'".format(ws_db_name=ws_db_name, db_user=os.getenv("DB_USER"))
+        org_root_db.sql_execute(view_sql, [])
+        g.applogger.info("view of Ansible vars listup is granted")
 
         # register workspace-db connect infomation
         org_db.db_transaction_start()
