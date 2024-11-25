@@ -38,6 +38,7 @@ from flask import g
 from common_libs.common.util import get_maintenance_mode_setting, get_iso_datetime, arrange_stacktrace_format
 from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
 
+from libs.job_logger import JobLogger
 import job_config as config
 from libs.job_threads import JobThreads
 from libs.job_thread import JobThread
@@ -65,7 +66,8 @@ def job_manager_main_process():
 
     # 初期化 / Initialize
     random.seed()
-    g.initialize(is_main_process=True)
+    JobLogger.initialize(main_process=True)
+    g.initialize()
 
     # 開始メッセージ / Start message
     g.applogger.info(g.appmsg.get_log_message("BKY-00001", []))
@@ -116,7 +118,7 @@ def job_manager_main_process():
 
     # 終了メッセージ / Termination message
     g.applogger.info(g.appmsg.get_log_message("BKY-00002", []))
-    g.terminate()
+    JobLogger.terminate()
     return
 
 
@@ -137,7 +139,8 @@ def job_manager_sub_process(teminating_time: datetime.datetime, clean_up_info: C
 
     # 初期化 / initialize
     random.seed()
-    g.initialize(is_main_process=False)
+    JobLogger.initialize(main_process=False)
+    g.initialize()
 
     # 開始メッセージ / Start message
     g.applogger.info(g.appmsg.get_log_message("BKY-20001", []))
@@ -249,7 +252,7 @@ def job_manager_sub_process(teminating_time: datetime.datetime, clean_up_info: C
     job_threads.terminate()
 
     g.applogger.info(g.appmsg.get_log_message("BKY-20002", []))
-    g.terminate()
+    JobLogger.terminate()
     return
 
 

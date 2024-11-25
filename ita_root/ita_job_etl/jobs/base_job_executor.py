@@ -125,6 +125,10 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
     def call_execute(self):
         """JOB実行呼出
         """
+        g.initialize()
+        g.ORGANIZATION_ID = self.queue.organization_id
+        g.WORKSPACE_ID = self.queue.workspace_id
+
         self.__execute_start_time = datetime.datetime.now()
         self.__execute_thread_id = ctypes.c_long(threading.get_ident())
 
@@ -142,7 +146,9 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def execute(self, conn: DBConnectCommon):
-        """JOB実行
+        """JOB実行 / Job execute
+            JobTimeoutExceptionを受信したときは即時に処理を中断すること
+            Immediately interrupt processing when receiving JobTimeoutException
 
         Args:
             conn (DBConnectCommon): DB connetion
@@ -155,6 +161,10 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
     def call_cancel(self):
         """JOB cancel実行呼出
         """
+        g.initialize()
+        g.ORGANIZATION_ID = self.queue.organization_id
+        g.WORKSPACE_ID = self.queue.workspace_id
+
         self.__cancel_start_time = datetime.datetime.now()
         self.__cancel_thread_id = ctypes.c_long(threading.get_ident())
         conn = None
@@ -175,6 +185,8 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def cancel(self, conn: DBConnectCommon):
         """JOB cancel実行
+            JobTimeoutExceptionを受信したときは即時に処理を中断すること
+            Immediately interrupt processing when receiving JobTimeoutException
 
         Args:
             conn (DBConnectCommon): DB connetion
@@ -220,4 +232,15 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
     @classmethod
     @abc.abstractmethod
     def clean_up(self):
+        """clean up
+            JOBが中断などで残ったゴミを掃除する処理を行います
+            本処理は定期的に呼び出されます
+            JobTeminate exeptionを受信したときは即時に処理を中断すること
+            
+            Performs processing to clean up trash left behind due to job interruptions, etc.
+            This process is called periodically
+            Immediately interrupt processing when receiving JobTeminate exeption
+        Raises:
+            NotImplementedError: 継承先classで未実装
+        """
         raise NotImplementedError()

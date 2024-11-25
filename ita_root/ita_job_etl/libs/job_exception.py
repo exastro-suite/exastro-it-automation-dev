@@ -13,7 +13,13 @@
 #   limitations under the License.
 
 class JobTimeoutException(Exception):
+    """JOBのtimeout例外 本例外を受け取った場合、速やかにJOBを終了（中断）すること
+        JOB timeout exception If you receive this exception, immediately terminate (interrupt) the JOB.
+    """
     pass
 
 class JobTeminate(Exception):
+    """clean upの中断例外 本例外を受け取った場合、速やかに終了（中断）すること
+        Clean up interruption exception If you receive this exception, terminate (interrupt) immediately.
+    """
     pass
