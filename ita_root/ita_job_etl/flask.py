@@ -121,5 +121,8 @@ class thread_local_object():
         global g_thread_local
         return g_thread_local.dict.get(item, default)
 
+def has_request_context():
+    return False
+
 # flask.gの模倣用のclassのインスタンス化 / Instantiating a class to imitate flask.g
 g = thread_local_object()

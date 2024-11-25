@@ -14,10 +14,8 @@
 import json
 import re
 import ast
-import time
 from flask import g
 from common_libs.common import *  # noqa: F403
-# from common_libs.common.dbconnect import DBConnectWs
 from common_libs.common import const, storage_access
 from common_libs.common.util import print_exception_msg, get_iso_datetime, arrange_stacktrace_format
 
@@ -26,6 +24,8 @@ def backyard_main(objdbca, menu_create_row):
     """
         パラメータシート作成機能backyardメイン処理
         ARGS:
+            objdbca: DB接クラス DBConnectWs()
+            menu_create_row: パラメータシート作成履歴の対象レコード
             organization_id: Organization ID
             workspace_id: Workspace ID
         RETRUN:
