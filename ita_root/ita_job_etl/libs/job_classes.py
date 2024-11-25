@@ -17,10 +17,22 @@ import job_config as config
 from jobs.base_job_executor import BaseJobExecutor
 
 class JobClasses():
+    """JOB実行のclassへのアクセスclass / Access class for job execution class
+    """
+
+    # JOBのexecutor classをimportする / Import JOB executor class
     __job_executor_classes = {}
     for __job_name, __job_config in config.JOB_CONFIG.items():
         __job_executor_classes[__job_name] = getattr(importlib.import_module(__job_config["module"]), __job_config["class"])
 
     @classmethod
     def get_job_executor_class(cls, job_name: str) -> type[BaseJobExecutor]:
+        """get job executor class
+
+        Args:
+            job_name (str): job name
+
+        Returns:
+            type[BaseJobExecutor]: job executor class
+        """
         return cls.__job_executor_classes[job_name]

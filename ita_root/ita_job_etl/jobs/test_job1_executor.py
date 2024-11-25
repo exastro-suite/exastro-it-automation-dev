@@ -92,11 +92,16 @@ class TestJob1Executor(BaseJobExecutor):
             conn (DBConnectCommon): DB connetion
         """
         try:
+            g.JOB_KEY = self.queue.job_key
+
             if self.__test_job1_row['WAIT_SECONDS'] < 1:
                 raise Exception('WAIT_SECONDS ERROR')
 
             for i in range(1, self.__test_job1_row['WAIT_SECONDS'] + 1):
                 g.applogger.debug(self.log_format(f'TEST_JOB1 PROCESSING:{i}'))
+                g.applogger.debug(self.log_format(f'{self.queue.organization_id=} {g.get("ORGANIZATION_ID")=}'))
+                g.applogger.debug(self.log_format(f'{self.queue.workspace_id=} {g.get("WORKSPACE_ID")=}'))
+                g.applogger.debug(self.log_format(f'{self.queue.job_key=} {g.get("JOB_KEY")=}'))
                 time.sleep(1)
 
             conn.db_transaction_start()
@@ -123,6 +128,10 @@ class TestJob1Executor(BaseJobExecutor):
             conn.db_transaction_start()
             conn.table_update('T_TEST_JOB1',[{'DATA_KEY': self.queue.job_key, 'STATUS': 'TIMEOUT'}], 'DATA_KEY', is_register_history=False)
             conn.db_transaction_end(True)
+
+            g.applogger.debug(self.log_format(f'TEST_JOB1 PROCESSING'))
+            g.applogger.debug(self.log_format(f'{self.queue.organization_id=} {g.get("ORGANIZATION_ID")=}'))
+            g.applogger.debug(self.log_format(f'{self.queue.workspace_id=} {g.get("WORKSPACE_ID")=}'))
 
         except JobTimeoutException:
             conn.db_transaction_end(False)

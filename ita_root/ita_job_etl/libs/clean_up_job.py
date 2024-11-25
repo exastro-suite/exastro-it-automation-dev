@@ -5,8 +5,10 @@ import multiprocessing
 import threading
 import time
 import random
+import traceback
 
 from flask import g
+from common_libs.common.util import get_iso_datetime, arrange_stacktrace_format
 
 import job_config as config
 from libs.job_classes import JobClasses
@@ -42,11 +44,17 @@ class CleanUpJob():
 
     def __clean_up(self):
         self.__thread_id = ctypes.c_long(threading.get_ident())
-        try:
-            for job_name in config.JOB_CONFIG.keys():
+        g.initialize()
+        for job_name in config.JOB_CONFIG.keys():
+            try:
                 (JobClasses.get_job_executor_class(job_name)).clean_up()
-        except JobTeminate:
-            g.applogger.info(f'clean up interrupted')
+            except JobTeminate:
+                g.applogger.info(f'clean up interrupted')
+                raise
+            except Exception:
+                # エラーログを出力し処理継続する / Output error log and continue processing
+                g.applogger.error("[timestamp={}] {}".format(get_iso_datetime(), arrange_stacktrace_format(traceback.format_exc())))
+
 
     def terminate(self):
         if self.__thread is not None:
