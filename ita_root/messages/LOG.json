@@ -1730,5 +1730,6 @@
     "JBM-10007": "Start job cancelling",
     "JBM-10008": "Finish job cancelling",
     "JBM-10009": "Exception job cancelling",
-    "JBM-10010": "Timeout job cancelling"
+    "JBM-10010": "Timeout job cancelling",
+    "JBM-10011": "Change Log Level. ({} -> {})"
 }

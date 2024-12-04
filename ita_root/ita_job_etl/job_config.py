@@ -46,6 +46,9 @@ CLEANUP_INTERVAL_SECONDS = 3600
 # JOBのCANCELのTimeout時間
 JOB_CANCEL_TIMEOUT_SECONDS = 3
 
+# Log Level 再設定の間隔 
+RESET_LOG_LEVEL_INTERVAL_SECONDS = 10
+
 JOB_CONFIG = {
     # "test_job1": {
     #     "timeout_seconds": 20,
@@ -57,12 +60,9 @@ JOB_CONFIG = {
     # },
     "menu_create": {
         "timeout_seconds": 20,
-        "module": "jobs.test_job1_executor",
-        "class": "TestJob1Executor",
-        "max_job_per_process": MAX_JOB_PER_PROCESS,
         "module": "jobs.menu_create_executor",
         "class": "MenuCreateExecutor",
-        "max_job_per_process": 10,
+        "max_job_per_process": MAX_JOB_PER_PROCESS,
         "extra_config": {
         }
     }

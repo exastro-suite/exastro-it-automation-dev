@@ -19,7 +19,7 @@ from typing import Any
 import threading
 import os
 
-from libs.job_logger import JobLogger
+from libs.job_logger import JobLogging
 
 # Thread localの生成 / Generating Thread local
 g_thread_local = threading.local()
@@ -48,7 +48,7 @@ class thread_local_object():
 
         self.LANGUAGE = os.environ.get("LANGUAGE")
         self.appmsg = MessageTemplate(self.LANGUAGE)
-        self.applogger = JobLogger
+        self.applogger = JobLogging.getLogger()
         self.USER_ID = os.environ.get("USER_ID")
         self.SERVICE_NAME = os.environ.get("SERVICE_NAME")
 

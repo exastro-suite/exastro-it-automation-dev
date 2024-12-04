@@ -38,7 +38,7 @@ from flask import g
 from common_libs.common.util import get_maintenance_mode_setting, get_iso_datetime, arrange_stacktrace_format
 from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
 
-from libs.job_logger import JobLogger
+from libs.job_logger import JobLogging
 import job_config as config
 from libs.job_threads import JobThreads
 from libs.job_thread import JobThread
@@ -66,8 +66,11 @@ def job_manager_main_process():
 
     # 初期化 / Initialize
     random.seed()
-    JobLogger.initialize(main_process=True)
+    JobLogging.initialize()
     g.initialize()
+
+    # log level設定
+    reset_log_level()
 
     # 開始メッセージ / Start message
     g.applogger.info(g.appmsg.get_log_message("BKY-00001", []))
@@ -77,9 +80,15 @@ def job_manager_main_process():
     # clean upの制御情報（共有メモリ）のインスタンス化 / Instance generation of clean up control information (shared memory)
     clean_up_info = CleanUpInfo()
 
+    # Log Level再設定の間隔 / Log Level resetting interval
+    reset_log_level_interval = IntervalTimer(config.RESET_LOG_LEVEL_INTERVAL_SECONDS)
+
     # シグナル受信までループ / Loop until signal reception
     while not process_terminate:
         try:
+            # log level設定
+            reset_log_level(reset_log_level_interval)
+
             # sub processを閾値まで起動する / Start sub process up to threshold
             for i in range(config.SUB_PROCESS_ACCEPTABLE - sub_processes.count_acceptable()):
                 sub_processes.add(job_manager_sub_process, clean_up_info)
@@ -118,7 +127,7 @@ def job_manager_main_process():
 
     # 終了メッセージ / Termination message
     g.applogger.info(g.appmsg.get_log_message("BKY-00002", []))
-    JobLogger.terminate()
+    JobLogging.terminate()
     return
 
 
@@ -139,7 +148,6 @@ def job_manager_sub_process(teminating_time: datetime.datetime, clean_up_info: C
 
     # 初期化 / initialize
     random.seed()
-    JobLogger.initialize(main_process=False)
     g.initialize()
 
     # 開始メッセージ / Start message
@@ -252,7 +260,7 @@ def job_manager_sub_process(teminating_time: datetime.datetime, clean_up_info: C
     job_threads.terminate()
 
     g.applogger.info(g.appmsg.get_log_message("BKY-20002", []))
-    JobLogger.terminate()
+    JobLogging.terminate()
     return
 
 
@@ -279,6 +287,34 @@ def db_connect(conn:DBConnectCommon = None) -> DBConnectCommon:
         except Exception:
             g.applogger.error("[timestamp={}] {}".format(get_iso_datetime(), arrange_stacktrace_format(traceback.format_exc())))
             time.sleep(config.EXCEPTION_RESTART_INTERVAL_SECONDS)
+
+
+def reset_log_level(interval: IntervalTimer = None):
+    """ログレベル再設定 / Log level reset
+
+    Args:
+        interval (IntervalTimer, optional): reset log level interval. Defaults to None.
+    """
+    conn = None
+    try:
+        if interval is not None and not interval.is_passed():
+            # タイマーが経過していない場合、何もせずに戻る
+            return
+
+        # Log Levelの再設定間隔が経過したらLog Levelを再設定する
+        # Reset the Log Level after the Log Level reset interval has elapsed.
+        conn = DBConnectCommon()
+        rows = conn.sql_execute("SELECT LOG_LEVEL FROM T_COMN_LOGLEVEL WHERE SERVICE_NAME = %s", ["ita-job-etl"])
+        if len(rows) > 0 and rows[0]['LOG_LEVEL'] is not None:
+            if JobLogging.getLevel() != rows[0]['LOG_LEVEL']:
+                g.applogger.info(g.appmsg.get_log_message("JBM-10011", [JobLogging.getLevel(), rows[0]['LOG_LEVEL']]))
+                JobLogging.setLevel(rows[0]['LOG_LEVEL'])
+    except Exception:
+        pass
+    finally:
+        if conn is not None:
+            conn.db_disconnect()
+            del conn
 
 
 def job_manager_process_sigterm_handler(signum, frame):
