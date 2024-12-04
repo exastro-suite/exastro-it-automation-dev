@@ -13,6 +13,13 @@ pytz = ">=0.0.0"
 pymysql = ">=0.0.0"
 pycryptodome = ">=0.0.0"
 ulid-py = ">=0.0.0"
+jinja2 = ">=0.0.0"
+chardet = ">=0.0.0"
+opentelemetry-distro = "^0.49b2"
+opentelemetry-exporter-otlp = "^1.28.2"
+opentelemetry-instrumentation-pymysql = "^0.49b2"
+opentelemetry-instrumentation-requests = "^0.49b2"
+opentelemetry-instrumentation-flask = "^0.49b2"
 
 
 [tool.poetry.group.first_install.dependencies]

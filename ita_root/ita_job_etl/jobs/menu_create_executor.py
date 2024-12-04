@@ -11,7 +11,7 @@ from common_libs.common import const
 from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
 from common_libs.common.dbconnect.dbconnect_ws import DBConnectWs
 from common_libs.common.util import get_maintenance_mode_setting, get_iso_datetime, arrange_stacktrace_format
-from libs.menu_create.menu_create_main import backyard_main
+from libs.menu_create.backyard_main import backyard_main
 
 import job_config as config
 
@@ -77,7 +77,7 @@ class MenuCreateExecutor(BaseJobExecutor):
         try:
             conn.db_transaction_start()
             rows = conn.sql_execute("SELECT * FROM T_MENU_CREATE_HISTORY WHERE HISTORY_ID = %s FOR UPDATE NOWAIT", [queue.job_key])
-            if len(rows) > 0 and  rows[0]['STATUS_ID'] == const.MENU_CREATE_UNEXEC:
+            if len(rows) > 0 and rows[0]['STATUS_ID'] == const.MENU_CREATE_UNEXEC:
                 # 作業対象のステータスを「実行中」に変更
                 conn.table_update('T_MENU_CREATE_HISTORY',[{'HISTORY_ID': queue.job_key, 'STATUS_ID': const.MENU_CREATE_EXEC, 'LAST_UPDATE_USER': const.MENU_CREATE_USER_ID}], 'HISTORY_ID', is_register_history=True)
                 conn.db_transaction_end(True)
@@ -210,28 +210,17 @@ class MenuCreateExecutor(BaseJobExecutor):
 
 # TEST-TABLE
 """
-use `WS_DB`;
+USE `ITA_WS_xxxxxxxxxxx`;
 
-DROP TABLE if exists T_TEST_JOB1;
-
-CREATE TABLE T_TEST_JOB1
-(
-    DATA_KEY VARCHAR(36),
-    STATUS VARCHAR(16),
-    WAIT_SECONDS INT,
-    LAST_UPDATE_TIMESTAMP DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY(DATA_KEY)
-);
-
-
-CREATE or REPLACE VIEW V_TEST_JOB1 AS
-SELECT  'org1'  AS  ORGANIZATION_ID,
-        'ws1'   AS  WORKSPACE_ID,
-        DATA_KEY    AS  JOB_KEY,
+CREATE or REPLACE VIEW V_MENU_CREATE_HISTORY AS
+SELECT 'org1'         AS  ORGANIZATION_ID,
+       'workspace-1'  AS  WORKSPACE_ID,
+        HISTORY_ID    AS  JOB_KEY,
+        STATUS_ID     AS  JOB_STATUS,
         LAST_UPDATE_TIMESTAMP
-    FROM T_TEST_JOB1
-    WHERE   STATUS  =   'NOT_PROCESSING';
+FROM T_MENU_CREATE_HISTORY
+WHERE STATUS_ID = '1' or STATUS_ID = '2';
 
-GRANT SELECT ON TABLE V_TEST_JOB1 TO ITA_USER;
+GRANT SELECT ON TABLE V_MENU_CREATE_HISTORY TO ITA_USER;
 
 """

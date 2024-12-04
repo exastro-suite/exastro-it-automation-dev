@@ -39,6 +39,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-api-admin:
     build:
@@ -75,6 +77,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-web-server:
     build:
@@ -135,6 +139,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-ansible-legacy-role-vars-listup:
     build:
@@ -169,6 +175,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-ansible-legacy-vars-listup:
     build:
@@ -203,6 +211,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-ansible-pioneer-vars-listup:
     build:
@@ -237,6 +247,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-ansible-towermaster-sync:
     build:
@@ -271,6 +283,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-collector:
     build:
@@ -305,6 +319,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-conductor-synchronize:
     build:
@@ -339,6 +355,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-conductor-regularly:
     build:
@@ -373,6 +391,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-menu-create:
     build:
@@ -407,6 +427,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-menu-export-import:
     build:
@@ -444,6 +466,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-excel-export-import:
     build:
@@ -478,6 +502,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-terraform-cloud-ep-execute:
     build:
@@ -512,6 +538,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-terraform-cloud-ep-vars-listup:
     build:
@@ -546,6 +574,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-terraform-cli-execute:
     build:
@@ -580,6 +610,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-terraform-cli-vars-listup:
     build:
@@ -614,6 +646,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-hostgroup-split:
     build:
@@ -648,6 +682,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-cicd-for-iac:
     build:
@@ -682,6 +718,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-execinstance-dataautoclean:
     build:
@@ -716,6 +754,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-by-file-autoclean:
     build:
@@ -750,6 +790,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-migration:
     build:
@@ -818,6 +860,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-api-oase-receiver:
     build:
@@ -853,6 +897,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
 
   ita-by-oase-conclusion:
@@ -888,6 +934,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   ita-oase-mailserver:
     build:
@@ -986,6 +1034,8 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
+      - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
   # mongo-express:
   #   image: mongo-express

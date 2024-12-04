@@ -65,6 +65,30 @@ JOB_CONFIG = {
         "max_job_per_process": MAX_JOB_PER_PROCESS,
         "extra_config": {
         }
+    },
+    "ansible_legacy_vars_listup": {
+        "timeout_seconds": 300,
+        "module": "jobs.ansible_legacy_vars_listup_executor",
+        "class": "AnsibleLegacyVarsListupExecutor",
+        "max_job_per_process": MAX_JOB_PER_PROCESS,
+        "extra_config": {
+        }
+    },
+    "ansible_pioneer_vars_listup": {
+        "timeout_seconds": 300,
+        "module": "jobs.ansible_pioneer_vars_listup_executor",
+        "class": "AnsiblePioneerVarsListupExecutor",
+        "max_job_per_process": MAX_JOB_PER_PROCESS,
+        "extra_config": {
+        }
+    },
+    "ansible_legacy_role_vars_listup": {
+        "timeout_seconds": 300,
+        "module": "jobs.ansible_legacy_role_vars_listup_executor",
+        "class": "AnsibleLegacyRoleVarsListupExecutor",
+        "max_job_per_process": MAX_JOB_PER_PROCESS,
+        "extra_config": {
+        }
     }
 }
 

@@ -19,6 +19,11 @@ dictknife = ">=0.0.0"
 pycryptodome = ">=0.0.0"
 python-hcl2 = ">=0.0.0"
 cryptography = ">=0.0.0"
+opentelemetry-distro = "^0.49b2"
+opentelemetry-exporter-otlp = "^1.28.2"
+opentelemetry-instrumentation-pymysql = "^0.49b2"
+opentelemetry-instrumentation-requests = "^0.49b2"
+opentelemetry-instrumentation-flask = "^0.49b2"
 
 
 [tool.poetry.group.first_install.dependencies]
