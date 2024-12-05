@@ -19,9 +19,14 @@ import multiprocessing
 import job_config as config
 
 class CleanUpInfo():
+    """clean upの起動を制御する共有メモリ / Shared memory that controls clean up startup
+    """
     def __init__(self):
+        # clean upを行うProcess id / Process id to clean up
         self.clean_up_pid = multiprocessing.Value(ctypes.c_int)
         self.clean_up_pid.value = 0
+
+        # clean upを行う時刻 / Time to perform clean up
         self.clean_up_time = multiprocessing.Value(ctypes.c_double)
         self.clean_up_time.value = (datetime.datetime.timestamp(
             datetime.datetime.now() + datetime.timedelta(seconds=config.CLEANUP_INTERVAL_SECONDS)

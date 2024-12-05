@@ -15,31 +15,19 @@
 import os
 import time
 import datetime
-# import sys
-# import typing
-# import multiprocessing
-# from multiprocessing.sharedctypes import Synchronized
 import signal
-# import threading
 import traceback
-# import itertools
 import random
-# import ulid
-# import os
-# from contextlib import closing
-# from importlib import import_module
-# import pymysql.err
 
-# from libs.job_logger import job_logger as logger
-from libs.sub_processes import SubProcesses
-# from libs.sub_process import SubProcess
 from flask import g
 
 from common_libs.common.util import get_maintenance_mode_setting, get_iso_datetime, arrange_stacktrace_format
 from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
 
-from libs.job_logger import JobLogging
 import job_config as config
+
+from libs.sub_processes import SubProcesses
+from libs.job_logger import JobLogging
 from libs.job_threads import JobThreads
 from libs.job_thread import JobThread
 from libs.job_queue import JubQueue
@@ -244,6 +232,10 @@ def job_manager_sub_process(teminating_time: datetime.datetime, clean_up_info: C
                 # Call the clean up job process
                 clean_up_job.tick()
 
+            # ハングアップ監視用に時刻を出力する
+            with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
+                f.write(str(int(time.time())))
+
         except Exception:
             g.applogger.error("[timestamp={}] {}".format(get_iso_datetime(), arrange_stacktrace_format(traceback.format_exc())))
             time.sleep(config.EXCEPTION_RESTART_INTERVAL_SECONDS)
@@ -260,7 +252,6 @@ def job_manager_sub_process(teminating_time: datetime.datetime, clean_up_info: C
     job_threads.terminate()
 
     g.applogger.info(g.appmsg.get_log_message("BKY-20002", []))
-    JobLogging.terminate()
     return
 
 
