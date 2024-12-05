@@ -25,7 +25,13 @@
             "request": "launch",
             "program": "/exastro/job_manager.py",
             "env": {
-                "LOG_LEVEL": "DEBUG"
+                "LOG_LEVEL": "DEBUG",
+                "CLEANUP_INTERVAL_SECONDS": "30",
+                "SUB_PROCESS_ACCEPTABLE_SECONDS_DEFAULT": "600",
+                // "JOB_MENU_CREATE_TIMEOUT_SECONDS": "20",
+                // "JOB_ANSIBLE_LEGACY_VARS_LISTUP_TIMEOUT_SECONDS": "300",
+                // "JOB_ANSIBLE_PIONEER_VARS_LISTUP_TIMEOUT_SECONDS": "300",
+                // "JOB_LEGACY_ROLE_VARS_LISTUP_TIMEOUT_SECONDS": "300",
             },
             "cwd": "/exastro",
             "pathMappings": [
