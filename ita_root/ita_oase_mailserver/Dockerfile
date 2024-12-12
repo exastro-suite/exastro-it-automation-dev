@@ -1,5 +1,5 @@
 
-# FROM    registry.access.redhat.com/ubi8/ubi-init as develop_build
+# FROM    registry.access.redhat.com/ubi9/ubi-init as develop_build
 FROM almalinux:9.4 as develop_build
 
 # WORKDIR /etc/dnf.repos.d
