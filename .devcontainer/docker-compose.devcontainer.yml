@@ -1018,6 +1018,7 @@ services:
       - ~/.netrc:/home/app_user/.netrc
       - ~/.gitconfig:/home/app_user/.gitconfig
       - ./ita-job-etl/.vscode/launch.json:/workspace/.vscode/launch.json
+      - ./ita-job-etl/.vscode/tasks.json:/workspace/.vscode/tasks.json
       - /usr/share/pki/ca-trust-source/anchors/UserRootCertificate.crt:/etc/ssl/certs/ca-certificates.crt
       - /mnt/mainte/talisman/.talismanrc:/mnt/mainte/talisman/.talismanrc
       - ~/.config/git/ignore:/home/app_user/.config/git/ignore
@@ -1034,6 +1035,7 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - NETWORK_ID=${NETWORK_ID:-}
       - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
       - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
 
