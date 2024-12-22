@@ -1036,8 +1036,31 @@ services:
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
       - NETWORK_ID=${NETWORK_ID:-}
+      - EXT_PORT_ITA_UNITTEST_DB=${EXT_PORT_ITA_UNITTEST_DB:-3308}
+      - ITA_DBMS=${ITA_DBMS:-mariadb}
       - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
       - SERVICE_NAME_IDENTIFIER=${SERVICE_NAME_IDENTIFIER}
+
+  ita-mariadb:
+    ports:
+      - "0.0.0.0:${EXT_PORT_ITA_DB:-3307}:3306"
+
+  ita-db-mysql:
+    image: mysql:8.0
+    healthcheck:
+      test: (mysqladmin ping --silent -u root -p$${MYSQL_ROOT_PASSWORD} && mysql -u root -p$${MYSQL_ROOT_PASSWORD} -e 'select 1;') || exit 1
+      interval: 3s
+      retries: 200
+    volumes:
+      - ../.volumes/ita-db-mysql/data:/var/lib/mysql
+      - ../ita_root/ita_mariadb/conf/custom.cnf:/etc/mysql/conf.d/custom.cnf
+    environment:
+      - TZ=Asia/Tokyo
+      - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+    ports:
+      - "0.0.0.0:${EXT_PORT_ITA_DB_MYSQL:-3309}:3306"
+    networks:
+      - exastro
 
   # mongo-express:
   #   image: mongo-express

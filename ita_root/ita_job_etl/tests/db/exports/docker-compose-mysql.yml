@@ -15,22 +15,8 @@
 version: '3.1'
 services:
   unittest-ita-db:
-    image: mariadb:10.4.8
-    healthcheck:
-      test: mysql -u root -ppassword -e 'select 1;'
-      interval: 3s
-      retries: 200
+    image: mysql:8.0
     volumes:
       - ${ITA_REPO_ROOT}/ita_root/ita_mariadb/conf/custom.cnf:/etc/mysql/conf.d/custom.cnf
-      - ${ITA_REPO_ROOT}/ita_root/ita_job_etl/tests/db/exports/mariadb/pytest1_init_databases.sql:/docker-entrypoint-initdb.d/pytest1_init_databases.sql
-      - ${ITA_REPO_ROOT}/ita_root/ita_job_etl/tests/db/exports/mariadb/pytest9_database_users.sql:/docker-entrypoint-initdb.d/pytest9_database_users.sql
-    environment:
-      - TZ=Asia/Tokyo
-      - MYSQL_ROOT_PASSWORD=password
-    networks:
-      - exastro
-    ports:
-      - "0.0.0.0:${EXT_PORT_ITA_UNITTEST_DB:-3308}:3306"
-networks:
-  exastro:
-    name: "exastro_${NETWORK_ID}"
+      - ${ITA_REPO_ROOT}/ita_root/ita_job_etl/tests/db/exports/mysql/pytest1_init_databases.sql:/docker-entrypoint-initdb.d/pytest1_init_databases.sql
+      - ${ITA_REPO_ROOT}/ita_root/ita_job_etl/tests/db/exports/mysql/pytest9_database_users.sql:/docker-entrypoint-initdb.d/pytest9_database_users.sql
