@@ -66,7 +66,6 @@ class CleanUpJob():
             # Among multiple sub processes, the sub process that matches the process id of clean_up_pid is the process that starts clean up
             # Compare own process id and clean_up_pid's process id to determine whether own process is the process that starts clean up
 
-
             if self.__info.clean_up_time.value <= datetime.datetime.timestamp(datetime.datetime.now()):
                 # clean upの起動予定時間になったとき / When the scheduled start time for clean up is reached
 
@@ -77,6 +76,12 @@ class CleanUpJob():
                     daemon=True
                 )
                 self.__thread.start()
+
+                # 次回のclean upの起動開始時間を現在時刻から起動間隔秒後に設定する
+                # Set the startup start time of the next clean up to be a startup interval seconds from the current time.
+                self.__info.clean_up_time.value = (datetime.datetime.timestamp(
+                    datetime.datetime.now() + datetime.timedelta(seconds=config.CLEANUP_INTERVAL_SECONDS)
+                ))
 
     def __clean_up(self):
         """clean upの処理 / clean up process

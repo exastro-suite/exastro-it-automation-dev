@@ -72,6 +72,7 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
         self.queue = queue
         self.job_config = job_config
         self.__conn = self.db_connect(queue)
+        self.__conn_exclusive = DBConnectCommon()
         self.__execute_start_time = None
         self.__execute_thread_id = None
         self.__cancel_start_time = None
@@ -236,7 +237,7 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
             JOBが中断などで残ったゴミを掃除する処理を行います
             本処理は定期的に呼び出されます
             JobTeminate exeptionを受信したときは即時に処理を中断すること
-            
+
             Performs processing to clean up trash left behind due to job interruptions, etc.
             This process is called periodically
             Immediately interrupt processing when receiving JobTeminate exeption
@@ -244,3 +245,58 @@ class BaseJobExecutor(metaclass=abc.ABCMeta):
             NotImplementedError: 継承先classで未実装
         """
         raise NotImplementedError()
+
+    def exclusive_control(self) -> bool:
+        """exclusive control
+            T_COMN_JOB_EXCLUSIVE_CONTROLテーブルにJOB_NAME, ORGANIZATION_ID, WORKSPACE_IDの組み合わせのレコードをSELECT FOR UPDATEを実行しロックをかける。
+            対象レコードが無い場合はINSERTした上でSELECT FOR UPDATEを実行する。
+            SELECT FOR UPDATEに成功した場合はTrueをリターンする。
+            既にロックがかかっている場合はFalseをリターンする。
+        Args:
+            queue (JobQueueRow): job queue
+        Returns:
+            bool: True: 起動可 / False: 起動不可
+
+        """
+        lock_target_row = []
+        skip_flg = False
+        while not lock_target_row:
+            try:
+                g.applogger.debug("start record lock on T_COMN_JOB_EXCLUSIVE_CONTROL (job_name: {}, organization_id: {}, workspace_id: {})".format(self.queue.job_name, self.queue.organization_id, self.queue.workspace_id))
+                self.__conn_exclusive.db_transaction_start()
+
+                # 対象のジョブ名、オーガナイゼーション名、ワークスペース名のレコードをSELECT FOR UPDATEでロックをかける
+                query_str = "SELECT JOB_NAME, ORGANIZATION_ID, WORKSPACE_ID FROM T_COMN_JOB_EXCLUSIVE_CONTROL WHERE JOB_NAME = %s AND ORGANIZATION_ID = %s AND WORKSPACE_ID = %s FOR UPDATE NOWAIT"
+                lock_target_row = self.__conn_exclusive.sql_execute(query_str, [self.queue.job_name, self.queue.organization_id, self.queue.workspace_id])
+                if not lock_target_row:
+                    # 対象が無い場合レコードを作成する
+                    data = {
+                        'JOB_NAME':  self.queue.job_name,
+                        'ORGANIZATION_ID': self.queue.organization_id,
+                        'WORKSPACE_ID': self.queue.workspace_id
+                    }
+                    self.__conn_exclusive.table_insert("T_COMN_JOB_EXCLUSIVE_CONTROL", data, "PRIMARY_KEY", False)
+                    self.__conn_exclusive.db_transaction_end(True)
+
+            except Exception:
+                skip_flg = True
+                break
+
+        # 排他制御に引っかかった場合は処理を抜ける
+        if skip_flg is True:
+            self.__conn_exclusive.db_transaction_end(False)
+            return False
+
+        return True
+
+    def exclusive_control_commit(self):
+        """exclusive control commit
+            T_COMN_JOB_EXCLUSIVE_CONTROLテーブルにSELECT FOR UPDATEしたconnectをcommitする。
+        Args:
+            conn (DBConnectCommon): DB connection
+
+        """
+        self.__conn_exclusive.db_transaction_end(True)
+        self.__conn_exclusive.db_disconnect()
+        g.applogger.debug("completed record lock on T_COMN_JOB_EXCLUSIVE_CONTROL (job_name: {}, organization_id: {}, workspace_id: {})".format(self.queue.job_name, self.queue.organization_id, self.queue.workspace_id))
+

@@ -91,6 +91,12 @@ class AnsibleLegacyRoleVarsListupExecutor(BaseJobExecutor):
             conn.db_transaction_start()
             rows = conn.sql_execute("SELECT * FROM T_COMN_PROC_LOADED_LIST WHERE ROW_ID = %s FOR UPDATE NOWAIT", [queue.job_key])
             if len(rows) > 0 and str(rows[0]['LOADED_FLG']) == '0':
+                # 排他制御チェック処理
+                if self.exclusive_control() is False:
+                    # 対象レコードロック中のため処理をスキップ
+                    return False
+
+                # LOADED_FLGを1に更新
                 conn.table_update('T_COMN_PROC_LOADED_LIST',[{'ROW_ID': self.queue.job_key, 'LOADED_FLG': '1'}], 'ROW_ID', is_register_history=False)
                 conn.db_transaction_end(True)
                 return True
@@ -111,9 +117,13 @@ class AnsibleLegacyRoleVarsListupExecutor(BaseJobExecutor):
         try:
             # メイン機能実行
             backyard_main(conn)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
 
         except JobTimeoutException:
             conn.db_transaction_end(False)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
 
         except Exception:
@@ -122,6 +132,8 @@ class AnsibleLegacyRoleVarsListupExecutor(BaseJobExecutor):
             # LOADED_FLGを0にして再度実行されるように
             conn.table_update('T_COMN_PROC_LOADED_LIST',[{'ROW_ID': self.queue.job_key, 'LOADED_FLG': '0'}], 'ROW_ID', is_register_history=False)
             conn.db_transaction_end(True)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
 
     def cancel(self, conn: DBConnectWs):
@@ -135,13 +147,20 @@ class AnsibleLegacyRoleVarsListupExecutor(BaseJobExecutor):
             conn.db_transaction_start()
             conn.table_update('T_COMN_PROC_LOADED_LIST',[{'ROW_ID': self.queue.job_key, 'LOADED_FLG': '0'}], 'ROW_ID', is_register_history=False)
             conn.db_transaction_end(True)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
 
         except JobTimeoutException:
             conn.db_transaction_end(False)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
+
         except Exception:
             g.applogger.error("[timestamp={}] {}".format(get_iso_datetime(), arrange_stacktrace_format(traceback.format_exc())))
             conn.db_transaction_end(False)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
 
     @classmethod
@@ -150,9 +169,7 @@ class AnsibleLegacyRoleVarsListupExecutor(BaseJobExecutor):
         """
         try:
             g.applogger.info("ansible legacy role vars listup clean_up")
-            for i in range(1, 10 + 1):
-                g.applogger.debug(f"ansible legacy role vars listup clean_up : {i}")
-                time.sleep(1)
+            # clean_up処理の必要なし
 
         except JobTeminate:
             raise

@@ -91,6 +91,11 @@ class MenuCreateExecutor(BaseJobExecutor):
             conn.db_transaction_start()
             rows = conn.sql_execute("SELECT * FROM T_MENU_CREATE_HISTORY WHERE HISTORY_ID = %s FOR UPDATE NOWAIT", [queue.job_key])
             if len(rows) > 0 and rows[0]['STATUS_ID'] == const.MENU_CREATE_UNEXEC:
+                # 排他制御チェック処理
+                if self.exclusive_control() is False:
+                    # 対象レコードロック中のため処理をスキップ
+                    return False
+
                 # 作業対象のステータスを「実行中」に変更
                 conn.table_update('T_MENU_CREATE_HISTORY',[{'HISTORY_ID': queue.job_key, 'STATUS_ID': const.MENU_CREATE_EXEC, 'LAST_UPDATE_USER': const.MENU_CREATE_USER_ID}], 'HISTORY_ID', is_register_history=True)
                 conn.db_transaction_end(True)
@@ -118,11 +123,16 @@ class MenuCreateExecutor(BaseJobExecutor):
                 # 作業対象のステータスを「完了」に変更
                 conn.table_update('T_MENU_CREATE_HISTORY',[{'HISTORY_ID': self.queue.job_key, 'STATUS_ID': const.MENU_CREATE_COMP, 'LAST_UPDATE_USER': const.MENU_CREATE_USER_ID}], 'HISTORY_ID', is_register_history=True)
                 conn.db_transaction_end(True)
+                # 排他制御ロックを解除
+                self.exclusive_control_commit()
+
             else:
                 raise Exception
 
         except JobTimeoutException:
             conn.db_transaction_end(False)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
 
         except Exception:
@@ -131,6 +141,8 @@ class MenuCreateExecutor(BaseJobExecutor):
             # 作業対象のステータスを「完了(異常)」に変更
             conn.table_update('T_MENU_CREATE_HISTORY',[{'HISTORY_ID': self.queue.job_key, 'STATUS_ID': const.MENU_CREATE_ERR, 'LAST_UPDATE_USER': const.MENU_CREATE_USER_ID}], 'HISTORY_ID', is_register_history=True)
             conn.db_transaction_end(True)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
 
     def cancel(self, conn: DBConnectWs):
@@ -144,13 +156,20 @@ class MenuCreateExecutor(BaseJobExecutor):
             # 作業対象のステータスを「完了(異常)」に変更
             conn.table_update('T_MENU_CREATE_HISTORY',[{'HISTORY_ID': self.queue.job_key, 'STATUS_ID': const.MENU_CREATE_ERR, 'LAST_UPDATE_USER': const.MENU_CREATE_USER_ID}], 'HISTORY_ID', is_register_history=True)
             conn.db_transaction_end(True)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
 
         except JobTimeoutException:
             conn.db_transaction_end(False)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
+
         except Exception:
             g.applogger.error("[timestamp={}] {}".format(get_iso_datetime(), arrange_stacktrace_format(traceback.format_exc())))
             conn.db_transaction_end(False)
+            # 排他制御ロックを解除
+            self.exclusive_control_commit()
             raise
 
     @classmethod
@@ -159,9 +178,6 @@ class MenuCreateExecutor(BaseJobExecutor):
         """
         try:
             g.applogger.info("menu_create clean_up")
-            for i in range(1, 10 + 1):
-                g.applogger.debug(f"menu_create clean_up : {i}")
-                time.sleep(1)
 
             # DB接続
             while True:
