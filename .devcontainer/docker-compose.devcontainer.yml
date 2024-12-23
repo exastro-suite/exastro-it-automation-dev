@@ -1023,6 +1023,7 @@ services:
       - /mnt/mainte/talisman/.talismanrc:/mnt/mainte/talisman/.talismanrc
       - ~/.config/git/ignore:/home/app_user/.config/git/ignore
       - ${TALISMAN_HOME}:${TALISMAN_HOME}
+      - /var/run/docker.sock:/var/run/docker.sock
       - ../.vscode_extensions/ita-job-etl/.vscode-server/extensions:/home/app_user/.vscode-server/extensions
       - ../.vscode_extensions/ita-job-etl/.vscode-server-insiders/extensions:/home/app_user/.vscode-server-insiders/extensions
     environment:
@@ -1036,6 +1037,7 @@ services:
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
       - NETWORK_ID=${NETWORK_ID:-}
+      - ITA_REPO_ROOT=${ITA_REPO_ROOT:-}
       - EXT_PORT_ITA_UNITTEST_DB=${EXT_PORT_ITA_UNITTEST_DB:-3308}
       - ITA_DBMS=${ITA_DBMS:-mariadb}
       - TRACE_PROVIDER_ENDPOINT=${TRACE_PROVIDER_ENDPOINT}
@@ -1043,7 +1045,7 @@ services:
 
   ita-mariadb:
     ports:
-      - "0.0.0.0:${EXT_PORT_ITA_DB:-3307}:3306"
+      - "0.0.0.0:${EXT_PORT_ITA_DB:-3306}:3306"
 
   ita-db-mysql:
     image: mysql:8.0

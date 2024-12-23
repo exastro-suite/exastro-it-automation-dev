@@ -125,16 +125,23 @@ ARG GROUPNAME
 ARG APP_PATH
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
-    dnf install -y \
+    dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo \
+&&  dnf install -y \
     sudo \
     git \
     vim \
     diffutils \
     bind-utils \
     iputils \
+    docker-ce-cli \
+    jq \
 &&  usermod -G wheel $USERNAME \
 &&  echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
 &&  echo "%${GROUPNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    rpm -ivh https://dev.mysql.com/get/mysql80-community-release-el8-8.noarch.rpm \
+&&  dnf install -y mysql-community-client
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
     poetry install --with develop_build
