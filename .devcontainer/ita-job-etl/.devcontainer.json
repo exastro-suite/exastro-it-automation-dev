@@ -2,9 +2,13 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.231.6/containers/jekyll
 {
 	"name": "it-automation2 - ita-job-etl",
-	"dockerComposeFile": ["../docker-compose.yml", "../docker-compose.agent.oase.yml", "../docker-compose.devcontainer.yml", "../docker-compose.platform.yml"],
+	"dockerComposeFile": [
+		"../docker-compose.yml",
+		"../docker-compose.agent.oase.yml",
+		"../docker-compose.devcontainer.yml",
+		"../docker-compose.platform.yml"
+	],
 	"service": "ita-job-etl",
-	// Set *default* container specific settings.json values on container create.
 	"customizations": {
 		"vscode": {
 			// Set *default* container specific settings.json values on container create.
@@ -49,6 +53,20 @@
 				"python.formatting.autopep8Args": [
 					"--aggressive", "--aggressive",
 				],
+
+				"python.testing.cwd": "${workspaceFolder}/ita_root/ita_job_etl",
+				"python.testing.unittestEnabled": false,
+				"python.testing.pytestEnabled": true,
+				"python.testing.pytestArgs": [
+					"--cov=${workspaceFolder}/ita_root/ita_job_etl/",
+					"--cov-report=xml",
+				],
+				"python.testing.autoTestDiscoverOnSaveEnabled": true,
+				"coverage-gutters.showGutterCoverage": false,
+				"coverage-gutters.showLineCoverage": true,
+				"coverage-gutters.showRulerCoverage": false,
+				"coverage-gutters.coverageBaseDir": "ita_root/ita_job_etl",
+				"coverage-gutters.coverageReportFileName": "ita_root/ita_job_etl/coverage.xml",
 			},
 			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
@@ -70,33 +88,14 @@
 				// "mtxr.sqltools-driver-mysql",
 				"mitchdenny.ecdc",
 				"snyk-security.snyk-vulnerability-scanner",
+				"humao.rest-client",
+				"ryanluker.vscode-coverage-gutters",
 			],
 		},
 	},
-	"extensions": [
-		"donjayamanne.python-extension-pack",
-		"ms-python.vscode-pylance",
-		"ms-ceintl.vscode-language-pack-ja",
-		"ms-vscode.references-view",
-		"eamodio.gitlens",
-		"mhutchie.git-graph",
-		"redhat.vscode-yaml",
-		"hediet.vscode-drawio",
-		"oderwat.indent-rainbow",
-		"aaron-bond.better-comments",
-		//"sonarsource.sonarlint-vscode",
-		"mechatroner.rainbow-csv",
-		"ryu1kn.partial-diff",
-		"pkief.material-icon-theme",
-		// "mtxr.sqltools",
-		// "mtxr.sqltools-driver-mysql",
-		"mitchdenny.ecdc",
-		"snyk-security.snyk-vulnerability-scanner",
-	],
 	// // Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [
-	// 	8000
-	// ],
+	"forwardPorts": [
+	],
 	// Use 'postCreateCommand' to run commands after the container is created.
 	// "onCreateCommand":"sudo dnf install -y git vim diffutils bind-utils iputils && sudo pip3.9 install flake8 && sudo pip3.9 install autopep8",
 	// "postAttachCommand": "",
