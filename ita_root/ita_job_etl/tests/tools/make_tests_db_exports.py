@@ -91,7 +91,7 @@ def main():
         #
         # 接続先hostをunit test用に一時的に変更 / Temporarily change the connection destination host for unit test
         #
-        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_workspace_db_info')")
+        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_organization_db_info', 't_comn_workspace_db_info')")
         db_tables = cursor.fetchall()
         for db_table in db_tables:
             conn.begin()
@@ -146,7 +146,7 @@ def main():
     #
     with closing(__connect_admin()) as conn,\
             conn.cursor() as cursor:
-        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_workspace_db_info')")
+        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_organization_db_info', 't_comn_workspace_db_info')")
         db_tables = cursor.fetchall()
         for db_table in db_tables:
             conn.begin()
