@@ -36,6 +36,27 @@ def platform_api_origin():
     return f'http://{os.environ["PLATFORM_API_HOST"]}:{os.environ["PLATFORM_API_PORT"]}'
 
 
+def check_state(timeout: float, conditions, conditions_value=True):
+    """一定時間内に条件が成立するか判定する
+        Determine if the condition is met within a certain amount of time
+
+    Args:
+        timeout (float): timeout seconds
+        conditions (_type_): 条件関数 / condition function
+
+    Returns:
+        bool: True : 成立 / Established
+    """
+    timeout_time = datetime.datetime.now() + datetime.timedelta(seconds=timeout)
+    while datetime.datetime.now() < timeout_time:
+        result = conditions()
+        if result == conditions_value:
+            return True
+        time.sleep(0.1)
+    print(f"** check_state Last Value:{result}")
+    return False
+
+
 def requsts_mocker_default():
     """requstsのデフォルトmocker
 
@@ -56,3 +77,18 @@ def requsts_mocker_default():
         real_http=True)
 
     return requests_mocker
+
+
+def connect_admin() -> pymysql.connections.Connection:
+    conn = pymysql.connect(
+        host=os.environ.get('DB_HOST'),
+        database="",
+        user=os.environ.get('DB_ADMIN_USER'),
+        password=os.environ.get('DB_ADMIN_PASSWORD'),
+        port=int(os.environ.get('DB_PORT')),
+        charset='utf8mb4',
+        collation='utf8mb4_general_ci',
+        cursorclass=pymysql.cursors.DictCursor,
+        max_allowed_packet=536_870_912  # 512MB
+    )
+    return conn

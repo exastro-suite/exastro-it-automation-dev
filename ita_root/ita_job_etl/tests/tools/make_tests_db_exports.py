@@ -85,7 +85,7 @@ def main():
         #
         # get all table list
         #
-        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA LIKE 'ita_%' OR TABLE_SCHEMA IN ('{os.environ.get('DB_DATABASE')}')")
+        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE != 'VIEW' AND (TABLE_SCHEMA LIKE 'ita_%' OR TABLE_SCHEMA IN ('{os.environ.get('DB_DATABASE')}'))")
         tables = cursor.fetchall()
 
         #
@@ -128,7 +128,7 @@ def main():
             "SET foreign_key_checks = 0;\n"
         ])
         f.writelines([
-            f"DELETE FROM {table['TABLE_SCHEMA']}.{table['TABLE_NAME']};\n" for table in tables
+            f"DELETE FROM `{table['TABLE_SCHEMA']}`.`{table['TABLE_NAME']}`;\n" for table in tables
         ])
 
     subprocess.run(" ".join([
