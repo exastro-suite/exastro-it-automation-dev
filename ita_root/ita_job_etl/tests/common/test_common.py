@@ -35,6 +35,22 @@ def platform_api_origin():
     """
     return f'http://{os.environ["PLATFORM_API_HOST"]}:{os.environ["PLATFORM_API_PORT"]}'
 
+def ita_api_admin_origin():
+    """it automation admin url origin
+
+    Returns:
+        str: it automation admin url origin
+    """
+    return f'http://{os.environ["ITA_API_ADMIN_HOST"]}:{os.environ["ITA_API_ADMIN_PORT"]}'
+
+def ita_api_organization_origin():
+    """it automation organization url origin
+
+    Returns:
+        str: it automation admin url origin
+    """
+    return f'http://{os.environ["ITA_API_ORGANIZATION_HOST"]}:{os.environ["ITA_API_ORGANIZATION_PORT"]}'
+
 
 def check_state(timeout: float, conditions, conditions_value=True):
     """一定時間内に条件が成立するか判定する
@@ -67,14 +83,26 @@ def requsts_mocker_default():
 
     requests_mocker.register_uri(
         requests_mock.ANY,
+        re.compile(rf'^{platform_api_origin()}/'),
+        status_code=200,
+        json={"result": "000-00000", "message": ""})
+
+    requests_mocker.register_uri(
+        requests_mock.ANY,
         re.compile(rf'^{ita_api_admin_origin()}/'),
         status_code=200,
         json={"result": "000-00000", "message": ""})
 
     requests_mocker.register_uri(
         requests_mock.ANY,
-        re.compile(rf'^{keycloak_origin()}/'),
-        real_http=True)
+        re.compile(rf'^{ita_api_organization_origin()}/'),
+        status_code=200,
+        json={"result": "000-00000", "message": ""})
+
+    # requests_mocker.register_uri(
+    #     requests_mock.ANY,
+    #     re.compile(rf'^{keycloak_origin()}/'),
+    #     real_http=True)
 
     return requests_mocker
 
