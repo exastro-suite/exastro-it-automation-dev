@@ -19,6 +19,11 @@ env =
     ; Platformはmockするので要求は飛ばないが、間違って本物に飛ばないようにするため置き換える
     PLATFORM_API_HOST=dummy
     PLATFORM_API_PORT=7999
+    ; ITA API接続情報
+    ITA_API_ADMIN_HOST=unittest-ita-api-admin
+    ITA_API_ADMIN_PORT=8079
+    ITA_API_ORGANIZATION_HOST=unittest-ita-api-organization
+    ITA_API_ORGANIZATION_PORT=8000
 
     ; pytest起動時にunit test用のコンテナを起動するかの指定
     ;

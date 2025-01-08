@@ -24,7 +24,7 @@ from common_libs.common import const
 from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
 from common_libs.common.dbconnect.dbconnect_ws import DBConnectWs
 from common_libs.common.util import get_maintenance_mode_setting, get_iso_datetime, arrange_stacktrace_format
-from libs.menu_create.backyard_main import backyard_main
+from libs.menu_create import backyard_main
 
 import job_config as config
 
@@ -117,7 +117,7 @@ class MenuCreateExecutor(BaseJobExecutor):
         """
         try:
             # パラメータシート作成機能実行
-            result = backyard_main(conn, self.__menu_create_row)
+            result = backyard_main.backyard_main(conn, self.__menu_create_row)
             if result:
                 conn.db_transaction_start()
                 # 作業対象のステータスを「完了」に変更
