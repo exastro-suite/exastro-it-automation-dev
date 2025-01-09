@@ -63,6 +63,7 @@
 				"python.testing.pytestArgs": [
 					"--cov=${workspaceFolder}/ita_root/ita_job_etl/",
 					"--cov-report=xml",
+					"--cov-branch",
 				],
 				"python.testing.autoTestDiscoverOnSaveEnabled": true,
 				"coverage-gutters.showGutterCoverage": false,
