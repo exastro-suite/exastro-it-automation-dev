@@ -24,6 +24,8 @@ env =
     ITA_API_ADMIN_PORT=8079
     ITA_API_ORGANIZATION_HOST=unittest-ita-api-organization
     ITA_API_ORGANIZATION_PORT=8000
+    ; ストレージパス
+    STORAGEPATH=/workspace/ita_root/ita_job_etl/tests/storage/
 
     ; pytest起動時にunit test用のコンテナを起動するかの指定
     ;

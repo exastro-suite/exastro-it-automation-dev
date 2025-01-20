@@ -334,7 +334,7 @@ def test_menu_create_execute_cleanup_nomally():
     # 作業対象のステータスを取得
     ret = conn.sql_execute(queries_test_menu_create.SQL_SELECT_MENU_CREATE_HISTORY, {"history_id": job_key})
 
-    # ステータスIDが2(完了(実行中)のままであること
+    # ステータスIDが2(完了(実行中))のままであること
     assert ret[0].get("STATUS_ID") == const.MENU_CREATE_EXEC
 
     # 対象レコードのLAST_UPDATE_TIMESTAMPをjob_configのtimeout_secondsの値より過ぎた時刻に設定する
@@ -430,6 +430,8 @@ def test_menu_create_backyard_main():
 
     organization_id = list(testdata.ORGANIZATIONS.keys())[0]
     workspace_id = testdata.ORGANIZATIONS[organization_id]["workspace_id"][0]
+    g.ORGANIZATION_ID = organization_id
+    g.WORKSPACE_ID = workspace_id
 
     # パラメータシート定義・作成を実行し、パラメータシート作成ジョブが起動する条件を作成する（新規作成）。
     param_create_data_01 = sample_data_parametersheet_create_new()

@@ -91,8 +91,8 @@ def backyard_main(ws_db):
     # トランザクション終了
     ws_db.db_transaction_end(True)
 
-    # DB切断
-    ws_db.db_disconnect()
+     # DB切断
+    # ws_db.db_disconnect()
 
     g.applogger.debug("backyard_main ita_by_ansible_legacy_vars_listup end")
 

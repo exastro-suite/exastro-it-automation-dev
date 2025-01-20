@@ -6,3 +6,5 @@ backyard/
 pytest.ini
 /tests/temp/*
 !/tests/temp/.gitkeep
+tests/storage/*
+!tests/storage/.gitkeep
