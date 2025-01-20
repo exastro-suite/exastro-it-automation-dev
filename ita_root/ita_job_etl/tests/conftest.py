@@ -16,6 +16,7 @@ import pytest
 
 import os
 import os.path
+import shutil
 import glob
 # import connexion
 import requests
@@ -99,6 +100,27 @@ def data_initalize():
         databases = [database['SCHEMA_NAME'] for database in cursor.fetchall() if database['SCHEMA_NAME'] not in testdata.DATABASES]
         for database in databases:
             cursor.execute(f"DROP DATABASE {database['SCHEMA_NAME']}")
+
+        cursor.execute("SELECT * FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME LIKE 'ita_%'")
+
+    #
+    # Initialize the storage directory
+    #
+    storage_path = os.environ.get("STORAGEPATH")
+    if not storage_path == "/storage/":
+        # クリーンアップ
+        files_dir = [f for f in os.listdir(storage_path) if os.path.isdir(os.path.join(storage_path, f))]
+        for delete_dir in files_dir:
+            shutil.rmtree(storage_path + delete_dir)
+
+        # org/wsディレクトリ作成およびtarの展開
+        for org_id, data in testdata.ORGANIZATIONS.items():
+            org_path = storage_path + org_id
+            os.makedirs(org_path)
+            for ws_id in data.get("workspace_id"):
+                ws_path = org_path + "/" + ws_id
+                os.makedirs(ws_path)
+                shutil.unpack_archive(os.getcwd() + "/tests/sample_files/workspace_dir.tar.gz", ws_path)
 
 
 @pytest.fixture(autouse=True)

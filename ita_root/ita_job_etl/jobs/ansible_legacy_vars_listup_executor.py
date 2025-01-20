@@ -24,7 +24,7 @@ from common_libs.common import const
 from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
 from common_libs.common.dbconnect.dbconnect_ws import DBConnectWs
 from common_libs.common.util import get_maintenance_mode_setting, get_iso_datetime, arrange_stacktrace_format
-from libs.ansible_legacy_vars_listup.backyard_main import backyard_main
+from libs.ansible_legacy_vars_listup import backyard_main
 
 # import job_config as config
 
@@ -116,7 +116,7 @@ class AnsibleLegacyVarsListupExecutor(BaseJobExecutor):
         """
         try:
             # メイン機能実行
-            backyard_main(conn)
+            backyard_main.backyard_main(conn)
             # 排他制御ロックを解除
             self.exclusive_control_commit()
 
