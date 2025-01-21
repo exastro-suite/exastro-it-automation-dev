@@ -34,8 +34,8 @@ from common_libs.common.dbconnect.dbconnect_ws import DBConnectWs
 from common_libs.common import const
 
 
-def test_ansible_legacy_vars_listup_execute_nomally():
-    """ ansible legacy vars listup execute 正常系 /  ansible legacy vars listup execute nomally pattern
+def test_ansible_legacy_vars_listup_execute_normally():
+    """ ansible legacy vars listup execute 正常系 /  ansible legacy vars listup execute normally pattern
     """
     # 初期化 / Initialize
     JobLogging.initialize()
@@ -186,8 +186,8 @@ def test_ansible_legacy_vars_listup_execute_error():
     conn.db_disconnect()
 
 
-def test_ansible_legacy_vars_listup_execute_cancel_nomally():
-    """ ansible legacy vars listup execute キャンセル 正常系 /  ansible legacy vars listup execute cancel nomally pattern
+def test_ansible_legacy_vars_listup_execute_cancel_normally():
+    """ ansible legacy vars listup execute キャンセル 正常系 /  ansible legacy vars listup execute cancel normally pattern
     """
     # 初期化 / Initialize
     JobLogging.initialize()
@@ -307,8 +307,8 @@ def test_ansible_legacy_vars_listup_execute_cancel_error():
     conn.db_disconnect()
 
 
-def test_ansible_legacy_vars_listup_execute_cleanup_nomally():
-    """ ansible legacy vars listup execute クリーンアップ 正常系 /  ansible legacy vars listup execute cleanup nomally pattern
+def test_ansible_legacy_vars_listup_execute_cleanup_normally():
+    """ ansible legacy vars listup execute クリーンアップ 正常系 /  ansible legacy vars listup execute cleanup normally pattern
     """
     # クリーンアップによって実行される処理が無いため、AnsibleLegacyVarsListupExecutorをインスタンス化してclean_up処理が通ることのみを確認して終了
     # 初期化 / Initialize
@@ -347,7 +347,7 @@ def test_ansible_legacy_vars_listup_execute_cleanup_nomally():
 
 
 def test_ansible_legacy_vars_listup_backyard_main():
-    """ ansible legacy vars listup backyard main 正常系 /  ansible legacy vars listup backyard main nomally pattern
+    """ ansible legacy vars listup backyard main 正常系 /  ansible legacy vars listup backyard main normally pattern
     """
     # 初期化 / Initialize
     JobLogging.initialize()

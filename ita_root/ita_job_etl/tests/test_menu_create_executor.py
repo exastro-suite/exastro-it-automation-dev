@@ -32,8 +32,8 @@ from common_libs.common.dbconnect.dbconnect_ws import DBConnectWs
 from common_libs.common import const
 
 
-def test_menu_create_execute_nomally():
-    """menu create execute 正常系 / menu create execute nomally pattern
+def test_menu_create_execute_normally():
+    """menu create execute 正常系 / menu create execute normally pattern
     """
     # 初期化 / Initialize
     JobLogging.initialize()
@@ -186,8 +186,8 @@ def test_menu_create_execute_error():
     conn.db_disconnect()
 
 
-def test_menu_create_execute_cancel_nomally():
-    """menu create execute キャンセル 正常系 / menu create execute cancel nomally pattern
+def test_menu_create_execute_cancel_normally():
+    """menu create execute キャンセル 正常系 / menu create execute cancel normally pattern
     """
     # 初期化 / Initialize
     JobLogging.initialize()
@@ -297,8 +297,8 @@ def test_menu_create_execute_cancel_error():
     conn.db_disconnect()
 
 
-def test_menu_create_execute_cleanup_nomally():
-    """menu create execute クリーンアップ 正常系 / menu create execute cleanup nomally pattern
+def test_menu_create_execute_cleanup_normally():
+    """menu create execute クリーンアップ 正常系 / menu create execute cleanup normally pattern
     """
     # 初期化 / Initialize
     JobLogging.initialize()
@@ -420,7 +420,7 @@ def test_menu_create_execute_cleanup_error():
 
 
 def test_menu_create_backyard_main():
-    """menu create backyard main 正常系 / menu create backyard main nomally pattern
+    """menu create backyard main 正常系 / menu create backyard main normally pattern
     """
     # 初期化 / Initialize
     JobLogging.initialize()
