@@ -443,10 +443,17 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルダウンロード指定
+          description: Base64文字列形式でのファイル取得指定
           required: false
           schema:
             type: string
+          examples:
+            example1:
+              summary: ファイル取得なし
+              value: .../filter?file=no
+            example2:
+              summary: ファイル取得あり
+              value: .../filter
       responses:
         '200':
           description: Success
@@ -503,10 +510,17 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルダウンロード指定
+          description: Base64文字列形式でのファイル取得指定
           required: false
           schema:
             type: string
+          examples:
+            example1:
+              summary: ファイル取得なし
+              value: .../filter?file=no
+            example2:
+              summary: ファイル取得あり
+              value: .../filter
       requestBody:
         content:
           application/json:
@@ -989,15 +1003,27 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルデータの形式指定
+          description: ダウンロードするファイルの形式指定
           required: false
           schema:
             type: string
-          example: "?file=binary"
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../format/?file=binary
+            example2:
+              summary: Base64文字列形式（2.5.0以降非推奨）
+              value: .../format/
       responses:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -1006,10 +1032,8 @@ paths:
                     type: string
                     example: 000-00000
                   data:
-                    type: object
-                    properties:
-                      TABLE:
-                       $ref: '#/components/schemas/TABLE'
+                    type: string
+                    example: base64 string
                   message:
                     type: string
         '401':
@@ -1053,15 +1077,27 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルデータの形式指定
+          description: ダウンロードするファイルの形式指定
           required: false
           schema:
             type: string
-          example: "?file=binary"
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../excel/?file=binary
+            example2:
+              summary: Base64文字列形式（2.5.0以降非推奨）
+              value: .../excel/
       responses:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -1070,10 +1106,8 @@ paths:
                     type: string
                     example: 000-00000
                   data:
-                    type: object
-                    properties:
-                      TABLE:
-                       $ref: '#/components/schemas/TABLE'
+                    type: string
+                    example: base64 string
                   message:
                     type: string
         '401':
@@ -1115,20 +1149,43 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルデータの形式指定
+          description: ダウンロードするファイルの形式指定
           required: false
           schema:
             type: string
-          example: "?file=binary"
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../excel/?file=binary
+            example2:
+              summary: Base64文字列形式（2.5.0以降非推奨）
+              value: .../excel/
       requestBody:
         content:
           application/json:
             schema:
               description: 検索条件を設定
+              type: object
+              properties:
+                discard:
+                  type: string
+                  example: "0"
+                column_name:
+                  type: object
+                  properties:
+                    LIST:
+                      type: array
+                      example: ["value1", "value2"]
       responses:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -1137,10 +1194,8 @@ paths:
                     type: string
                     example: 000-00000
                   data:
-                    type: object
-                    properties:
-                      TABLE:
-                       $ref: '#/components/schemas/TABLE'
+                    type: string
+                    example: base64 string
                   message:
                     type: string
         '401':
@@ -1183,19 +1238,21 @@ paths:
             type: string
       requestBody:
         content:
-          application/json:
-            schema:
-              description: 検索条件を設定
           multipart/form-data:
+              example: |
+                ----------------------------XXXXXX
+                Content-Disposition: form-data; name="excel"; filename="xxxxx.xlsx"
+                Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+                (binary content of the file)
+                ----------------------------XXXXXX--
+          application/json:
             schema:
               description: 検索条件を設定
               type: object
               properties:
                 excel:
-                  description:
-                    excelファイルアップロードの対象を指定。
                   type: string
-                  format: binary
+                  example: base64 string
       responses:
         '200':
           description: Success
@@ -1210,8 +1267,17 @@ paths:
                   data:
                     type: object
                     properties:
-                      TABLE:
-                       $ref: '#/components/schemas/TABLE'
+                      Discard:
+                        type: number
+                      IdList:
+                        type: array
+                        example: []
+                      Register:
+                        type: number
+                      Restore:
+                        type: number
+                      Update:
+                        type: number
                   message:
                     type: string
         '401':
@@ -1255,15 +1321,27 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルデータの形式指定
+          description: ダウンロードするファイルの形式指定
           required: false
           schema:
             type: string
-          example: "?file=binary"
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../journal/?file=binary
+            example2:
+              summary: Base64文字列形式（2.5.0以降非推奨）
+              value: .../journal/
       responses:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -1272,10 +1350,8 @@ paths:
                     type: string
                     example: 000-00000
                   data:
-                    type: object
-                    properties:
-                      TABLE:
-                       $ref: '#/components/schemas/TABLE'
+                    type: string
+                    example: base64 string
                   message:
                     type: string
         '401':
@@ -3195,11 +3271,23 @@ paths:
           required: false
           schema:
             type: string
-          example: "?file=binary"
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../input_data/?file=binary
+            example2:
+              summary: Base64文字列形式(2.5.0以降非推奨)
+              value: .../input_data/
       responses:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -3269,11 +3357,23 @@ paths:
           required: false
           schema:
             type: string
-          example: "?file=binary"
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../result_data/?file=binary
+            example2:
+              summary: Base64文字列形式(2.5.0以降非推奨)
+              value: .../result_data/
       responses:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -4254,12 +4354,22 @@ paths:
             type: string
       requestBody:
         content:
-          application/json:
-            schema:
-              type: object
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/MENU_UPLOAD_FORM'
+          application/json:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: xxx.kym
+                    base64:
+                      type: string
+                      example: base64 string
       responses:
         '200':
           description: Success
@@ -4544,15 +4654,22 @@ paths:
             type: string
       requestBody:
         content:
-          application/json:
-            schema:
-              description: 検索条件を設定
-              properties:
-                rest_key_name:
-                  $ref: '#/components/schemas/FILTER_REQUEST_PARAMETERS'
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/EXCEL_BULK_UPLOAD_FORM'
+          application/json:
+            schema:
+              type: object
+              properties:
+                zipfile:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: xxx.zip
+                    base64:
+                      type: string
+                      example: base64 string
       responses:
         '200':
           description: Success
@@ -5105,10 +5222,17 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルダウンロード指定
+          description: ダウンロードするファイルの形式指定
           required: false
           schema:
             type: string
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../file?file=binary
+            example2:
+              summary: Base64文字列形式（2.5.0以降非推奨）
+              value: .../file
       requestBody:
         content:
           application/json:
@@ -5135,6 +5259,12 @@ paths:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -5143,7 +5273,8 @@ paths:
                     type: string
                     example: 000-00000
                   data:
-                    type: object
+                    type: string
+                    example: "base64 string"
                   message:
                     type: string
         '401':
@@ -5819,11 +5950,17 @@ paths:
             type: string
         - name: file
           in: query
-          description: ファイルデータの形式指定
+          description: ダウンロードするファイルの形式指定
           required: false
           schema:
             type: string
-          example: "?file=binary"
+          examples:
+            example1:
+              summary: バイナリ形式
+              value: .../download/{policy_name}/?file=binary
+            example2:
+              summary: Base64文字列形式（2.5.0以降非推奨）
+              value: .../download/{policy_name}/
       requestBody:
         content:
           application/json:
@@ -5837,6 +5974,12 @@ paths:
         '200':
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 type: object
@@ -5846,6 +5989,13 @@ paths:
                     example: 000-00000
                   data:
                     type: object
+                    properties:
+                      file:
+                        type: string
+                        example: base64 string
+                      file_name:
+                        type: string
+
                   message:
                     type: string
         '401':
@@ -6836,7 +6986,7 @@ components:
           properties:
             rest_key_name:
               type: string
-              example: base64 encode file
+              example: base64 encode file（empty string if ?file=no）
 
     MAINTENANCE_PARAMETER_P:
       type: object
@@ -7093,20 +7243,20 @@ components:
               }
 
     MENU_UPLOAD_FORM:
-      type: object
-      properties:
-        file:
-          description: インポート対象のkymファイルを指定。
-          type: string
-          format: binary
+      example: |
+        ----------------------------XXXXXXXXXXXXX
+        Content-Disposition: form-data; name="ita_exportdata_XXXXXXXXXXXX.kym"; filename="ita_exportdata_XXXXXXXXXXXX.kym"
+        Content-Type: application/octet-stream
+        (binary content of the file)
+        ----------------------------XXXXXXXXXXXXX--
 
     EXCEL_BULK_UPLOAD_FORM:
-      type: object
-      properties:
-        zipfile:
-          description: インポート対象をまとめたzipファイルを指定。
-          type: string
-          format: binary
+      example: |
+        ----------------------------XXXXXXXXXXXXX
+        Content-Disposition: form-data; name="ITA_FILES_XXXXXXXXXXXXXXXXX.zip"; filename="ITA_FILES_XXXXXXXXXXXXXXXXX.zip"
+        Content-Type: application/x-zip-compressed
+        (binary content of the file)
+        ----------------------------XXXXXXXXXXXXX--
 
     ApplyParameterTypeA:
       type: array

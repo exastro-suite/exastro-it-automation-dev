@@ -414,12 +414,19 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルダウンロード指定
+        description: Base64文字列形式でのファイル取得指定
         required: false
         style: form
         explode: true
         schema:
           type: string
+        examples:
+          example1:
+            summary: ファイル取得なし
+            value: '.../filter?file=no'
+          example2:
+            summary: ファイル取得あり
+            value: '.../filter'
       responses:
         "200":
           description: Success
@@ -472,12 +479,19 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルダウンロード指定
+        description: Base64文字列形式でのファイル取得指定
         required: false
         style: form
         explode: true
         schema:
           type: string
+        examples:
+          example1:
+            summary: ファイル取得なし
+            value: '.../filter?file=no'
+          example2:
+            summary: ファイル取得あり
+            value: '.../filter'
       requestBody:
         content:
           application/json:
@@ -933,17 +947,29 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルデータの形式指定
+        description: ダウンロードするファイルの形式指定
         required: false
         style: form
         explode: true
         schema:
           type: string
-        example: ?file=binary
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: '.../format/?file=binary'
+          example2:
+            summary: Base64文字列形式（2.5.0以降非推奨）
+            value: '.../format/'
       responses:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 $ref: '#/components/schemas/inline_response_200_7'
@@ -993,17 +1019,29 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルデータの形式指定
+        description: ダウンロードするファイルの形式指定
         required: false
         style: form
         explode: true
         schema:
           type: string
-        example: ?file=binary
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: '.../excel/?file=binary'
+          example2:
+            summary: Base64文字列形式（2.5.0以降非推奨）
+            value: '.../excel/'
       responses:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 $ref: '#/components/schemas/inline_response_200_7'
@@ -1052,22 +1090,34 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルデータの形式指定
+        description: ダウンロードするファイルの形式指定
         required: false
         style: form
         explode: true
         schema:
           type: string
-        example: ?file=binary
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: '.../excel/?file=binary'
+          example2:
+            summary: Base64文字列形式（2.5.0以降非推奨）
+            value: '.../excel/'
       requestBody:
         content:
           application/json:
             schema:
-              description: 検索条件を設定
+              $ref: '#/components/schemas/menu_excel_body'
       responses:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 $ref: '#/components/schemas/inline_response_200_7'
@@ -1117,10 +1167,14 @@ paths:
           type: string
       requestBody:
         content:
-          application/json:
-            schema:
-              description: 検索条件を設定
           multipart/form-data:
+            example: |
+              ----------------------------XXXXXX
+              Content-Disposition: form-data; name="excel"; filename="xxxxx.xlsx"
+              Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+              (binary content of the file)
+              ----------------------------XXXXXX--
+          application/json:
             schema:
               $ref: '#/components/schemas/excel_maintenance_body'
       responses:
@@ -1129,7 +1183,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_7'
+                $ref: '#/components/schemas/inline_response_200_8'
         "401":
           description: Unauthorized
           content:
@@ -1176,17 +1230,29 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルデータの形式指定
+        description: ダウンロードするファイルの形式指定
         required: false
         style: form
         explode: true
         schema:
           type: string
-        example: ?file=binary
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: '.../journal/?file=binary'
+          example2:
+            summary: Base64文字列形式（2.5.0以降非推奨）
+            value: '.../journal/'
       responses:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
                 $ref: '#/components/schemas/inline_response_200_7'
@@ -1232,7 +1298,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_8'
+                $ref: '#/components/schemas/inline_response_200_9'
         "401":
           description: Unauthorized
           content:
@@ -1275,7 +1341,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_9'
+                $ref: '#/components/schemas/inline_response_200_10'
         "401":
           description: Unauthorized
           content:
@@ -1318,7 +1384,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_10'
+                $ref: '#/components/schemas/inline_response_200_11'
         "401":
           description: Unauthorized
           content:
@@ -1367,7 +1433,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1410,7 +1476,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1458,7 +1524,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1501,7 +1567,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_12'
+                $ref: '#/components/schemas/inline_response_200_13'
         "401":
           description: Unauthorized
           content:
@@ -1549,7 +1615,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1592,7 +1658,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1643,7 +1709,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1702,7 +1768,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1761,7 +1827,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -1804,7 +1870,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_13'
+                $ref: '#/components/schemas/inline_response_200_14'
         "401":
           description: Unauthorized
           content:
@@ -1847,7 +1913,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_14'
+                $ref: '#/components/schemas/inline_response_200_15'
         "401":
           description: Unauthorized
           content:
@@ -1895,7 +1961,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_15'
+                $ref: '#/components/schemas/inline_response_200_16'
         "401":
           description: Unauthorized
           content:
@@ -1946,7 +2012,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_15'
+                $ref: '#/components/schemas/inline_response_200_16'
         "401":
           description: Unauthorized
           content:
@@ -1997,7 +2063,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_16'
+                $ref: '#/components/schemas/inline_response_200_17'
         "401":
           description: Unauthorized
           content:
@@ -2113,7 +2179,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -2178,7 +2244,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -2229,7 +2295,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_17'
+                $ref: '#/components/schemas/inline_response_200_18'
         "401":
           description: Unauthorized
           content:
@@ -2411,7 +2477,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_16'
+                $ref: '#/components/schemas/inline_response_200_17'
         "401":
           description: Unauthorized
           content:
@@ -2526,7 +2592,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -2585,7 +2651,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_16'
+                $ref: '#/components/schemas/inline_response_200_17'
         "401":
           description: Unauthorized
           content:
@@ -2644,7 +2710,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_18'
+                $ref: '#/components/schemas/inline_response_200_19'
         "401":
           description: Unauthorized
           content:
@@ -2708,7 +2774,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -2772,7 +2838,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -2844,7 +2910,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -2905,14 +2971,26 @@ paths:
         explode: true
         schema:
           type: string
-        example: ?file=binary
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: '.../input_data/?file=binary'
+          example2:
+            summary: Base64文字列形式(2.5.0以降非推奨)
+            value: '.../input_data/'
       responses:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_19'
+                $ref: '#/components/schemas/inline_response_200_20'
         "401":
           description: Unauthorized
           content:
@@ -2973,14 +3051,26 @@ paths:
         explode: true
         schema:
           type: string
-        example: ?file=binary
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: '.../result_data/?file=binary'
+          example2:
+            summary: Base64文字列形式(2.5.0以降非推奨)
+            value: '.../result_data/'
       responses:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_20'
+                $ref: '#/components/schemas/inline_response_200_21'
         "401":
           description: Unauthorized
           content:
@@ -3036,7 +3126,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_21'
+                $ref: '#/components/schemas/inline_response_200_22'
         "401":
           description: Unauthorized
           content:
@@ -3094,7 +3184,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_21'
+                $ref: '#/components/schemas/inline_response_200_22'
         "401":
           description: Unauthorized
           content:
@@ -3150,7 +3240,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_21'
+                $ref: '#/components/schemas/inline_response_200_22'
         "401":
           description: Unauthorized
           content:
@@ -3206,7 +3296,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_21'
+                $ref: '#/components/schemas/inline_response_200_22'
         "401":
           description: Unauthorized
           content:
@@ -3265,7 +3355,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -3324,7 +3414,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -3383,7 +3473,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -3442,7 +3532,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -3501,7 +3591,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -3552,7 +3642,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_22'
+                $ref: '#/components/schemas/inline_response_200_23'
         "401":
           description: Unauthorized
           content:
@@ -3726,7 +3816,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_23'
+                $ref: '#/components/schemas/inline_response_200_24'
         "401":
           description: Unauthorized
           content:
@@ -3774,7 +3864,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_24'
+                $ref: '#/components/schemas/inline_response_200_25'
         "401":
           description: Unauthorized
           content:
@@ -3813,19 +3903,19 @@ paths:
           type: string
       requestBody:
         content:
-          application/json:
-            schema:
-              type: object
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/MENU_UPLOAD_FORM'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/import_upload_body'
       responses:
         "200":
           description: Success
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_25'
+                $ref: '#/components/schemas/inline_response_200_26'
         "401":
           description: Unauthorized
           content:
@@ -3873,7 +3963,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_24'
+                $ref: '#/components/schemas/inline_response_200_25'
         "401":
           description: Unauthorized
           content:
@@ -4003,12 +4093,12 @@ paths:
           type: string
       requestBody:
         content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/bulk_upload_body'
           multipart/form-data:
             schema:
               $ref: '#/components/schemas/EXCEL_BULK_UPLOAD_FORM'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/bulk_upload_body'
       responses:
         "200":
           description: Success
@@ -4165,7 +4255,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_26'
+                $ref: '#/components/schemas/inline_response_200_27'
         "401":
           description: Unauthorized
           content:
@@ -4417,7 +4507,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_27'
+                $ref: '#/components/schemas/inline_response_200_28'
         "401":
           description: Unauthorized
           content:
@@ -4464,12 +4554,19 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルダウンロード指定
+        description: ダウンロードするファイルの形式指定
         required: false
         style: form
         explode: true
         schema:
           type: string
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: '.../file?file=binary'
+          example2:
+            summary: Base64文字列形式（2.5.0以降非推奨）
+            value: '.../file'
       requestBody:
         content:
           application/json:
@@ -4479,9 +4576,15 @@ paths:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_6'
+                $ref: '#/components/schemas/inline_response_200_7'
         "401":
           description: Unauthorized
           content:
@@ -5106,13 +5209,19 @@ paths:
           type: string
       - name: file
         in: query
-        description: ファイルデータの形式指定
+        description: ダウンロードするファイルの形式指定
         required: false
         style: form
         explode: true
         schema:
           type: string
-        example: ?file=binary
+        examples:
+          example1:
+            summary: バイナリ形式
+            value: ".../download/{policy_name}/?file=binary"
+          example2:
+            summary: Base64文字列形式（2.5.0以降非推奨）
+            value: ".../download/{policy_name}/"
       requestBody:
         content:
           application/json:
@@ -5122,9 +5231,15 @@ paths:
         "200":
           description: Success
           content:
+            application/octet-stream:
+              example: |
+                The API retruns the file in binary format if the query parameter file=binary is included.
+                The file name is referenced from the "filename" parameter in the HTTP header "Content-Dispositon"
+                クエリパラメータにfile=binaryが含まれる場合は、ファイルはバイナリ形式で返されます。
+                ファイル名は、HTTPヘッダーの"Content-Disposition"に含まれる"filename"を参照します。
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_6'
+                $ref: '#/components/schemas/inline_response_200_29'
         "401":
           description: Unauthorized
           content:
@@ -5470,7 +5585,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -5521,7 +5636,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -5675,7 +5790,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_28'
+                $ref: '#/components/schemas/inline_response_200_30'
         "401":
           description: Unauthorized
           content:
@@ -5723,7 +5838,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_11'
+                $ref: '#/components/schemas/inline_response_200_12'
         "401":
           description: Unauthorized
           content:
@@ -5749,7 +5864,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_29'
+                $ref: '#/components/schemas/inline_response_200_31'
         default:
           description: An unexpected error response.
           content:
@@ -5769,7 +5884,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/inline_response_200_29'
+                $ref: '#/components/schemas/inline_response_200_31'
         default:
           description: An unexpected error response.
           content:
@@ -5790,11 +5905,6 @@ components:
           type: object
         UNIQUE_VAL:
           type: object
-      example:
-        TD: {}
-        TD_IHP: {}
-        PAGE_NO: 0
-        UNIQUE_VAL: {}
     COLUMN_GROUP_INFO:
       type: object
       additionalProperties:
@@ -6065,7 +6175,7 @@ components:
           $ref: '#/components/schemas/FILTER_PARAMETERS_file'
       example:
         file:
-          rest_key_name: base64 encode file
+          rest_key_name: base64 encode file（empty string if ?file=no）
         parameter:
           rest_key_name: rest_key_name
     MAINTENANCE_PARAMETER_P:
@@ -6085,7 +6195,7 @@ components:
         parameter:
           $ref: '#/components/schemas/FILTER_PARAMETERS_parameter'
         file:
-          $ref: '#/components/schemas/FILTER_PARAMETERS_file'
+          $ref: '#/components/schemas/MAINTENANCE_PARAMETERS_file'
         type:
           type: string
           example: Register/Update
@@ -6306,19 +6416,19 @@ components:
             menu_id: メニューID
             execution_id: 作業ID
     MENU_UPLOAD_FORM:
-      type: object
-      properties:
-        file:
-          type: string
-          description: インポート対象のkymファイルを指定。
-          format: binary
+      example: |
+        ----------------------------XXXXXXXXXXXXX
+        Content-Disposition: form-data; name="ita_exportdata_XXXXXXXXXXXX.kym"; filename="ita_exportdata_XXXXXXXXXXXX.kym"
+        Content-Type: application/octet-stream
+        (binary content of the file)
+        ----------------------------XXXXXXXXXXXXX--
     EXCEL_BULK_UPLOAD_FORM:
-      type: object
-      properties:
-        zipfile:
-          type: string
-          description: インポート対象をまとめたzipファイルを指定。
-          format: binary
+      example: |
+        ----------------------------XXXXXXXXXXXXX
+        Content-Disposition: form-data; name="ITA_FILES_XXXXXXXXXXXXXXXXX.zip"; filename="ITA_FILES_XXXXXXXXXXXXXXXXX.zip"
+        Content-Type: application/x-zip-compressed
+        (binary content of the file)
+        ----------------------------XXXXXXXXXXXXX--
     ApplyParameterTypeA:
       type: array
       items:
@@ -6537,11 +6647,11 @@ components:
         result: 000-00000
         data:
         - file:
-            rest_key_name: base64 encode file
+            rest_key_name: base64 encode file（empty string if ?file=no）
           parameter:
             rest_key_name: rest_key_name
         - file:
-            rest_key_name: base64 encode file
+            rest_key_name: base64 encode file（empty string if ?file=no）
           parameter:
             rest_key_name: rest_key_name
         message: message
@@ -6585,25 +6695,33 @@ components:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_7_data'
+          type: string
+          example: base64 string
         message:
           type: string
-      example:
-        result: 000-00000
-        data:
-          TABLE:
-            TD: {}
-            TD_IHP: {}
-            PAGE_NO: 0
-            UNIQUE_VAL: {}
-        message: message
+    apiorganization_idworkspacesworkspace_iditamenumenuexcel_column_name:
+      type: object
+      properties:
+        LIST:
+          type: array
+          example:
+          - value1
+          - value2
+    menu_excel_body:
+      type: object
+      properties:
+        discard:
+          type: string
+          example: "0"
+        column_name:
+          $ref: '#/components/schemas/apiorganization_idworkspacesworkspace_iditamenumenuexcel_column_name'
+      description: 検索条件を設定
     excel_maintenance_body:
       type: object
       properties:
         excel:
           type: string
-          description: excelファイルアップロードの対象を指定。
-          format: binary
+          example: base64 string
       description: 検索条件を設定
     inline_response_200_8:
       type: object
@@ -6613,6 +6731,25 @@ components:
           example: 000-00000
         data:
           $ref: '#/components/schemas/inline_response_200_8_data'
+        message:
+          type: string
+      example:
+        result: 000-00000
+        data:
+          Register: 6.02745618307040320615897144307382404804229736328125
+          Discard: 0.80082819046101150206595775671303272247314453125
+          Update: 5.962133916683182377482808078639209270477294921875
+          Restore: 1.46581298050294517310021547018550336360931396484375
+          IdList: []
+        message: message
+    inline_response_200_9:
+      type: object
+      properties:
+        result:
+          type: string
+          example: 000-00000
+        data:
+          $ref: '#/components/schemas/inline_response_200_9_data'
         message:
           type: string
           example: SUCCESS
@@ -6631,14 +6768,14 @@ components:
           - workspace2
           - workspace3
         message: SUCCESS
-    inline_response_200_9:
+    inline_response_200_10:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_9_data'
+          $ref: '#/components/schemas/inline_response_200_10_data'
         message:
           type: string
           example: SUCCESS
@@ -6698,7 +6835,7 @@ components:
               menu_name: メニュー9
               menu_name_rest: menu_9
         message: SUCCESS
-    inline_response_200_10:
+    inline_response_200_11:
       type: object
       properties:
         result:
@@ -6720,7 +6857,7 @@ components:
         data:
           key: data
         message: SUCCESS
-    inline_response_200_11:
+    inline_response_200_12:
       type: object
       properties:
         result:
@@ -6734,7 +6871,7 @@ components:
         result: 000-00000
         data: true
         message: message
-    inline_response_200_12:
+    inline_response_200_13:
       type: object
       properties:
         result:
@@ -6757,7 +6894,7 @@ components:
           - string
           - string
         message: message
-    inline_response_200_13:
+    inline_response_200_14:
       type: object
       properties:
         result:
@@ -6781,7 +6918,7 @@ components:
           hostgroup: []
           parameter_sheet: []
         message: message
-    inline_response_200_14:
+    inline_response_200_15:
       type: object
       properties:
         result:
@@ -6803,7 +6940,7 @@ components:
           filter_name: xxx
           filter_json: xxx
         message: message
-    inline_response_200_15:
+    inline_response_200_16:
       type: object
       properties:
         result:
@@ -6814,14 +6951,14 @@ components:
       example:
         result: 000-00000
         message: message
-    inline_response_200_16:
+    inline_response_200_17:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_16_data'
+          $ref: '#/components/schemas/inline_response_200_17_data'
         message:
           type: string
       example:
@@ -6866,14 +7003,14 @@ components:
             - id: string
               name: string
         message: message
-    inline_response_200_17:
+    inline_response_200_18:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_17_data'
+          $ref: '#/components/schemas/inline_response_200_18_data'
         message:
           type: string
       example:
@@ -6965,14 +7102,14 @@ components:
         conductor_data:
           type: object
       description: 作業実行するConductorの構成情報
-    inline_response_200_18:
+    inline_response_200_19:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_18_data'
+          $ref: '#/components/schemas/inline_response_200_19_data'
         message:
           type: string
       example:
@@ -7009,22 +7146,6 @@ components:
             conductor_instance_id: ConductorインスタンスID
           conductor_class: {}
         message: message
-    inline_response_200_19:
-      type: object
-      properties:
-        result:
-          type: string
-          example: 000-00000
-        data:
-          $ref: '#/components/schemas/inline_response_200_19_data'
-        message:
-          type: string
-      example:
-        result: 000-00000
-        data:
-          file_name: "InputData_Conductor_{conductor_instance_id}.zip"
-          file_data: All movement input data zip base64 string
-        message: message
     inline_response_200_20:
       type: object
       properties:
@@ -7035,12 +7156,16 @@ components:
           $ref: '#/components/schemas/inline_response_200_20_data'
         message:
           type: string
-      example:
-        result: 000-00000
+    inline_response_200_21:
+      type: object
+      properties:
+        result:
+          type: string
+          example: 000-00000
         data:
-          file_name: "ResultData_Conductor_{conductor_instance_id}.zip"
-          file_data: All movement result data zip base64 string
-        message: message
+          $ref: '#/components/schemas/inline_response_200_21_data'
+        message:
+          type: string
     driver_execute_body:
       type: object
       properties:
@@ -7052,7 +7177,7 @@ components:
           type: string
           example: YYYY/MM/DD hh:mm
       description: 作業実行するDriverの構成情報
-    inline_response_200_21:
+    inline_response_200_22:
       type: object
       properties:
         result:
@@ -7097,14 +7222,14 @@ components:
         tf_workspace_name:
           type: string
       description: 作業実行するDriverの構成情報
-    inline_response_200_22:
+    inline_response_200_23:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_22_data'
+          $ref: '#/components/schemas/inline_response_200_23_data'
         message:
           type: string
       example:
@@ -7183,14 +7308,14 @@ components:
         rest_key_name:
           $ref: '#/components/schemas/FILTER_REQUEST_PARAMETERS'
       description: 検索条件を設定
-    inline_response_200_23:
+    inline_response_200_24:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_23_data'
+          $ref: '#/components/schemas/inline_response_200_24_data'
         message:
           type: string
       example:
@@ -7240,21 +7365,6 @@ components:
           - <menu_name_rest 1>
           - <menu_name_rest 2>
           items: {}
-    inline_response_200_24:
-      type: object
-      properties:
-        result:
-          type: string
-          example: 000-00000
-        data:
-          $ref: '#/components/schemas/inline_response_200_24_data'
-        message:
-          type: string
-      example:
-        result: 000-00000
-        data:
-          execution_no: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-        message: message
     inline_response_200_25:
       type: object
       properties:
@@ -7263,6 +7373,35 @@ components:
           example: 000-00000
         data:
           $ref: '#/components/schemas/inline_response_200_25_data'
+        message:
+          type: string
+      example:
+        result: 000-00000
+        data:
+          execution_no: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+        message: message
+    apiorganization_idworkspacesworkspace_iditamenuimportupload_file:
+      type: object
+      properties:
+        name:
+          type: string
+          example: xxx.kym
+        base64:
+          type: string
+          example: base64 string
+    import_upload_body:
+      type: object
+      properties:
+        file:
+          $ref: '#/components/schemas/apiorganization_idworkspacesworkspace_iditamenuimportupload_file'
+    inline_response_200_26:
+      type: object
+      properties:
+        result:
+          type: string
+          example: 000-00000
+        data:
+          $ref: '#/components/schemas/inline_response_200_26_data'
         message:
           type: string
       example:
@@ -7330,24 +7469,33 @@ components:
         rest_key_name:
           $ref: '#/components/schemas/FILTER_REQUEST_PARAMETERS'
       description: 検索条件を設定
-    bulk_upload_body:
+    apiorganization_idworkspacesworkspace_iditaexcelbulkupload_zipfile:
+      type: object
       properties:
-        rest_key_name:
-          $ref: '#/components/schemas/FILTER_REQUEST_PARAMETERS'
-      description: 検索条件を設定
+        name:
+          type: string
+          example: xxx.zip
+        base64:
+          type: string
+          example: base64 string
+    bulk_upload_body:
+      type: object
+      properties:
+        zipfile:
+          $ref: '#/components/schemas/apiorganization_idworkspacesworkspace_iditaexcelbulkupload_zipfile'
     import_execute_body_1:
       properties:
         rest_key_name:
           $ref: '#/components/schemas/FILTER_REQUEST_PARAMETERS'
       description: 検索条件を設定
-    inline_response_200_26:
+    inline_response_200_27:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_26_data'
+          $ref: '#/components/schemas/inline_response_200_27_data'
         message:
           type: string
       example:
@@ -7458,14 +7606,14 @@ components:
           items:
             example: host_name
       description: 比較条件を設定
-    inline_response_200_27:
+    inline_response_200_28:
       type: object
       properties:
         result:
           type: string
           example: 000-00000
         data:
-          $ref: '#/components/schemas/inline_response_200_27_data'
+          $ref: '#/components/schemas/inline_response_200_28_data'
         message:
           type: string
       example:
@@ -7528,6 +7676,16 @@ components:
           type: string
           example: /api/v2/policies/pol-xxxxxxxxxx/download
       description: policyコードのダウンロードパスを記載
+    inline_response_200_29:
+      type: object
+      properties:
+        result:
+          type: string
+          example: 000-00000
+        data:
+          $ref: '#/components/schemas/inline_response_200_29_data'
+        message:
+          type: string
     filter_menu_body:
       properties:
         rest_key_name:
@@ -7551,7 +7709,7 @@ components:
           type: boolean
           example: false
       description: 検索条件を指定
-    inline_response_200_28:
+    inline_response_200_30:
       type: object
       properties:
         result:
@@ -7561,7 +7719,7 @@ components:
           type: array
           example: []
           items:
-            $ref: '#/components/schemas/inline_response_200_28_data'
+            $ref: '#/components/schemas/inline_response_200_30_data'
         message:
           type: string
       example:
@@ -7588,7 +7746,7 @@ components:
           - $ref: '#/components/schemas/ApplyParameterTypeC'
           - $ref: '#/components/schemas/ApplyParameterTypeD'
       description: 適用するパラメータ情報および作業実行するConductorの構成情報
-    inline_response_200_29:
+    inline_response_200_31:
       type: object
       properties:
         result:
@@ -7622,9 +7780,15 @@ components:
       properties:
         rest_key_name:
           type: string
-          example: base64 encode file
+          example: base64 encode file（empty string if ?file=no）
       example:
-        rest_key_name: base64 encode file
+        rest_key_name: base64 encode file（empty string if ?file=no）
+    MAINTENANCE_PARAMETERS_file:
+      type: object
+      properties:
+        rest_key_name:
+          type: string
+          example: base64 encode file
     NODE_RESULT_node_name:
       type: object
       properties:
@@ -7729,7 +7893,7 @@ components:
         parameter:
           $ref: '#/components/schemas/FILTER_PARAMETERS_parameter'
         file:
-          $ref: '#/components/schemas/FILTER_PARAMETERS_file'
+          $ref: '#/components/schemas/MAINTENANCE_PARAMETERS_file'
     inline_response_200_data:
       type: object
       properties:
@@ -7805,18 +7969,27 @@ components:
             column_type: 0
             column_group_name: column_group_name
             ref_sort_conditions: ref_sort_conditions
-    inline_response_200_7_data:
+    inline_response_200_8_data:
       type: object
       properties:
-        TABLE:
-          $ref: '#/components/schemas/TABLE'
+        Discard:
+          type: number
+        IdList:
+          type: array
+          example: []
+        Register:
+          type: number
+        Restore:
+          type: number
+        Update:
+          type: number
       example:
-        TABLE:
-          TD: {}
-          TD_IHP: {}
-          PAGE_NO: 0
-          UNIQUE_VAL: {}
-    inline_response_200_8_data:
+        Register: 6.02745618307040320615897144307382404804229736328125
+        Discard: 0.80082819046101150206595775671303272247314453125
+        Update: 5.962133916683182377482808078639209270477294921875
+        Restore: 1.46581298050294517310021547018550336360931396484375
+        IdList: []
+    inline_response_200_9_data:
       type: object
       properties:
         roles:
@@ -7847,7 +8020,7 @@ components:
         - workspace1
         - workspace2
         - workspace3
-    inline_response_200_9_data:
+    inline_response_200_10_data:
       type: object
       properties:
         menu_groups:
@@ -7956,7 +8129,7 @@ components:
             id: "10109"
             menu_name: メニュー9
             menu_name_rest: menu_9
-    inline_response_200_16_data:
+    inline_response_200_17_data:
       type: object
       properties:
         list:
@@ -8002,7 +8175,7 @@ components:
           conductors:
           - id: string
             name: string
-    inline_response_200_17_data:
+    inline_response_200_18_data:
       type: object
       properties:
         conductor_list:
@@ -8077,7 +8250,7 @@ components:
               column_type: 0
               column_group_name: column_group_name
               ref_sort_conditions: ref_sort_conditions
-    inline_response_200_18_data:
+    inline_response_200_19_data:
       type: object
       properties:
         conductor_class:
@@ -8117,7 +8290,7 @@ components:
           remarks: 備考
           conductor_instance_id: ConductorインスタンスID
         conductor_class: {}
-    inline_response_200_19_data:
+    inline_response_200_20_data:
       type: object
       properties:
         file_name:
@@ -8126,10 +8299,7 @@ components:
         file_data:
           type: string
           example: All movement input data zip base64 string
-      example:
-        file_name: "InputData_Conductor_{conductor_instance_id}.zip"
-        file_data: All movement input data zip base64 string
-    inline_response_200_20_data:
+    inline_response_200_21_data:
       type: object
       properties:
         file_name:
@@ -8138,10 +8308,7 @@ components:
         file_data:
           type: string
           example: All movement result data zip base64 string
-      example:
-        file_name: "ResultData_Conductor_{conductor_instance_id}.zip"
-        file_data: All movement result data zip base64 string
-    inline_response_200_22_data:
+    inline_response_200_23_data:
       type: object
       properties:
         movement_list:
@@ -8216,7 +8383,7 @@ components:
               column_type: 0
               column_group_name: column_group_name
               ref_sort_conditions: ref_sort_conditions
-    inline_response_200_23_data:
+    inline_response_200_24_data:
       type: object
       properties:
         menu_groups:
@@ -8253,7 +8420,7 @@ components:
               id: "10101"
               menu_name: システム設定
               menu_name_rest: system_settings
-    inline_response_200_24_data:
+    inline_response_200_25_data:
       type: object
       properties:
         execution_no:
@@ -8261,7 +8428,7 @@ components:
           example: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
       example:
         execution_no: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    inline_response_200_25_data_import_list:
+    inline_response_200_26_data_import_list:
       properties:
         menu_groups:
           type: array
@@ -8315,7 +8482,7 @@ components:
                 menu_name_en: System settings
                 menu_name_ja: システム設定
                 menu_name_rest: system_settings
-    inline_response_200_25_data:
+    inline_response_200_26_data:
       type: object
       properties:
         upload_id:
@@ -8337,7 +8504,7 @@ components:
           type: string
           example: "1: 履歴あり / 2: 履歴なし"
         import_list:
-          $ref: '#/components/schemas/inline_response_200_25_data_import_list'
+          $ref: '#/components/schemas/inline_response_200_26_data_import_list'
       example:
         mode: "1: 環境移行 / 2: 時刻指定"
         upload_id: xxxxxxxxxxxxxxxxxxxxxxxx
@@ -8377,7 +8544,7 @@ components:
         specified_time: YYYY/MM/DD hh:mm
         abolished_type: "1: 廃止を含む / 2: 廃止を除く"
         journal_type: "1: 履歴あり / 2: 履歴なし"
-    inline_response_200_26_data:
+    inline_response_200_27_data:
       type: object
       properties:
         compare_list:
@@ -8452,7 +8619,7 @@ components:
               column_type: 0
               column_group_name: column_group_name
               ref_sort_conditions: ref_sort_conditions
-    inline_response_200_27_data:
+    inline_response_200_28_data:
       type: object
       properties:
         file_name:
@@ -8464,7 +8631,15 @@ components:
       example:
         file_name: "{compare_name}_YYYY/MMDDhhmmss.xlsx"
         file_data: Compare result base64 string
-    inline_response_200_28_data:
+    inline_response_200_29_data:
+      type: object
+      properties:
+        file:
+          type: string
+          example: base64 string
+        file_name:
+          type: string
+    inline_response_200_30_data:
       type: object
       properties:
         datetime:
