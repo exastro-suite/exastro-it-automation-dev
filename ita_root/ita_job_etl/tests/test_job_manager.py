@@ -50,7 +50,7 @@ def test_job_manager_main_sigterm_signal():
     """
 
     sub_process_count = 2
-    with test_common.requsts_mocker_default() as requests_mocker, \
+    with test_common.requests_mocker_default() as requests_mocker, \
         mock.patch("job_config.SUB_PROCESS_ACCEPTABLE", sub_process_count):
 
         # 初期化 / Initialize
@@ -96,7 +96,7 @@ def test_job_manager_main_sigint_signal():
     """
 
     sub_process_count = 2
-    with test_common.requsts_mocker_default() as requests_mocker, \
+    with test_common.requests_mocker_default() as requests_mocker, \
         mock.patch("job_config.SUB_PROCESS_ACCEPTABLE", sub_process_count):
 
         # 初期化 / Initialize
@@ -219,7 +219,7 @@ def test_job_manager_sub_execute_normal_job():
     job_executor_classes = getattr(importlib.import_module("tests.jobs.TestJobExecutor"), "TestNormalJobExecutor")
     with mock.patch('libs.job_threads.JobThreads.get_startable_job_name_list', return_value=["menu_create"]), \
         mock.patch('libs.job_classes.JobClasses.get_job_executor_class', return_value=job_executor_classes), \
-        test_common.requsts_mocker_default() as requests_mocker, \
+        test_common.requests_mocker_default() as requests_mocker, \
         mock.patch.dict(f"job_config.JOB_CONFIG", job_config_jobs):
 
         # maintenance-modeをmock化
@@ -238,7 +238,7 @@ def test_job_manager_sub_execute_normal_job():
         clean_up_info = CleanUpInfo()
         teminating_time = datetime.datetime.now() + datetime.timedelta(seconds=30)
 
-        TestExecuteStocker.initalize()
+        TestExecuteStocker.initialize()
 
         try:
 
@@ -298,7 +298,7 @@ def test_job_manager_sub_execute_timeout_job():
     job_executor_classes = getattr(importlib.import_module("tests.jobs.TestJobExecutor"), "TestExecuteTimeoutJobExecutor")
     with mock.patch('libs.job_threads.JobThreads.get_startable_job_name_list', return_value=["menu_create"]), \
         mock.patch('libs.job_classes.JobClasses.get_job_executor_class', return_value=job_executor_classes), \
-        test_common.requsts_mocker_default() as requests_mocker, \
+        test_common.requests_mocker_default() as requests_mocker, \
         mock.patch.dict(f"job_config.JOB_CONFIG", job_config_jobs):
 
         # maintenance-mode
@@ -317,7 +317,7 @@ def test_job_manager_sub_execute_timeout_job():
         clean_up_info = CleanUpInfo()
         teminating_time = datetime.datetime.now() + datetime.timedelta(seconds=30)
 
-        TestExecuteStocker.initalize()
+        TestExecuteStocker.initialize()
 
         try:
 
@@ -381,7 +381,7 @@ def test_job_manager_sub_cancel_timeout_job():
     job_executor_classes = getattr(importlib.import_module("tests.jobs.TestJobExecutor"), "TestCancelTimeoutJobExecutor")
     with mock.patch('libs.job_threads.JobThreads.get_startable_job_name_list', return_value=["menu_create"]), \
         mock.patch('libs.job_classes.JobClasses.get_job_executor_class', return_value=job_executor_classes), \
-        test_common.requsts_mocker_default() as requests_mocker, \
+        test_common.requests_mocker_default() as requests_mocker, \
         mock.patch.dict(f"job_config.JOB_CONFIG", job_config_jobs), \
         mock.patch("job_config.JOB_CANCEL_TIMEOUT_SECONDS", 1):
 
@@ -401,7 +401,7 @@ def test_job_manager_sub_cancel_timeout_job():
         clean_up_info = CleanUpInfo()
         teminating_time = datetime.datetime.now() + datetime.timedelta(seconds=30)
 
-        TestExecuteStocker.initalize()
+        TestExecuteStocker.initialize()
 
         try:
 

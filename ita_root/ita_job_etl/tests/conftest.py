@@ -74,7 +74,7 @@ def encrypt_key(mocker):
 
 
 @pytest.fixture(scope='function', autouse=True)
-def data_initalize():
+def data_initialize():
     """データー初期化
 
     """
@@ -90,7 +90,7 @@ def data_initalize():
         shell=True)
 
     if result_command.returncode != 0:
-        raise Exception('FAILED : mysql command (tests/conftest.py data_initalize)')
+        raise Exception('FAILED : mysql command (tests/conftest.py data_initialize)')
 
     #
     # organization, workspace database drop

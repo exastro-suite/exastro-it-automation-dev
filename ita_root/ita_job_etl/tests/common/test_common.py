@@ -73,8 +73,8 @@ def check_state(timeout: float, conditions, conditions_value=True):
     return False
 
 
-def requsts_mocker_default():
-    """requstsのデフォルトmocker
+def requests_mocker_default():
+    """requestsのデフォルトmocker
 
     Returns:
         _type_: _description_

@@ -31,7 +31,7 @@ class TestExecuteStocker():
     call_clean_up_count = 0
 
     @classmethod
-    def initalize(cls):
+    def initialize(cls):
         cls.call_queue_query_stmt_count = 0
         cls.update_queue_to_start_queue = []
         cls.executed_queue = []
