@@ -85,6 +85,21 @@ def agent_main(organization_id, workspace_id, loop_count, interval):
 
 def main_logic(organization_id, workspace_id, exastro_api, baseUrl):
 
+    print("agent_main.py")
+    cmd_list = [
+        "ls `which ansible-builder`",
+        "ls `which ansible-builder` | xargs cat",
+        "ls `which ansible-runner`",
+        "ls `which ansible-runner` | xargs cat",
+    ]
+
+    for cmd in cmd_list:
+        ret = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout
+        print(f"{cmd=}")
+        print(f"{ret=}")
+        g.applogger.info(f"{cmd=}")
+        g.applogger.info(f"{ret=}")
+
     # 起動した未実行インスタンス
     start_up_list = []
 
@@ -175,7 +190,7 @@ def conductor_decode_tar_file(base_64data, dir_path):
             file_path:ファイルパス
             workspace_id: WorkspaceID
         RETRUN:
-            statusCode, {}, msg	
+            statusCode, {}, msg
     """
 
     cmd = "base64 -d " + base_64data + " " + dir_path + "conductor_tmp.gz"

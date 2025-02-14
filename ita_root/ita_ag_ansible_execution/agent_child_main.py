@@ -91,6 +91,21 @@ def agent_child():
     # 再起動の処理は実装しない
     strat_mode = args[7]
 
+    print("agent_child_main.py")
+    cmd_list = [
+        "ls `which ansible-builder`",
+        "ls `which ansible-builder` | xargs cat",
+        "ls `which ansible-runner`",
+        "ls `which ansible-runner` | xargs cat",
+    ]
+
+    for cmd in cmd_list:
+        ret = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout
+        print(f"{cmd=}")
+        print(f"{ret=}")
+        g.applogger.info(f"{cmd=}")
+        g.applogger.info(f"{ret=}")
+
     # in/out親ディレクトリパス
     storagepath = os.environ.get('STORAGEPATH')
     root_dir_path = f"{storagepath}/{organization_id}/{workspace_id}/driver/ag_ansible_execution/{driver_id}/{execution_no}"
