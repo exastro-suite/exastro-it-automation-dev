@@ -95,16 +95,16 @@ def agent_child():
     cmd_list = [
         "ls `which ansible-builder`",
         "ls `which ansible-builder` | xargs cat",
-        "ls `which ansible-runner`",
-        "ls `which ansible-runner` | xargs cat",
+        #"ls `which ansible-runner`",
+        #"ls `which ansible-runner` | xargs cat",
     ]
 
     for cmd in cmd_list:
         ret = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout
-        print(f"{cmd=}")
-        print(f"{ret=}")
-        g.applogger.info(f"{cmd=}")
-        g.applogger.info(f"{ret=}")
+        # print(f"{cmd=}")
+        # print(f"{ret=}")
+        g.applogger.info(f"{cmd}")
+        g.applogger.info(f"{ret}")
 
     # in/out親ディレクトリパス
     storagepath = os.environ.get('STORAGEPATH')

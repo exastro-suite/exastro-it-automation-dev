@@ -89,16 +89,16 @@ def main_logic(organization_id, workspace_id, exastro_api, baseUrl):
     cmd_list = [
         "ls `which ansible-builder`",
         "ls `which ansible-builder` | xargs cat",
-        "ls `which ansible-runner`",
-        "ls `which ansible-runner` | xargs cat",
+        #"ls `which ansible-runner`",
+        #"ls `which ansible-runner` | xargs cat",
     ]
 
     for cmd in cmd_list:
         ret = subprocess.run(cmd, capture_output=True, text=True, shell=True).stdout
-        print(f"{cmd=}")
-        print(f"{ret=}")
-        g.applogger.info(f"{cmd=}")
-        g.applogger.info(f"{ret=}")
+        # print(f"{cmd=}")
+        # print(f"{ret=}")
+        g.applogger.info(f"{cmd}")
+        g.applogger.info(f"{ret}")
 
     # 起動した未実行インスタンス
     start_up_list = []
