@@ -6,7 +6,7 @@
     "configurations": [
       {
         "name": "Python: Flask",
-        "type": "python",
+        "type": "debugpy",
         "request": "launch",
         "program": "/exastro/backyard/backyard_init.py",
         "env": {
@@ -20,7 +20,7 @@
           },
         ],
         "args": [
-            "run",
+            "1",
             "--no-debugger"
         ],
         "jinja": true,
@@ -29,7 +29,7 @@
       },
       {
         "name": "[DEBUG] Python: Flask",
-        "type": "python",
+        "type": "debugpy",
         "request": "launch",
         "program": "/exastro/backyard/backyard_init.py",
         "env": {
@@ -43,7 +43,7 @@
           },
         ],
         "args": [
-            "run",
+            "1",
             "--no-debugger"
         ],
         "jinja": true,

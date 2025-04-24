@@ -2,60 +2,87 @@
 // https://github.com/microsoft/vscode-dev-containers/tree/v0.231.6/containers/jekyll
 {
 	"name": "it-automation2 - ita-by-menu-export-import",
-	"dockerComposeFile": ["../docker-compose.yml","../docker-compose.devcontainer.yml"],
+	"dockerComposeFile": ["../docker-compose.yml", "../docker-compose.agent.oase.yml","../docker-compose.devcontainer.yml", "../docker-compose.platform.yml"],
 	"service": "ita-by-menu-export-import",
 	// Set *default* container specific settings.json values on container create.
-	"settings": {
-		"files.trimTrailingWhitespace": true,
-		"terminal.integrated.profiles.linux": {
-			"bash": {
-				"path": "/bin/bash"
-			}
-		},
-		"terminal.integrated.defaultProfile.linux": "bash",
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"files.trimTrailingWhitespace": true,
+				"terminal.integrated.profiles.linux": {
+					"bash": {
+						"path": "/bin/bash"
+					}
+				},
+				"terminal.integrated.defaultProfile.linux": "bash",
 
-		// git menu setting
-		"git.allowNoVerifyCommit": true,
+				"python.interpreterPath": "/usr/bin/python3.12",
+				"python.defaultInterpreterPath": "/usr/bin/python3.12",
 
-		// python extension setting
-		"python.linting.pylintEnabled": false,
-		"python.linting.flake8Enabled": true,
+				// git menu setting
+				"git.allowNoVerifyCommit": true,
 
-		"python.linting.lintOnSave": true,
+				// python extension setting
+				"python.linting.pylintEnabled": false,
+				"python.linting.flake8Enabled": true,
 
-		"python.linting.flake8Args": [
-			"--ignore=W293, W504",
-			"--max-line-length=150",
-			"--max-complexity=20",
-		],
+				"python.linting.lintOnSave": true,
 
-		"python.formatting.provider": "autopep8",
+				"python.linting.flake8Args": [
+					"--ignore=W293, W504",
+					"--max-line-length=150",
+					"--max-complexity=20",
+				],
 
-		"python.formatting.autopep8Args": [
-			"--aggressive", "--aggressive",
-		],
+				"python.formatting.provider": "autopep8",
+
+				"python.formatting.autopep8Args": [
+					"--aggressive", "--aggressive",
+				],
+
+				"snyk.scanningMode": "manual",
+				"snyk.severity": {
+					"medium": false,
+					"low": false
+				},
+				"python.testing.cwd": "${workspaceFolder}/ita_root/ita_by_menu_export_import",
+				"python.testing.unittestEnabled": false,
+				"python.testing.pytestEnabled": true,
+				"python.testing.pytestArgs": [
+					"--cov=${workspaceFolder}/ita_root/ita_by_menu_export_import/",
+					"--cov-report=xml",
+				],
+				"python.testing.autoTestDiscoverOnSaveEnabled": true,
+				"coverage-gutters.showGutterCoverage": false,
+				"coverage-gutters.showLineCoverage": true,
+				"coverage-gutters.showRulerCoverage": false,
+				"coverage-gutters.coverageBaseDir": "ita_root/ita_by_menu_export_import",
+				"coverage-gutters.coverageReportFileName": "ita_root/ita_by_menu_export_import/coverage.xml",
+			},
+			// Add the IDs of extensions you want installed when the container is created.
+			"extensions": [
+				"donjayamanne.python-extension-pack",
+				"ms-python.vscode-pylance",
+				"ms-ceintl.vscode-language-pack-ja",
+				"ms-vscode.references-view",
+				"eamodio.gitlens",
+				"mhutchie.git-graph",
+				"redhat.vscode-yaml",
+				"hediet.vscode-drawio",
+				"oderwat.indent-rainbow",
+				"aaron-bond.better-comments",
+				"sonarsource.sonarlint-vscode",
+				"mechatroner.rainbow-csv",
+				"ryu1kn.partial-diff",
+				"pkief.material-icon-theme",
+				// "mtxr.sqltools",
+				// "mtxr.sqltools-driver-mysql",
+				"mitchdenny.ecdc",
+				"snyk-security.snyk-vulnerability-scanner",
+				"ryanluker.vscode-coverage-gutters",
+			]
+		}
 	},
-	// Add the IDs of extensions you want installed when the container is created.
-	"extensions": [
-		"donjayamanne.python-extension-pack",
-		"ms-python.vscode-pylance",
-		"ms-ceintl.vscode-language-pack-ja",
-		"ms-vscode.references-view",
-		"eamodio.gitlens",
-		"mhutchie.git-graph",
-		"redhat.vscode-yaml",
-		"hediet.vscode-drawio",
-		"oderwat.indent-rainbow",
-		"aaron-bond.better-comments",
-		//"sonarsource.sonarlint-vscode",
-		"mechatroner.rainbow-csv",
-		"ryu1kn.partial-diff",
-		"pkief.material-icon-theme",
-		// "mtxr.sqltools",
-		// "mtxr.sqltools-driver-mysql",
-		"mitchdenny.ecdc",
-		"snyk-security.snyk-vulnerability-scanner",
-	],
 	// // Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [
 	// 	8000

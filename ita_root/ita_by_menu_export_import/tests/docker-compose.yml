@@ -1,0 +1,81 @@
+#   Copyright 2025 NEC Corporation
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+version: '3.1'
+services:
+  unittest-ita-db:
+    image: mariadb:10.4.8
+    healthcheck:
+      test: mysql -u root -ppassword -e 'select 1;'
+      interval: 3s
+      retries: 200
+    volumes:
+      - ${ITA_REPO_ROOT}/ita_root/ita_mariadb/conf/custom.cnf:/etc/mysql/conf.d/custom.cnf
+      - ${ITA_REPO_ROOT}/ita_root/ita_by_menu_export_import/tests/db/exports/mariadb/pytest1_init_databases.sql:/docker-entrypoint-initdb.d/pytest1_init_databases.sql
+      - ${ITA_REPO_ROOT}/ita_root/ita_by_menu_export_import/tests/db/exports/mariadb/pytest9_database_users.sql:/docker-entrypoint-initdb.d/pytest9_database_users.sql
+    environment:
+      - TZ=Asia/Tokyo
+      - MYSQL_ROOT_PASSWORD=password
+    networks:
+      - exastro
+    ports:
+      - "0.0.0.0:${EXT_PORT_ITA_UNITTEST_DB:-3308}:3306"
+
+  unittest-ita-api-organization:
+    user: 1000:1000
+    build:
+      target: develop_build
+      secrets:
+        - host_certificate_file
+      dockerfile: ./ita_root/ita_api_organization/Dockerfile
+      context: ../../../.
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - http_proxy=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
+        - https_proxy=${HTTPS_PROXY}
+    command:
+      - /bin/bash
+      - -c
+      - |
+        sudo mkdir /storage
+        httpd -D FOREGROUND
+    environment:
+      - TZ=Asia/Tokyo
+      - LISTEN_PORT=8000
+      - ENCRYPT_KEY=${ENCRYPT_KEY}
+      - DEFAULT_LANGUAGE=ja
+      - DB_HOST=unittest-ita-db
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_ADMIN_USER=${DB_ADMIN_USER}
+      - DB_ADMIN_PASSWORD=${DB_ADMIN_PASSWORD}
+      - PLATFORM_API_HOST=platform-api
+      - PLATFORM_API_PORT=8000
+      - MONGO_OPTION_SSL=${MONGO_OPTION_SSL:-FALSE}
+      - MONGO_SCHEME=${MONGO_SCHEME:-mongodb}
+      - MONGO_HOST=${MONGO_HOST-ita-mongodb}
+      - MONGO_PORT=${MONGO_PORT:-27017}
+    networks:
+      - exastro
+
+networks:
+  exastro:
+    name: "exastro_${NETWORK_ID}"
+
+secrets:
+  host_certificate_file:
+    file: ${HOST_CERTIFICATE_FILE:-/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem}

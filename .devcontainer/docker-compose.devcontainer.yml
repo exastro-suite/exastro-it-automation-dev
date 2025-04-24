@@ -438,10 +438,12 @@ services:
       - ~/.netrc:/home/app_user/.netrc
       - ~/.gitconfig:/home/app_user/.gitconfig
       - ./ita-by-menu-export-import/.vscode/launch.json:/workspace/.vscode/launch.json
+      - ./ita-by-menu-export-import/.vscode/tasks.json:/workspace/.vscode/tasks.json
       - /usr/share/pki/ca-trust-source/anchors/UserRootCertificate.crt:/etc/ssl/certs/ca-certificates.crt
       - /mnt/mainte/talisman/.talismanrc:/mnt/mainte/talisman/.talismanrc
       - ~/.config/git/ignore:/home/app_user/.config/git/ignore
       - ${TALISMAN_HOME}:${TALISMAN_HOME}
+      - /var/run/docker.sock:/var/run/docker.sock
       - ../.vscode_extensions/ita-by-menu-export-import/.vscode-server/extensions:/home/app_user/.vscode-server/extensions
       - ../.vscode_extensions/ita-by-menu-export-import/.vscode-server-insiders/extensions:/home/app_user/.vscode-server-insiders/extensions
     environment:
@@ -454,6 +456,10 @@ services:
       - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
       - SSL_CERT_DIR=/etc/ssl/certs
       - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+      - NETWORK_ID=${NETWORK_ID:-}
+      - ITA_REPO_ROOT=${ITA_REPO_ROOT:-}
+      - ITA_DBMS=${ITA_DBMS:-mariadb}
+      - EXT_PORT_ITA_UNITTEST_DB=${EXT_PORT_ITA_UNITTEST_DB:-3308}
 
   ita-by-excel-export-import:
     build:
