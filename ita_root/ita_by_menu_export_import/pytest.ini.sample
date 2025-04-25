@@ -33,12 +33,19 @@ env =
     DB_PASSWORD=password
     DB_ADMIN_USER=root
     DB_ADMIN_PASSWORD=password
-    ; ITAはmockするので要求は飛ばないが、間違って本物に飛ばないようにするため置き換える
-    ITA_API_ADMIN_PROTOCOL=http
-    ITA_API_ADMIN_HOST=dummy
+    ; Platformはmockするので要求は飛ばないが、間違って本物に飛ばないようにするため置き換える
+    PLATFORM_API_HOST=dummy
+    PLATFORM_API_PORT=7999
+    ; ITA API接続情報
+    ITA_API_ADMIN_HOST=unittest-ita-api-admin
     ITA_API_ADMIN_PORT=8079
+    ITA_API_ORGANIZATION_HOST=unittest-ita-api-organization
+    ITA_API_ORGANIZATION_PORT=8000
 
     TEST_OUTPUT_PATH=/workspace/ita_root/ita_by_menu_export_impot/tests/temp
+
+    ; ストレージパス
+    STORAGEPATH=/workspace/ita_root/ita_by_menu_export_impot/tests/storage/
 
     ; pytest起動時にunit test用のコンテナを起動するかの指定
     ;

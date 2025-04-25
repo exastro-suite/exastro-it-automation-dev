@@ -18,7 +18,6 @@ import os
 import os.path
 import shutil
 import glob
-# import connexion
 import requests
 import json
 import subprocess
@@ -28,11 +27,26 @@ import signal
 import inspect
 import base64
 from importlib import import_module
+from flask import Flask, g
+from dotenv import load_dotenv  # python-dotenv
+import sys
 
 from common import test_common
 from common_libs.common import encrypt
+from common_libs.common.logger import AppLog
+from common_libs.common.message_class import MessageTemplate
 
 import backyard_main
+
+
+class UserException(Exception):
+    """ユーザー例外 User Exception
+
+    Args:
+        Exception (Exception): Exception
+    """
+    pass
+
 
 @pytest.fixture(scope="session")
 def docker_compose_command() -> str:
@@ -73,24 +87,54 @@ def encrypt_key(mocker):
     mocker.patch.object(encrypt, 'ENCRYPT_KEY', new=base64.b64decode(testdata.ENCRYPT_KEY))
 
 
+@pytest.fixture(autouse=True)
+def flask_initialize():
+    # load environ variables
+    load_dotenv(override=True)
+
+    flask_app = Flask(__name__)
+
+    with flask_app.app_context():
+
+        g.LANGUAGE = os.environ.get("LANGUAGE")
+        g.appmsg = MessageTemplate(g.LANGUAGE)
+        # create app log instance and message class instance
+        g.applogger = AppLog()
+
+        g.USER_ID = os.environ.get("USER_ID")
+        g.SERVICE_NAME = os.environ.get("SERVICE_NAME")
+
+
+
 @pytest.fixture(scope='function', autouse=True)
 def data_initialize():
-    """データー初期化
+    """データー初期化 / Data initialization
 
     """
     testdata = import_module("tests.db.exports.testdata")
 
     #
-    # データ初期化
+    # データ初期化 / Data initialization
     #
     sql_file = os.path.join(os.path.dirname(__file__), "db", "exports", "pytest2_restore_databases.sql")
-    host = os.environ['DB_HOST']
+    db_user = os.environ.get('DB_ADMIN_USER')
+    db_password = os.environ.get('DB_ADMIN_PASSWORD')
+    db_host = os.environ.get('DB_HOST')
+
+    # 環境変数が設定されていない場合のエラーチェック
+    # Check for errors when environment variables are not set
+    if not db_user or not db_password or not db_host:
+        raise EnvironmentError("Database credentials (DB_ADMIN_USER, DB_ADMIN_PASSWORD, DB_HOST) are not set in environment variables.")
+
+    # MySQLコマンドの実行
+    # Executing MySQL commands
     result_command = subprocess.run(
-        f"mysql -u {os.environ['DB_ADMIN_USER']} -p{os.environ['DB_ADMIN_PASSWORD']} -h {os.environ['DB_HOST']} < {sql_file}",
-        shell=True)
+        ["mysql", "-u", db_user, f"-p{db_password}", "-h", db_host, "-e", f"source {sql_file}"],
+        shell=False  # セキュリティ向上のために shell=False を使用 / Use shell=False for increased security
+    )
 
     if result_command.returncode != 0:
-        raise Exception('FAILED : mysql command (tests/conftest.py data_initialize)')
+        raise UserException('FAILED : mysql command (tests/conftest.py data_initialize)')
 
     #
     # organization, workspace database drop
@@ -107,13 +151,13 @@ def data_initialize():
     # Initialize the storage directory
     #
     storage_path = os.environ.get("STORAGEPATH")
-    if not storage_path == "/storage/":
-        # クリーンアップ
+    if storage_path != "/storage/":
+        # クリーンアップ / clean up
         files_dir = [f for f in os.listdir(storage_path) if os.path.isdir(os.path.join(storage_path, f))]
         for delete_dir in files_dir:
             shutil.rmtree(storage_path + delete_dir)
 
-        # org/wsディレクトリ作成およびtarの展開
+        # org/wsディレクトリ作成およびtarの展開 / Create the org/ws directory and unpack the tar file
         for org_id, data in testdata.ORGANIZATIONS.items():
             org_path = storage_path + org_id
             os.makedirs(org_path)

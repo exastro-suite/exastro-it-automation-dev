@@ -32,3 +32,22 @@ def request_headers(user_id=None, organization_role=[], workspace_role=[], langu
         "Org-Roles": base64.b64encode("\n".join(organization_role).encode()).decode(),
         "Language": language
     }
+
+
+def ita_api_organization_request_headers(user_id=None, workspace_role=[], language='en'):
+    """ita organization api request header
+
+    Args:
+        user_id (str, optional): user_id. Defaults to None.
+        organization_role (list, optional): organization_role. Defaults to [].
+        workspace_role (list, optional): workspace_role. Defaults to [].
+        language (str, optional): language. Defaults to 'en'.
+
+    Returns:
+        dict: platform api http headers
+    """
+    return {
+        "User-id": (user_id if user_id is not None else "unittest-user01"),
+        "Roles": base64.b64encode("\n".join(workspace_role).encode()).decode(),
+        "Language": language
+    }

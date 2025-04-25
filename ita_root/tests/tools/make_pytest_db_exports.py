@@ -25,6 +25,15 @@ import subprocess
 import re
 
 
+class UserException(Exception):
+    """ユーザー例外 User Exception
+
+    Args:
+        Exception (Exception): Exception
+    """
+    pass
+
+
 def main():
     """pytest用初期データファイル生成 / Generate initial data file for pytest
     """
@@ -94,11 +103,21 @@ def main():
         #
         # 接続先hostをunit test用に一時的に変更 / Temporarily change the connection destination host for unit test
         #
-        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_organization_db_info', 't_comn_workspace_db_info')")
+        cursor.execute("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_organization_db_info', 't_comn_workspace_db_info')")
         db_tables = cursor.fetchall()
         for db_table in db_tables:
             conn.begin()
             cursor.execute(f"UPDATE `{db_table['TABLE_SCHEMA']}`.`{db_table['TABLE_NAME']}` SET DB_HOST = %(DB_HOST)s", {"DB_HOST": os.environ.get('UNITTEST_DB_HOST')})
+            conn.commit()
+
+        #
+        # Gitlab tokenの置き換え(TokenありのPushが出来ないため) / Replace Gitlab token (because you can't push with a token)
+        #
+        cursor.execute("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_organization_db_info')")
+        db_tables = cursor.fetchall()
+        for db_table in db_tables:
+            conn.begin()
+            cursor.execute(f"UPDATE `{db_table['TABLE_SCHEMA']}`.`{db_table['TABLE_NAME']}` SET GITLAB_TOKEN = %(GITLAB_TOKEN)s", {"GITLAB_TOKEN": " "})
             conn.commit()
 
     #
@@ -149,7 +168,7 @@ def main():
     #
     with closing(__connect_admin()) as conn,\
             conn.cursor() as cursor:
-        cursor.execute(f"SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_organization_db_info', 't_comn_workspace_db_info')")
+        cursor.execute("SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME IN ('t_comn_organization_db_info', 't_comn_workspace_db_info')")
         db_tables = cursor.fetchall()
         for db_table in db_tables:
             conn.begin()
@@ -175,7 +194,7 @@ def create_organization(id: str):
         json=sample_data_organization(id)
     )
     if response.status_code != 200:
-        raise Exception(f"create organization ({id}): status_code:{response.status_code}\n{response.text}")
+        raise UserException(f"create organization ({id}): status_code:{response.status_code}\n{response.text}")
 
     print(f"Getting organization users ({id}) ...")
     response = requests.get(
@@ -183,7 +202,7 @@ def create_organization(id: str):
         headers=http_headers()
     )
     if response.status_code != 200:
-        raise Exception(f"get organization users ({id}): status_code:{response.status_code}\n{response.text}")
+        raise UserException(f"get organization users ({id}): status_code:{response.status_code}\n{response.text}")
 
     return {
         "organization_id": id,
@@ -210,7 +229,7 @@ def create_workspace(org_id, ws_id, admin_user_id):
     )
 
     if response.status_code != 200:
-        raise Exception(f"create workspace ({org_id}/{ws_id}): status_code:{response.status_code}\n{response.text}")
+        raise UserException(f"create workspace ({org_id}/{ws_id}): status_code:{response.status_code}\n{response.text}")
 
     return {
         "organization_id": org_id,
@@ -311,10 +330,7 @@ def __connect_admin() -> pymysql.connections.Connection:
     Returns:
         pymysql.connections.Connection: Connection return values
     """
-    # print(f"{os.environ.get('DB_HOST')=}")
-    # print(f"{os.environ.get('DB_ADMIN_USER')=}")
-    # print(f"{os.environ.get('DB_ADMIN_PASSWORD')=}")
-    # print(f"{os.environ.get('DB_PORT')=}")
+
     conn = pymysql.connect(
         host=os.environ.get('DB_HOST'),
         database="",
