@@ -120,7 +120,7 @@ def main():
         *["mysqldump", "-u", os.environ.get('DB_ADMIN_USER'), f"-p{os.environ.get('DB_ADMIN_PASSWORD')}", "-h", os.environ.get('DB_HOST'),
             "--single-transaction",
             # "--result-file", os.environ.get('TESTDATA_DATABASE_DUMP'),
-            "--databases"], *databases]) + " | sed -E 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' > " + os.environ.get('TESTDATA_DATABASE_DUMP'), shell=True)
+            "--databases"], *databases]) + r" | sed -E 's/DEFINER[ ]*=[ ]*[^*]*\*/\*/' > " + os.environ.get('TESTDATA_DATABASE_DUMP'), shell=True)
 
     #
     # mysql restore data
@@ -155,6 +155,8 @@ def main():
             conn.begin()
             cursor.execute(f"UPDATE `{db_table['TABLE_SCHEMA']}`.`{db_table['TABLE_NAME']}` SET DB_HOST = %(DB_HOST)s", {"DB_HOST": os.environ.get('DB_HOST')})
             conn.commit()
+
+    print(r"作成完了/Creation completed")
 
 
 def create_organization(id: str):
@@ -309,6 +311,10 @@ def __connect_admin() -> pymysql.connections.Connection:
     Returns:
         pymysql.connections.Connection: Connection return values
     """
+    # print(f"{os.environ.get('DB_HOST')=}")
+    # print(f"{os.environ.get('DB_ADMIN_USER')=}")
+    # print(f"{os.environ.get('DB_ADMIN_PASSWORD')=}")
+    # print(f"{os.environ.get('DB_PORT')=}")
     conn = pymysql.connect(
         host=os.environ.get('DB_HOST'),
         database="",

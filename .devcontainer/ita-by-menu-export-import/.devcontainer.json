@@ -58,6 +58,7 @@
 				"coverage-gutters.showRulerCoverage": false,
 				"coverage-gutters.coverageBaseDir": "ita_root/ita_by_menu_export_import",
 				"coverage-gutters.coverageReportFileName": "ita_root/ita_by_menu_export_import/coverage.xml",
+				"sonarlint.analysisExcludesStandalone": "**/.volumes/**,**/tests/db/**",
 			},
 			// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [

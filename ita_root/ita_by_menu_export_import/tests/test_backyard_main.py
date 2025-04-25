@@ -17,7 +17,7 @@ import os
 import json
 import shutil
 from unittest.mock import MagicMock, patch
-from ita_root.ita_by_menu_export_import.backyard_main import menu_export_exec, AppException
+from backyard_main import menu_export_exec, AppException
 
 
 @pytest.fixture
@@ -65,14 +65,14 @@ def mock_uploadfiles_dir(tmp_path):
     return str(upload_dir)
 
 
-@patch("ita_root.ita_by_menu_export_import.backyard_main.file_open_write_close")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.load_table.bulkLoadTable")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.shutil.move")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.shutil.rmtree")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.makedirs")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.path.isdir")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.path.isfile")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.subprocess.run")
+@patch("backyard_main.file_open_write_close")
+@patch("backyard_main.load_table.bulkLoadTable")
+@patch("backyard_main.shutil.move")
+@patch("backyard_main.shutil.rmtree")
+@patch("backyard_main.os.makedirs")
+@patch("backyard_main.os.path.isdir")
+@patch("backyard_main.os.path.isfile")
+@patch("backyard_main.subprocess.run")
 def test_menu_export_exec_success(
     mock_subprocess_run,
     mock_isfile,
@@ -125,14 +125,14 @@ def test_menu_export_exec_success(
     assert mock_bulkLoadTable.call_count == 2  # Two menus in the mock_record
 
 
-@patch("ita_root.ita_by_menu_export_import.backyard_main.file_open_write_close")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.load_table.bulkLoadTable")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.shutil.move")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.shutil.rmtree")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.makedirs")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.path.isdir")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.path.isfile")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.subprocess.run")
+@patch("backyard_main.file_open_write_close")
+@patch("backyard_main.load_table.bulkLoadTable")
+@patch("backyard_main.shutil.move")
+@patch("backyard_main.shutil.rmtree")
+@patch("backyard_main.os.makedirs")
+@patch("backyard_main.os.path.isdir")
+@patch("backyard_main.os.path.isfile")
+@patch("backyard_main.subprocess.run")
 def test_menu_export_exec_mysqldump_error(
     mock_subprocess_run,
     mock_isfile,
@@ -174,14 +174,14 @@ def test_menu_export_exec_mysqldump_error(
     mock_subprocess_run.assert_called()
 
 
-@patch("ita_root.ita_by_menu_export_import.backyard_main.file_open_write_close")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.load_table.bulkLoadTable")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.shutil.move")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.shutil.rmtree")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.makedirs")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.path.isdir")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.os.path.isfile")
-@patch("ita_root.ita_by_menu_export_import.backyard_main.subprocess.run")
+@patch("backyard_main.file_open_write_close")
+@patch("backyard_main.load_table.bulkLoadTable")
+@patch("backyard_main.shutil.move")
+@patch("backyard_main.shutil.rmtree")
+@patch("backyard_main.os.makedirs")
+@patch("backyard_main.os.path.isdir")
+@patch("backyard_main.os.path.isfile")
+@patch("backyard_main.subprocess.run")
 def test_menu_export_exec_bulkLoadTable_error(
     mock_subprocess_run,
     mock_isfile,

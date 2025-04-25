@@ -14,10 +14,12 @@
 #   limitations under the License.
 
 BASEDIR=$(dirname $0)
+PARENTDIR=$(dirname ${BASEDIR})
+ROOTDIR=$(dirname ${PARENTDIR})
 
 rm -rf "${BASEDIR}/db/exports/__pycache__"
-ln -sf "${BASEDIR}/db/exports/mariadb/testdata.py" "${BASEDIR}/db/exports/testdata.py"
-ln -sf "${BASEDIR}/db/exports/mariadb/pytest2_restore_databases.sql" "${BASEDIR}/db/exports/pytest2_restore_databases.sql"
+ln -sf "${ROOTDIR}/tests/db/exports/mariadb/testdata.py" "${BASEDIR}/db/exports/testdata.py"
+ln -sf "${ROOTDIR}/tests/db/exports/mariadb/pytest2_restore_databases.sql" "${BASEDIR}/db/exports/pytest2_restore_databases.sql"
 
 $(
     cd "${BASEDIR}";

@@ -18,8 +18,8 @@ services:
     image: mysql:8.0
     volumes:
       - ${ITA_REPO_ROOT}/ita_root/ita_mariadb/conf/custom.cnf:/etc/mysql/conf.d/custom.cnf
-      - ${ITA_REPO_ROOT}/ita_root/ita_by_menu_export_import/tests/db/exports/mysql/pytest1_init_databases.sql:/docker-entrypoint-initdb.d/pytest1_init_databases.sql
-      - ${ITA_REPO_ROOT}/ita_root/ita_by_menu_export_import/tests/db/exports/mysql/pytest9_database_users.sql:/docker-entrypoint-initdb.d/pytest9_database_users.sql
+      - ${ITA_REPO_ROOT}/ita_root/tests/db/exports/mysql/pytest1_init_databases.sql:/docker-entrypoint-initdb.d/pytest1_init_databases.sql
+      - ${ITA_REPO_ROOT}/ita_root/tests/db/exports/mysql/pytest9_database_users.sql:/docker-entrypoint-initdb.d/pytest9_database_users.sql
   unittest-keycloak:
     environment:
       - KC_DB=mysql

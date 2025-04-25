@@ -16,9 +16,9 @@
 BASENAME=$(basename "$0")
 BASEPATH=$(dirname "$0")
 
-export PLATFORM_API_ORIGIN=http://platform-api:8000
-export DB_ADMIN_USER=root
-export DB_ADMIN_PASSWORD=password
+export PLATFORM_API_ORIGIN=http://${PLATFORM_API_HOST}:${PLATFORM_API_PORT}
+export DB_ADMIN_USER=${DB_ADMIN_USER}
+export DB_ADMIN_PASSWORD=${DB_ADMIN_PASSWORD}
 export UNITTEST_DB_HOST=unittest-ita-db
 
 export TESTDATA_PYTHON=$(realpath "${BASEPATH}/../db/exports/${ITA_DBMS}/testdata.py")
