@@ -4344,7 +4344,8 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                 title: cmn.cv( fileName, '', true ),
             },
             footer: {
-                button: {}
+                button: {},
+                textarea: {}
             }
         };
         // モーダルボタン
@@ -4361,8 +4362,89 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
             modal.close();
             modal = null;
 
+            /* ----プロトタイプ用 トークンチェック終了処理 ここから---- */
+            clearInterval(checkTokenInterval);
+            /* ----プロトタイプ用 トークンチェック終了処理 ここまで---- */
+
             resolve( null );
         };
+
+        // 開発支援
+        if ( fileType === 'text' && mode === 'edit') {
+            config.subDialog = true;
+            config.subHeader = { title: '開発支援'};
+            config.subFooter = {
+                button: {
+                    subClose: { text: '開発支援を閉じる', action: 'normal'},
+                    historyRead: { text: '履歴読込', action: 'default', width: '88px', separate: true },
+                    historySave: { text: '履歴保存', action: 'default', width: '88px' },
+                    llmShowSetting: { text: '設定確認', action: 'default', width: '88px' },
+                }
+            }
+            config.footer.button.support = {
+                text: '開発支援を開く', action: 'default', width: '88px', separate: true
+            };
+
+            // 開発支援を開く
+            funcs.support = async function() {
+                this.$.footer.find('.dialogFooterMenuButton[data-kind="support"]').prop('disabled', true );
+                this.$.dialog.find('.dialog').css('width', '1920px');
+                this.$.dialog.addClass('developmentSupportOpen');
+
+                if ( !this.support ) {
+                    /* ----プロトタイプ用 LLM選択/アクセストークン入力エリアからの値参照 ここから---- */
+                    // 入力欄とLLM選択を非アクティブ化
+                    this.$.footer.find('#developmentSupportLlmSelect').prop('disabled', true );
+                    this.$.footer.find('#developmentSupportGeminiTokenInput').prop('disabled', true );
+                    this.$.footer.find('#developmentSupportNgsTokenInput').prop('disabled', true );
+                    this.$.footer.find('#developmentSupportNgsGAccount').prop('disabled', true );
+                    this.$.footer.find('#developmentSupportCopilotTokenInput').prop('disabled', true );
+
+                    // LLMの種類に応じてapiKeyを取得
+                    this.llmSelect = this.$.footer.find('#developmentSupportLlmSelect').val();
+                    this.apiParam = {};
+                    if ( this.llmSelect == "gemini" ) {
+                        this.apiParam.apiKey = this.$.footer.find('#developmentSupportGeminiTokenInput').val();
+                    }else if( this.llmSelect == "ngs" ) {
+                        this.apiParam.apiKey = this.$.footer.find('#developmentSupportNgsTokenInput').val();
+                        this.apiParam.account = this.$.footer.find('#developmentSupportNgsGAccount').val();
+                    }else if( this.llmSelect == "github-copilot" ) {
+                        this.apiParam.apiKey = this.$.footer.find('#developmentSupportCopilotTokenInput').val();
+                    }
+                    /* ----プロトタイプ用 LLM選択/アクセストークン入力エリアからの値参照 ここまで---- */
+
+                    this.$.subDbody.html(`<div id="developmentSupport" class="processingContainer"></div>`);
+                    this.support = new DevelopmentSupport('#developmentSupport');
+                    await this.support.setup(this.llmSelect, this.apiParam);
+                    this.support.$.target.removeClass('processingContainer');
+                    this.subDialogButtonEnabled();
+
+                    // 編集データをファイル化し添付する
+                    modal.support.$.file.on('click', function(){
+                        modal.support.$.input.val( modal.aceEditor.getValue() );
+                    });
+                }
+            };
+
+            // 開発支援を閉じる
+            funcs.subClose = function() {
+                this.$.footer.find('.dialogFooterMenuButton[data-kind="support"]').prop('disabled', false );
+                this.$.dialog.find('.dialog').css('width', '960px');
+                this.$.dialog.removeClass('developmentSupportOpen');
+            };
+            // 履歴読込
+            funcs.historyRead = function() {
+                if ( this.support.operation ) alert('!');
+            };
+            // 履歴保存
+            funcs.historySave = function() {
+                if ( this.support.operation ) alert('!');
+            };
+            // 設定確認
+            funcs.llmShowSetting = function() {
+                if ( this.support.operation ) alert('!');
+            };
+        }
 
         const modeSelectList = {
             text: 'Text(txt)',
@@ -4422,6 +4504,115 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
         let modal = new Dialog( config, funcs );
         modal.open();
 
+        // 開発支援セット
+        if ( fileType === 'text' && mode === 'edit') {
+            modal.$.dialog.addClass('developmentSupport');
+        }
+
+        /* ----プロトタイプ用 LLM選択時イベント ここから---- */
+        modal.$.footer.find('#developmentSupportLlmSelect').on('change', function() {
+            let selectedLlm = $(this).val(); // 選択された値を取得
+            if (selectedLlm === 'gemini') {
+                // Geminiが選択されたときの処理
+                modal.$.footer.find('#developmentSupportgetTokenButton').hide();
+                modal.$.footer.find('#developmentSupportGeminiTokenInput').show();
+                modal.$.footer.find('#developmentSupportNgsTokenInput').hide();
+                modal.$.footer.find('#developmentSupportNgsGAccount').hide();
+                modal.$.footer.find('#developmentSupportClientIdInput').hide();
+                modal.$.footer.find('#developmentSupportClientSecretInput').hide();
+                modal.$.footer.find('#developmentSupportCopilotTokenInput').hide();
+            } else if (selectedLlm === 'ngs') {
+                // NGSが選択されたときの処理
+                modal.$.footer.find('#developmentSupportgetTokenButton').hide();
+                modal.$.footer.find('#developmentSupportGeminiTokenInput').hide();
+                modal.$.footer.find('#developmentSupportNgsTokenInput').show();
+                modal.$.footer.find('#developmentSupportNgsGAccount').show();
+                modal.$.footer.find('#developmentSupportClientIdInput').hide();
+                modal.$.footer.find('#developmentSupportClientSecretInput').hide();
+                modal.$.footer.find('#developmentSupportCopilotTokenInput').hide();
+            } else if (selectedLlm === 'github-copilot') {
+                // Github Copilotが選択されたときの処理
+                modal.$.footer.find('#developmentSupportgetTokenButton').show();
+                modal.$.footer.find('#developmentSupportGeminiTokenInput').hide();
+                modal.$.footer.find('#developmentSupportNgsTokenInput').hide();
+                modal.$.footer.find('#developmentSupportNgsGAccount').hide();
+                modal.$.footer.find('#developmentSupportClientIdInput').show();
+                modal.$.footer.find('#developmentSupportClientSecretInput').show();
+                modal.$.footer.find('#developmentSupportCopilotTokenInput').hide();
+            }
+        });
+        /* ----プロトタイプ用 LLM選択時イベント ここまで---- */
+
+        /* ----プロトタイプ用 トークン取得ボタン押下時イベント ここから---- */
+        // githubのtoken取得済みかのチェック
+        const checkTokenInterval = setInterval(() => {
+            let selectedLlm = modal.$.footer.find('#developmentSupportLlmSelect').val();
+            if (selectedLlm == 'github-copilot'){
+                let token = getCookieValue("github-app-token");
+                if (token == null) {
+                    // クライアントID/クライアントシークレット入力欄を表示し、アクセストークン入力欄を非表示
+                    modal.$.footer.find('#developmentSupportgetTokenButton').show();
+                    modal.$.footer.find('#developmentSupportGeminiTokenInput').hide();
+                    modal.$.footer.find('#developmentSupportNgsTokenInput').hide();
+                    modal.$.footer.find('#developmentSupportNgsGAccount').hide();
+                    modal.$.footer.find('#developmentSupportClientIdInput').show();
+                    modal.$.footer.find('#developmentSupportClientSecretInput').show();
+                    modal.$.footer.find('#developmentSupportCopilotTokenInput').hide();
+                } else {
+                    // クライアントID/クライアントシークレット入力欄を非表示にし、アクセストークン入力欄を表示
+                    modal.$.footer.find('#developmentSupportgetTokenButton').hide();
+                    modal.$.footer.find('#developmentSupportGeminiTokenInput').hide();
+                    modal.$.footer.find('#developmentSupportNgsTokenInput').hide();
+                    modal.$.footer.find('#developmentSupportNgsGAccount').hide();
+                    modal.$.footer.find('#developmentSupportClientIdInput').hide();
+                    modal.$.footer.find('#developmentSupportClientSecretInput').hide();
+                    modal.$.footer.find('#developmentSupportCopilotTokenInput').show();
+
+                    // Github Copilot用アクセストークン入力欄に、トークンをセット
+                    modal.$.footer.find('#developmentSupportCopilotTokenInput').val(token);
+                    modal.$.footer.find('#developmentSupportCopilotTokenInput').prop("disabled", true);
+
+                    // トークンをセットしたらチェック処理終了
+                    clearInterval(checkTokenInterval);
+                }
+            }
+        }, 1000);
+
+        // Cookieにセットされたトークンを取得
+        function getCookieValue(name) {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                let cookie = cookies[i].trim();
+                if (cookie.startsWith(name + '=')) {
+                    return cookie.substring(name.length + 1);
+                }
+            }
+            return null;
+        }
+
+        // Github Copilot用 トークン取得画面への遷移ボタン
+        modal.$.footer.find('#developmentSupportgetTokenButton').on('click', function() {
+            //// メモ：本実装時、github_loginのURLは「生成AI情報」テーブルから取得する想定
+            const URI = {
+                // Github Application authorize start URL
+                github_login: "https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${REDIRECT_URL}",
+                // Github Application authorized redirect URL
+                github_authrized:  `${window.location.origin}/_/llm/github_authrized.html`,
+            }
+            const llmClientId = modal.$.footer.find('#developmentSupportClientIdInput').val();
+            const llmClientSecret = modal.$.footer.find('#developmentSupportClientSecretInput').val();
+
+            const getTokenURI = URI.github_login
+                .replace(/\$\{CLIENT_ID\}/g, encodeURIComponent(llmClientId))
+                .replace(/\$\{REDIRECT_URL\}/g, encodeURIComponent(URI.github_authrized));
+
+            window.llmClientId = llmClientId;
+            window.llmClientSecret = llmClientSecret;
+            window.open(getTokenURI, '_blank');
+        });
+        /* ----プロトタイプ用 トークン取得ボタン押下時イベント ここまで---- */
+
+
         if ( fileType === 'text') {
             if ( fileData === null ) fileData = '';
             cmn.fileOrBase64ToText( fileData ).then(function( text ){
@@ -4437,7 +4628,6 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                       aceTheme = ( storageTheme )? storageTheme: ( $('body').is('.darkmode') )? 'monokai': 'chrome';
 
                 const langTools = ace.require('ace/ext/language_tools');
-
                 const aceEditor = ace.edit('aceEditor', {
                     theme: `ace/theme/${aceTheme}`,
                     mode: `ace/mode/${fileMode}`,
@@ -4450,6 +4640,7 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                     enableBasicAutocompletion: true,
                     enableLiveAutocompletion: true
                 });
+                modal.aceEditor = aceEditor;
                 modal.$.dbody.find('.ace_scrollbar').addClass('commonScroll');
 
                 // Ace editor mode
@@ -4528,6 +4719,10 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                     fileName = modal.$.dbody.find('.editorFileName').val();
                     modal.close();
                     modal = null;
+
+                    /* ----プロトタイプ用 トークンチェック終了処理 ここから---- */
+                    clearInterval(checkTokenInterval);
+                    /* ----プロトタイプ用 トークンチェック終了処理 ここまで---- */
 
                     resolve({
                         name: fileName,

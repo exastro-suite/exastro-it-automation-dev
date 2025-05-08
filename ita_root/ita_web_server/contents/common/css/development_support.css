@@ -1,0 +1,174 @@
+#developmentSupport {
+    height: 100%;
+}
+.developmentSupportContainer {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+.developmentSupportChatBlock {
+    overflow: auto;
+    position: relative;
+    flex: 1 1 auto;
+    background-color: var(--mainColor30);
+}
+.developmentSupportInputBlock {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 8px;
+    max-height: 50%;
+    padding: 8px 16px;
+    background-color: #F0F0F0;
+}
+.developmentSupportInputTextBlock > .textareaAdjustmentWrap {
+    max-height: 100%;
+}
+.developmentSupportInputTextBlock {
+    flex: 1 1 auto;
+}
+.developmentSupportInput {
+    overflow: auto;
+}
+.developmentSupportInputSubmitBlock {
+    flex: 0 0 32px
+}
+.developmentSupportInitialMessage {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 32px;
+    line-height: 1.6;
+    font-size: 24px;
+    color: var(--mainColor80);
+}
+
+.developmentSupportList {
+    padding: 16px 8px;
+}
+.developmentSupportItem {
+    position: relative;
+    margin: 0 64px 24px 8px;
+    animation: developmentSupportItem .3s forwards;
+    opacity: 0;
+}
+@keyframes developmentSupportItem {
+    from { transform: translateY( 24px ); opacity: 0;}
+    to { transform: translateY( 0 ); opacity: 1;}
+}
+.developmentSupportItemIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 0; top: 2px;
+    width: 32px; height: 32px;
+    background-color: var(--mainColor100);
+    border-radius: 8px;
+}
+.developmentSupportItemIcon::after {
+    content: 'AI';
+    font-size: 12px;
+    font-weight: bold;
+    font-family: "Osaka-mono", "MS Gothic", "monospace";
+    color: #FFF;
+}
+.developmentSupportItemInner {
+    display: inline-block;
+    padding: 16px;
+    background-color: #FFF;
+    border-radius: 8px 8px 24px 8px;
+    box-shadow: 4px 4px 24px var(--mainColor40);
+    line-height: 1.6;
+    letter-spacing: .05em;
+    color: #333;
+}
+.developmentSupportItem[data-role="support"] {
+    padding-left: 40px;
+}
+.developmentSupportItem[data-role="user"] {
+    margin: 0 8px 24px 64px;
+    text-align: right;
+}
+.developmentSupportItem[data-role="user"] .developmentSupportItemInner {
+    padding: 8px 16px;
+    background-color: var(--mainColor20);
+    border-radius: 8px 8px 8px 24px;
+    color: var(--mainColor100);
+}
+.developmentSupportItem[data-role="user"]::after {
+    content: '';
+    position: absolute;
+    right: -16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 8px;
+    background-color: var(--mainColor20);
+    clip-path: polygon(0 0, 75% 100%, 0 100%);
+}
+.developmentSupportItem:last-child {
+    margin-bottom: 0;
+}
+.developmentSupportItem p {
+    font-size: 12px;
+}
+.developmentSupportItem ul {
+    list-style: disc;
+    padding-left: 1.6em;
+}
+.developmentSupportItemInner > * {
+    margin-bottom: 16px;
+}
+.developmentSupportItemInner > *:last-child {
+    margin-bottom: 0;
+}
+.developmentSupportItem strong {
+    font-weight: bold;
+    color: #555;
+}
+code {
+    padding: 0 8px;
+    background-color: #EEE;
+    border-radius: 4px;
+}
+
+
+.developmentSupportItemNowLoading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    height: 20px;
+}
+.developmentSupportItemNowLoading-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background-color: var(--mainColor50);
+}
+.developmentSupportItemNowLoading-dot-1 {
+    animation: supportLoading .8s ease 0s infinite alternate;
+}
+.developmentSupportItemNowLoading-dot-2 {
+    animation: supportLoading .8s ease .2s infinite alternate;
+}
+.developmentSupportItemNowLoading-dot-3 {
+    animation: supportLoading .8s ease .4s infinite alternate;
+}
+.developmentSupportItemNowLoading-dot-4 {
+    animation: supportLoading .8s ease .6s infinite alternate;
+}
+.developmentSupportItemNowLoading-dot-5 {
+    animation: supportLoading .8s ease .8s infinite alternate;
+}
+@keyframes supportLoading {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: .25;
+        transform: scale(.75);
+    }
+}
