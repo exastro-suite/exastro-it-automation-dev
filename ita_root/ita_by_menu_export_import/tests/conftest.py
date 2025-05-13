@@ -31,6 +31,8 @@ from flask import Flask, g
 from dotenv import load_dotenv  # python-dotenv
 import sys
 
+from unittest.mock import patch, MagicMock
+
 from common import test_common
 from common_libs.common import encrypt
 from common_libs.common.logger import AppLog
@@ -88,7 +90,10 @@ def encrypt_key(mocker):
 
 
 @pytest.fixture(autouse=True)
-def flask_initialize():
+def app():
+    """unit test用のapp
+    """
+
     # load environ variables
     load_dotenv(override=True)
 
@@ -103,7 +108,14 @@ def flask_initialize():
 
         g.USER_ID = os.environ.get("USER_ID")
         g.SERVICE_NAME = os.environ.get("SERVICE_NAME")
+        yield app
 
+
+@pytest.fixture(autouse=True)
+def set_g_variable(app):
+    """unit test用のset_g_variable(
+    """
+    return None
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -134,7 +146,7 @@ def data_initialize():
     )
 
     if result_command.returncode != 0:
-        raise UserException('FAILED : mysql command (tests/conftest.py data_initialize)')
+        raise UserException(f'FAILED : mysql command (tests/conftest.py data_initialize) {result_command.returncode=} {result_command.stderr=}')
 
     #
     # organization, workspace database drop

@@ -17,23 +17,19 @@ import os
 import json
 import shutil
 import requests
+import inspect
 
 from importlib import import_module
 
 from flask import Flask, g
 from dotenv import load_dotenv  # python-dotenv
 
-from unittest.mock import MagicMock, patch
-from backyard_main import menu_export_exec, AppException
-from tests.common import request_parameters, test_common
-from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
-from common_libs.common.dbconnect.dbconnect_ws import DBConnectWs
+from unittest.mock import patch
+from tests.common import request_parameters
 
 import pytest
-from unittest.mock import patch, MagicMock
 from backyard_main import backyard_main
-from common_libs.common.logger import AppLog
-from common_libs.common.message_class import MessageTemplate
+from common_libs.common.dbconnect import DBConnectWs
 
 
 @pytest.fixture
@@ -50,71 +46,165 @@ def mock_db_connection():
 
 
 @patch("backyard_main.get_maintenance_mode_setting")
-@patch("backyard_main.DBConnectWs")
-def test_backyard_main_normal_case(mock_db_connect, mock_get_maintenance_mode, mock_environment_variables, mock_db_connection):
+def test_backyard_main_menu_export_case(mock_get_maintenance_mode, app, set_g_variable, mocker, mock_environment_variables):
+    """Pytest: メニューエクスポート 一括登録呼び出し / Pytest: Call menu export bulk registration
+    """
+
+    print(f'test_backyard_main_menu_export_case {inspect.currentframe().f_code.co_name=}')
+
     # Mock maintenance mode
     mock_get_maintenance_mode.return_value = {"data_update_stop": "0", "backyard_execute_stop": "0"}
-    mock_db_connect.return_value = mock_db_connection
 
-    flask_app = Flask(__name__)
-
-    # 初期化 / Initialize
-    # g.initialize()
+    mock_get_log_message = mocker.patch("backyard_main.g.appmsg.get_log_message", return_value="Mocked log message")
 
     testdata = import_module("tests.db.exports.testdata")
 
     organization_id = list(testdata.ORGANIZATIONS.keys())[0]
     workspace_id = testdata.ORGANIZATIONS[organization_id]["workspace_id"][0]
+    print (f'test data {organization_id=} {workspace_id=}')
 
-    # メニューエクスポート 一括登録呼び出し / Call menu export bulk registration
+    g.ORGANIZATION_ID = organization_id
+    g.WORKSPACE_ID = workspace_id
+
+    print (f'{g.ORGANIZATION_ID=} {g.WORKSPACE_ID=}')
+
+    # メニューエクスポート 一括登録呼び出しのデータ登録 / Menu Export Bulk Registration Call Data Registration
     body = sample_data_menu_bulk_export_execute()
     result = requests.post(
         f"http://{os.environ.get('ITA_API_ORGANIZATION_HOST')}:{os.environ.get("ITA_API_ORGANIZATION_PORT")}/api/{organization_id}/workspaces/{workspace_id}/ita/menu/bulk/export/execute/",
         headers=request_parameters.ita_api_organization_request_headers(user_id="admin", workspace_role=["_ws1-admin"], language="ja"),
         json=body)
 
+    print(f'{result.status_code=} {result.text=}')
+
     assert result.status_code == 200, "menu bulk export register success"
 
-    with flask_app.app_context():
-        g.LANGUAGE = os.environ.get("LANGUAGE")
-        g.appmsg = MessageTemplate(g.LANGUAGE)
-        # create app log instance and message class instance
-        g.applogger = AppLog()
+    execution_no = json.loads(result.text).get("data").get("execution_no")
 
-        g.USER_ID = os.environ.get("USER_ID")
-        g.SERVICE_NAME = os.environ.get("SERVICE_NAME")
-
-        # Call the function
-        backyard_main(organization_id, workspace_id)
+    # Call the function
+    backyard_main(organization_id, workspace_id)
 
     # Assertions
+
+    # １度だけ呼ばれたかの確認
+    # Check that it was called only once
     mock_get_maintenance_mode.assert_called_once()
-    mock_db_connect.assert_called_once_with("ws_id")
-    mock_db_connection.table_select.assert_called()
+
+    # １度でも呼ばれたかの確認
+    # Verification of whether it was called at least once
+    mock_get_log_message.assert_called()
+
+    # 指定した引数で一度でも呼ばれたか確認
+    # Verify that the function has been called at least once with the specified arguments
+    mock_get_log_message.assert_any_call("BKY-20001", [])
+
+    # 戻り値が正しいかを確認
+    # Check if the return value is correct
+    assert mock_get_log_message.return_value == "Mocked log message"
+
+    # 最後に呼び出された引数が正しいかを確認
+    # Check if the arguments of the last call are correct
+    mock_get_log_message.assert_called_with("BKY-20002", [])
+
+    # 正常終了までいったのであれば、出力された内容とステータスの更新が正常に終っているかの確認
+
+    objdbca = DBConnectWs(workspace_id)
+    ret = objdbca.table_select('T_MENU_EXPORT_IMPORT', 'WHERE STATUS = %s AND EXECUTION_NO = %s', [3, execution_no])
+    # ステータスが正常終了になっているかの確認
+    # Check if the status is normal completion
+    assert len(ret) == 1, "menu export import status check"
+
+    # 出力されたファイルの確認のため、該当のファイルパスを取得
+    # Get the file path for the output file
+    ret = objdbca.table_select("T_MENU_EXPORT_IMPORT", 'WHERE EXECUTION_NO = %s', [execution_no])
+    print(f'{ret=}')
+
+    strage_path = os.environ.get('STORAGEPATH')
+    workspace_path = strage_path + "/".join([organization_id, workspace_id])
+    export_menu_dir = workspace_path + "/tmp/driver/export_menu"
+
+    # kymファイル名を取得
+    # Get the kym file name
+    str_path = os.path.join(export_menu_dir, ret[0]["FILE_NAME"])
+
+    assert os.path.exists(str_path), "menu export import file check"
+
+
+    # ret = objdbca.table_select("T_COMN_MENU", 'WHERE MENU_NAME_REST = %s', ['menu_export_import_list'])
+
+    # print(f'{ret=}')
+
+
+    # exec_result = objmenu.exec_maintenance(parameters, execution_no, "", False, False, True, False, True, record_file_paths=record_file_paths)  # noqa: E999
+
+    objdbca.db_disconnect()
+
 
 @patch("backyard_main.get_maintenance_mode_setting")
 def test_backyard_main_maintenance_mode(mock_get_maintenance_mode, mock_environment_variables):
+
+    print(f'test_backyard_main_maintenance_mode {inspect.currentframe().f_code.co_name=}')
+
     # Mock maintenance mode
     mock_get_maintenance_mode.return_value = {"data_update_stop": "1"}
 
+    testdata = import_module("tests.db.exports.testdata")
+
+    organization_id = list(testdata.ORGANIZATIONS.keys())[0]
+    workspace_id = testdata.ORGANIZATIONS[organization_id]["workspace_id"][0]
+    print (f'test data {organization_id=} {workspace_id=}')
+
+    g.ORGANIZATION_ID = organization_id
+    g.WORKSPACE_ID = workspace_id
 
     # Call the function
-    backyard_main("org_id", "ws_id")
+    backyard_main(organization_id, workspace_id)
 
     # Assertions
     mock_get_maintenance_mode.assert_called_once()
 
 @patch("backyard_main.get_maintenance_mode_setting")
 @patch("backyard_main.DBConnectWs")
-def test_backyard_main_exception_handling(mock_db_connect, mock_get_maintenance_mode, mock_environment_variables):
-    # Mock maintenance mode
+def test_backyard_main_exception_handling(mock_db_connect, mock_get_maintenance_mode, mocker, mock_environment_variables):
+
+    print(f'test_backyard_main_exception_handling {inspect.currentframe().f_code.co_name=}')
+
+    # Mock maintenance mode で 例外を発生させる
+    # Mock maintenance mode to raise an exception
     mock_get_maintenance_mode.side_effect = Exception("Mocked exception")
 
+    testdata = import_module("tests.db.exports.testdata")
+
+    organization_id = list(testdata.ORGANIZATIONS.keys())[0]
+    workspace_id = testdata.ORGANIZATIONS[organization_id]["workspace_id"][0]
+    print (f'test data {organization_id=} {workspace_id=}')
+
+    g.ORGANIZATION_ID = organization_id
+    g.WORKSPACE_ID = workspace_id
+
     # Call the function
-    backyard_main("org_id", "ws_id")
+    backyard_main(organization_id, workspace_id)
 
     # Assertions
+    # 例外が発生したかどうかの確認
+    # Check if an exception occurred
     mock_get_maintenance_mode.assert_called_once()
+
+    # 次に処置中の例外が発生したかどうかの確認
+    # Check if the next exception occurred
+    mock_db_connect.side_effect = Exception("Mocked exception")
+
+    # Mock maintenance mode
+    mock_get_maintenance_mode.return_value = {"data_update_stop": "0"}
+
+    mock_format_exc = mocker.patch("backyard_main.traceback.format_exc", return_value="Mocked traceback")
+
+    # Call the function
+    backyard_main(organization_id, workspace_id)
+
+    # 戻り値が正しいかを確認
+    # Check if the return value is correct
+    assert mock_format_exc.return_value == "Mocked traceback"
 
 
 def sample_data_menu_bulk_export_execute():

@@ -51,6 +51,7 @@
 				"python.testing.pytestArgs": [
 					"--cov=${workspaceFolder}/ita_root/ita_by_menu_export_import/",
 					"--cov-report=xml",
+					"--capture=no",
 				],
 				"python.testing.autoTestDiscoverOnSaveEnabled": true,
 				"coverage-gutters.showGutterCoverage": false,
