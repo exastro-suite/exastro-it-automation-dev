@@ -60,7 +60,7 @@ class AnsibleAgent(ABC):
         """
         コンテナを特定するためのユニークな文字列を生成する
         """
-        return "%s_%s_%s" % (self._organization_id, self._workspace_id, execution_no)
+        return f"ita-ansible-agent-{execution_no}"
 
     @abstractclassmethod
     def container_clean(self, ansConstObj, execution_no):
@@ -278,7 +278,6 @@ class KubernetesMode(AnsibleAgent):
         host_mount_path_conductor = conductor_path
         container_mount_path_conductor = os.environ.get('STORAGEPATH') + conductor_path
         unique_name = self.get_unique_name(execution_no)
-        unique_name = re.sub(r'_', '-', unique_name).lower()
 
         # generate execute manifest
         fileSystemLoader = FileSystemLoader(searchpath="./templates")
@@ -365,8 +364,7 @@ class KubernetesMode(AnsibleAgent):
         """
         # create command string
         unique_name = self.get_unique_name(execution_no)
-        unique_name = re.sub(r'_', '-', unique_name).lower()
-        command = ["/usr/local/bin/kubectl", "get", "pod", 'ita-by-ansible-agent-' + unique_name, "-o", "json"]
+        command = ["/usr/local/bin/kubectl", "get", "pod", unique_name, "-o", "json"]
 
         cp = subprocess.run(' '.join(command), capture_output=True, shell=True, text=True)
         if cp.returncode != 0:
