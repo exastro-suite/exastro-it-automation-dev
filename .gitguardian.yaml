@@ -4,3 +4,5 @@ secret:
   ignored_paths:
     - 'ita_root/ita_api_organization/pytest.ini.sample'
     - 'ita_root/ita_api_organization/tests/db/exports/**'
+    - 'ita_root/ita_ag_oase/pytest.ini.sample'
+    - 'ita_root/ita_ag_oase/tests/db/exports/**'

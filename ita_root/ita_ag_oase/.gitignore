@@ -1,6 +1,12 @@
 __pycache__/
 common_libs/
+!tests/common_libs/
 messages/
 agent/
 .env
 event_collection_settings.json
+pytest.ini
+/tests/temp/*
+!/tests/temp/.gitkeep
+tests/storage/*
+!tests/storage/.gitkeep

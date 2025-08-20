@@ -38,6 +38,10 @@ services:
       - ITERATION=${AG_OASE_ITERATION:-10}
       - EXECUTE_INTERVAL=${AG_OASE_EXECUTE_INTERVAL:-5}
       - LOG_LEVEL=${AG_OASE_LOG_LEVEL:-INFO}
+      - NETWORK_ID=${NETWORK_ID:-}
+      - ITA_REPO_ROOT=${ITA_REPO_ROOT:-}
+      - ITA_DBMS=${ITA_DBMS:-mariadb}
+      - EXT_PORT_ITA_UNITTEST_DB=${EXT_PORT_ITA_UNITTEST_DB:-3308}
     volumes:
       - vol-ita-storage:/storage
     networks:
