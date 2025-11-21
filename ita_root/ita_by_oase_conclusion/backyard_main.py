@@ -149,7 +149,7 @@ def JudgeMain(wsDb: DBConnectWs, judgeTime: int, EventObj: ManageEvents, actionO
     if len(timeout_Event_Id_List) > 0:
         # タイムアウトしているイベントの_exastro_timeoutを1に更新
         update_Flag_Dict = {"_exastro_timeout": '1'}
-        EventObj.update_label_flag(timeout_Event_Id_List, update_Flag_Dict)
+        EventObj.set_timeout(timeout_Event_Id_List)
         # Event updated. Timeout({}) ids: {}
         tmp_msg = g.appmsg.get_log_message("BKY-90007", [str(update_Flag_Dict), str(timeout_Event_Id_List)])
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
@@ -280,12 +280,12 @@ def JudgeMain(wsDb: DBConnectWs, judgeTime: int, EventObj: ManageEvents, actionO
             g.applogger.debug(addline_msg('TargetRuleList={}'.format(TargetRuleList)))  # noqa: F405
 
             newIncident_Flg = True
+            preserved_events = set()
 
             # region レベル毎の結論イベント未発生確認のループ
             while newIncident_Flg is True:
                 newIncident_Flg = False
 
-                preserved_events = set()
                 # region レベル毎のルール判定のループ
                 for ruleInfo in TargetRuleList:
                     # ルール判定
@@ -351,8 +351,17 @@ def JudgeMain(wsDb: DBConnectWs, judgeTime: int, EventObj: ManageEvents, actionO
                                                     # 判定済みのものしかなかったので、結論イベントを追加する
                                                     IncidentDict[UsedFilterId] = judged_events + [ConclusionEventRow['_id']]
                                                     g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                                                    # 対応するルールの優先度が不明のため、結論イベントを予約済みとする
-                                                    preserved_events.add(ConclusionEventRow['_id'])
+                                                    # 結論イベントを抽出対象とするフィルターを含むルールのマッチ候補となるイベントも予約済みにする
+                                                    for rule in (
+                                                        rule
+                                                        for rule in ruleList
+                                                        if UsedFilterId
+                                                        in (rule["FILTER_A"], rule["FILTER_B"])
+                                                    ):
+                                                        preserved_events.update(
+                                                            IncidentDict.get(rule["FILTER_A"], ()),
+                                                            IncidentDict.get(rule["FILTER_B"], ()),
+                                                        )
                                                 else:
                                                     # 破棄するイベントを予約済みから取り除く
                                                     preserved_events.difference_update(IncidentDict[UsedFilterId])
@@ -362,8 +371,17 @@ def JudgeMain(wsDb: DBConnectWs, judgeTime: int, EventObj: ManageEvents, actionO
                                                 # キューイングの場合
                                                 IncidentDict[UsedFilterId].append(ConclusionEventRow['_id'])
                                                 g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                                                # 対応するルールの優先度が不明のため、結論イベントを予約済みとする
-                                                preserved_events.add(ConclusionEventRow['_id'])
+                                                # 結論イベントを抽出対象とするフィルターを含むルールのマッチ候補となるイベントも予約済みにする
+                                                for rule in (
+                                                    rule
+                                                    for rule in ruleList
+                                                    if UsedFilterId
+                                                    in (rule["FILTER_A"], rule["FILTER_B"])
+                                                ):
+                                                    preserved_events.update(
+                                                        IncidentDict.get(rule["FILTER_A"], ()),
+                                                        IncidentDict.get(rule["FILTER_B"], ()),
+                                                    )
                                         else:
                                             # 空配列。既に未知判定（ユニーク検索かつ複数イベント合致）されているため、結論イベントも破棄する→未知におとす予定
                                             pass
@@ -371,8 +389,17 @@ def JudgeMain(wsDb: DBConnectWs, judgeTime: int, EventObj: ManageEvents, actionO
                                         # 初めてフィルターにかかった
                                         IncidentDict[UsedFilterId] = [ConclusionEventRow['_id']]
                                         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                                        # 対応するルールの優先度が不明のため、結論イベントを予約済みとする
-                                        preserved_events.add(ConclusionEventRow['_id'])
+                                        # 結論イベントを抽出対象とするフィルターを含むルールのマッチ候補となるイベントも予約済みにする
+                                        for rule in (
+                                            rule
+                                            for rule in ruleList
+                                            if UsedFilterId
+                                            in (rule["FILTER_A"], rule["FILTER_B"])
+                                        ):
+                                            preserved_events.update(
+                                                IncidentDict.get(rule["FILTER_A"], ()),
+                                                IncidentDict.get(rule["FILTER_B"], ()),
+                                            )
 
                             newIncident_Flg = True
 
@@ -436,7 +463,7 @@ def JudgeMain(wsDb: DBConnectWs, judgeTime: int, EventObj: ManageEvents, actionO
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
         # 処理後タイムアウトの_exastro_timeoutを1に更新
         update_Flag_Dict = {"_exastro_timeout": '1'}
-        EventObj.update_label_flag(PostProcTimeoutEventIdList, update_Flag_Dict)
+        EventObj.set_timeout(PostProcTimeoutEventIdList)
         tmp_msg = g.appmsg.get_log_message("BKY-90028", [str(update_Flag_Dict), str(PostProcTimeoutEventIdList)])
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
         
@@ -456,7 +483,7 @@ def JudgeMain(wsDb: DBConnectWs, judgeTime: int, EventObj: ManageEvents, actionO
         # MongoDBのインシデント情報を更新（一括で行う）
         # 未知イベントの_exastro_undetectedを1に更新
         update_Flag_Dict = {"_exastro_undetected": '1'}
-        EventObj.update_label_flag(UnusedEventIdList, update_Flag_Dict)
+        EventObj.set_undetected(UnusedEventIdList)
         tmp_msg = g.appmsg.get_log_message("BKY-90031", [str(update_Flag_Dict), str(UnusedEventIdList)])
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
     else:
