@@ -17,6 +17,7 @@ import json
 import os
 import re
 from typing import Any, Literal, NewType, TypedDict
+import requests
 
 from bson import ObjectId
 from flask import g
@@ -24,8 +25,12 @@ from flask import g
 from common_libs.oase.const import oaseConst
 from common_libs.common.mongoconnect.const import Const as mongoConst
 from common_libs.common.mongoconnect.mongoconnect import MONGOConnectWs
-from libs.common_functions import getIDtoLabelName
+from libs.common_functions import getIDtoLabelName, deduplication_timeout_filter
 from libs.writer_process import WriterProcessManager
+
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
+from common_libs.notification.sub_classes.oase import OASENotificationType, OASE
 
 AttributeKey = NewType('AttributeKey', frozenset[tuple[str, Any]])
 """属性集約キー"""
@@ -62,7 +67,7 @@ class GroupingInformation(TypedDict):
 
 
 class ManageEvents:
-    def __init__(self, ws_mongo: MONGOConnectWs, judge_time: int) -> None:
+    def __init__(self, ws_mongo: MONGOConnectWs, judge_time: int, init_find=True) -> None:
         self._label_master: dict[str, str] = {}
         """ラベルマスタ"""
 
@@ -72,41 +77,44 @@ class ManageEvents:
         self.labeled_event_collection = ws_mongo.collection(mongoConst.LABELED_EVENT_COLLECTION)
 
         # イベントキャッシュの作成
+        # init_find=Falseで指定された場合はイベントキャッシュを作成しない
+        if init_find is True:
+            # 以下条件のイベントを取得
+            undetermined_search_value = {
+                "labels._exastro_timeout": "0",
+                "labels._exastro_evaluated": "0",
+                "labels._exastro_undetected": "0"
+            }
+            labeled_events = self.labeled_event_collection.find(
+                undetermined_search_value
+            ).sort("labels._exastro_fetched_time", 1)  # 取得日時昇順にしておかないとグルーピングで先頭イベントが決定できなくなる
 
-        # 以下条件のイベントを取得
-        undetermined_search_value = {
-            "labels._exastro_timeout": "0",
-            "labels._exastro_evaluated": "0",
-            "labels._exastro_undetected": "0"
-        }
-        labeled_events = self.labeled_event_collection.find(
-            undetermined_search_value
-        ).sort("labels._exastro_fetched_time", 1)  # 取得日時昇順にしておかないとグルーピングで先頭イベントが決定できなくなる
+            self.labeled_events_dict: dict[ObjectId, Event] = {}
+            self.unevaluated_event_ids = set()
 
-        self.labeled_events_dict: dict[ObjectId, Event] = {}
-        self.unevaluated_event_ids = set()
+            for event in labeled_events:
+                g.applogger.debug(f'{event=}')
+                event[oaseConst.DF_LOCAL_LABLE_NAME] = {}
+                event[oaseConst.DF_LOCAL_LABLE_NAME]["status"] = None
 
-        for event in labeled_events:
-            event[oaseConst.DF_LOCAL_LABLE_NAME] = {}
-            event[oaseConst.DF_LOCAL_LABLE_NAME]["status"] = None
+                check_result, event_status = self.check_event_status(
+                    int(judge_time),
+                    int(event["labels"]["_exastro_fetched_time"]),
+                    int(event["labels"]["_exastro_end_time"]),
+                )
+                if check_result is False:
+                    continue
+                g.applogger.debug(f'{check_result=} {event_status=} {event["labels"]=}')
 
-            check_result, event_status = self.check_event_status(
-                int(judge_time),
-                int(event["labels"]["_exastro_fetched_time"]),
-                int(event["labels"]["_exastro_end_time"]),
-            )
-            if check_result is False:
-                continue
+                self.add_local_label(
+                    event,
+                    oaseConst.DF_LOCAL_LABLE_NAME,
+                    oaseConst.DF_LOCAL_LABLE_STATUS,
+                    event_status
+                )
+                self.labeled_events_dict[event["_id"]] = event
 
-            self.add_local_label(
-                event,
-                oaseConst.DF_LOCAL_LABLE_NAME,
-                oaseConst.DF_LOCAL_LABLE_STATUS,
-                event_status
-            )
-            self.labeled_events_dict[event["_id"]] = event
-
-            self.collect_unevaluated_event(event["_id"], event, initial=True)
+                self.collect_unevaluated_event(event["_id"], event, initial=True)
 
     # イベント有効期間判定
     def check_event_status(self, judge_time, fetched_time, end_time):
@@ -250,6 +258,7 @@ class ManageEvents:
 
     def get_post_proc_timeout_event(self):
         post_proc_timeout_event_ids = []
+        post_proc_timeout_event_Rows = []
         # 処理後にタイムアウトにするイベントを抽出
         for event_id, event in self.labeled_events_dict.items():
             # タイムアウトしたイベントは登録されているのでスキップ
@@ -261,8 +270,9 @@ class ManageEvents:
             # 処理後にタイムアウトにするイベント
             if event[oaseConst.DF_LOCAL_LABLE_NAME][oaseConst.DF_LOCAL_LABLE_STATUS] == oaseConst.DF_POST_PROC_TIMEOUT_EVENT:
                 post_proc_timeout_event_ids.append(event_id)
+                post_proc_timeout_event_Rows.append(event)
 
-        return post_proc_timeout_event_ids
+        return post_proc_timeout_event_ids, post_proc_timeout_event_Rows
 
     def get_unused_event(self, incident_dict: dict, filterIDMap):
         """
@@ -649,3 +659,123 @@ class ManageEvents:
         info = inspect.getouterframes(inspect.currentframe())[1]
         msg_line = "{} ({}:{})".format(msg, os.path.basename(info.filename), info.lineno)
         return msg_line
+
+    def get_dudup_eventRow(self, wsDb, judge_time: int) -> list[dict]:
+        """新規(統合時) TTL切れの通知対象となるイベントをフィルタする
+
+        Args:
+            wsDb (DBConnectWs): MariaDBのコネクション
+            judge_time (int): 判定日時のタイムスタンプ
+
+        Returns:
+            List: 新規(統合時) TTL切れの通知対象となるイベントを要素に持つリスト
+        """
+        g.applogger.debug(f"get_dudup_eventRow called: {judge_time=}")
+        # 新規(統合時)の通知が必要かどうかを確認する
+        organization_id = g.get('ORGANIZATION_ID')
+        workspace_id = g.get('WORKSPACE_ID')
+        host_name = os.environ.get('PLATFORM_API_HOST')
+        port = os.environ.get('PLATFORM_API_PORT')
+        user_id = g.get('USER_ID')
+        language = g.get('LANGUAGE')
+
+        header_para = {
+            "User-Id": user_id,
+            "Language": language
+        }
+        # 新規(統合時)が有効な通知先のみ取得するようにクエリ指定
+        query_params = {}
+        query_params["event_type_true"] = OASE.DESTINATION_ID_FETCH_CONDITION[OASENotificationType.DUPLICATE]
+        # API呼出
+        api_url = f"http://{host_name}:{port}/internal-api/{organization_id}/platform/workspaces/{workspace_id}/settings/notifications"
+        s = requests.Session()
+        retries = Retry(total=5,
+                        backoff_factor=0.5)
+        s.mount('http://', HTTPAdapter(max_retries=retries))
+        s.mount('https://', HTTPAdapter(max_retries=retries))
+        # 後続処理遅延につながるためタイムアウトは1秒と短めに設定
+        request_response = s.request(method='GET', url=api_url, timeout=1, headers=header_para, params=query_params)
+        response_data = request_response.json()
+        if request_response.status_code != 200:
+            # 200応答が来なくても処理は継続するが一応ログには出しておく？(internal-apiだから微妙だけど)
+            g.applogger.info(g.appmsg.get_log_message('999-00005', [api_url, response_data]))
+        else:
+            # スキップ判断は通知先情報がないとできないので、200応答の時のみ実施
+            if 'data' in response_data and len(response_data['data']) == 0:
+                g.applogger.debug("No Notification settings for new_consolidated events. Skipping.")
+                return []
+
+        # 冗長グループを確認するため重複排除設定を確認
+        deduplication_settings = wsDb.table_select(
+            oaseConst.T_OASE_DEDUPLICATION_SETTINGS,
+            "WHERE DISUSE_FLAG='0' ORDER BY SETTING_PRIORITY, DEDUPLICATION_SETTING_NAME"
+        )
+        # 重複排除設定が無いなら処理自体をスキップ
+        if len(deduplication_settings) == 0:
+            g.applogger.debug("No records for deduplication settings. Skipping.")
+            return []
+
+        EventRow = []
+        # TTLを確認するためにイベント収集設定を取得
+        collection_settings = wsDb.table_select(
+            oaseConst.T_OASE_EVENT_COLLECTION_SETTINGS,
+            "WHERE DISUSE_FLAG='0'"
+        )
+        # collection_settings_ttlはイベント収集設定のUUIDをキー、TTLを値とする辞書
+        collection_settings_ttl = {}
+        for collection_setting in collection_settings:
+            collection_settings_ttl[collection_setting["EVENT_COLLECTION_SETTINGS_ID"]] = collection_setting["TTL"]
+        # Mongoクエリに使用するTTL値のリストを作成(ユニーク/昇順)
+        ttl_unique_asc = []
+        for deduplication_setting in deduplication_settings:
+            # redundancy_idsは重複排除設定の同一冗長グループの、イベント収集設定のUUIDのリスト
+            redundancy_ids = json.loads(deduplication_setting["EVENT_SOURCE_REDUNDANCY_GROUP"])["id"]
+            # 重複排除設定の冗長グループに2つ以上のイベント収集設定が登録されている場合のみ、通知対象となるため処理
+            if len(redundancy_ids) > 1:
+                for uuid in redundancy_ids:
+                    # イベント収集設定のUUIDからTTL取得
+                    # 不正なUUID(ID連携失敗)の場合は取得しない
+                    if uuid in collection_settings_ttl:
+                        ttl_unique_asc.append(int(collection_settings_ttl[uuid]))
+        ttl_unique_asc = sorted(list(set(ttl_unique_asc)))
+        ttl_unique_asc_pick = []
+        # TTL値が多すぎる場合は間引き処理を実施する(20秒以上空ける)
+        if len(ttl_unique_asc) > 0:
+            ttl_unique_asc_pick.append(ttl_unique_asc[0])
+            # 要素が1つの場合はそのまま返す、それ以上は間引き処理を実施
+            for i in range(1, len(ttl_unique_asc)):
+                current_element = ttl_unique_asc[i]
+                last_element = ttl_unique_asc_pick[-1]
+                if (current_element - last_element) >= 20:
+                    ttl_unique_asc_pick.append(current_element)
+        # TTL値毎にMongoで検索→更新を実施する
+        for ttl in ttl_unique_asc_pick:
+            Event_ids = []
+            g.applogger.debug(f"{ttl=}")
+            # 以下の条件のイベントを取得
+            deduplication_search_value = {
+                "exastro_duplicate_collection_settings_ids": {"$exists": True, "$not": {"$size": 0}},
+                "labels._exastro_end_time": {"$gte": (int(judge_time) - int(ttl) * 2), "$lte": int(judge_time)},
+                "exastro_dup_notification_queue": {"$exists": False}
+            }
+            g.applogger.debug(f"{deduplication_search_value=}")
+            # 最低限、重複排除に関係あるイベントを取得
+            target_events = self.labeled_event_collection.find(
+                deduplication_search_value
+            ).sort("labels._exastro_fetched_time", 1)  # 取得日時昇順
+            for event in target_events:
+                if deduplication_timeout_filter(deduplication_settings, event) is True:
+                    # MongoDBの更新対象にする
+                    Event_ids.append(event["_id"])
+                    # 返却値の labels._exastro_dup_notification_queue: 1 に変更する
+                    event["exastro_dup_notification_queue"] = "1"
+                    EventRow.append(event)
+            # TTL設定値毎にupdateManyしてMongo側も更新かける
+            if len(Event_ids) > 0:
+                self.labeled_event_collection.update_many(
+                    {"_id": {"$in": Event_ids}},
+                    {"$set": {"exastro_dup_notification_queue": "1"}}
+                )
+                g.applogger.debug("Mongodb update_many executed.")
+            g.applogger.debug(f"{len(Event_ids)=}")
+        return EventRow
