@@ -124,7 +124,6 @@ class ManageEvents:
                 )
                 if check_result is False:
                     continue
-                g.applogger.debug(f'{check_result=} {event_status=} {event["labels"]=}')
 
                 self.add_local_label(
                     event,
@@ -903,14 +902,12 @@ class ManageEvents:
         # TTL値毎にMongoで検索→更新を実施する
         for ttl in ttl_unique_asc_pick:
             Event_ids = []
-            g.applogger.debug(f"{ttl=}")
             # 以下の条件のイベントを取得
             deduplication_search_value = {
                 "exastro_duplicate_collection_settings_ids": {"$exists": True, "$not": {"$size": 0}},
                 "labels._exastro_end_time": {"$gte": (int(judge_time) - int(ttl) * 2), "$lte": int(judge_time)},
                 "exastro_dup_notification_queue": {"$exists": False}
             }
-            g.applogger.debug(f"{deduplication_search_value=}")
             # 最低限、重複排除に関係あるイベントを取得
             target_events = self.labeled_event_collection.find(
                 deduplication_search_value
@@ -928,6 +925,4 @@ class ManageEvents:
                     {"_id": {"$in": Event_ids}},
                     {"$set": {"exastro_dup_notification_queue": "1"}}
                 )
-                g.applogger.debug("Mongodb update_many executed.")
-            g.applogger.debug(f"{len(Event_ids)=}")
         return EventRow
