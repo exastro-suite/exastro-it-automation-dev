@@ -39,6 +39,28 @@ def create_events(event_ids: list[str], pattern_name: str) -> list[dict]:
     return events
 
 
+def create_events_p130(event_num: int) -> list[dict]:
+    """p130用のeventリスト作成
+
+    Args:
+        event_num (int): イベント数
+
+    Returns:
+        list[dict]: eventリスト
+    """
+    events = []
+    for i in range(0, event_num):
+        event = create_event(
+            "p130",
+            f"e{1001 + i}",
+            fetched_time_offset=event_templates["e1001"]["fetched_time_offset"],
+            ttl=event_templates["e1001"]["ttl"],
+            custom_labels=copy.deepcopy(event_templates["e1001"]["custom_labels"]),
+        )
+        events.append(event)
+    return events
+
+
 # pytest用イベント定義
 event_templates = {}
 event_templates["e001"] = {
@@ -416,6 +438,21 @@ event_templates["e010"] = {
         "excluded_flg": "0",
     },
 }
+event_templates["e010a"] = {
+    "ttl": 20,
+    "fetched_time_offset": -28,
+    "custom_labels": {
+        "eventid": "e010a",
+        "node": "Z02",
+        "clock": "9972",
+        "msg": "[systemC] Disk Full",
+        "_exastro_host": "systemC",
+        "service": "Disk",
+        "status": "Full",
+        "severity": "3",
+        "excluded_flg": "0",
+    },
+}
 event_templates["e011"] = {
     "ttl": 20,
     "fetched_time_offset": -25,
@@ -581,8 +618,8 @@ event_templates["e019c"] = {
 }
 event_templates["e019d"] = {
     "ttl": 20,
-    "fetched_time_offset": -30,
-    "custom_labels": {"eventid": "e019d", "node": "z11", "clock": "9970", "type": "b"},
+    "fetched_time_offset": -35,
+    "custom_labels": {"eventid": "e019d", "node": "z11", "clock": "9965", "type": "b"},
 }
 event_templates["e020"] = {
     "ttl": 20,
@@ -1078,6 +1115,11 @@ event_templates["e999"] = {
 event_templates["e1001"] = {
     "ttl": 60,
     "fetched_time_offset": -10,
-    "custom_labels": {"eventid": "e1001", "node": "VALUE", "clock": "9990"},
+    "custom_labels": {
+        "eventid": "e1001",
+        "node": "VALUE",
+        "clock": "9990",
+        "status": "false",
+    },
 }
 # pytest用イベント定義
