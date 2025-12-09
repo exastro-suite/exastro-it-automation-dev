@@ -29,22 +29,31 @@ ENV APACHE_SOCKET_DIR       /var/run_$USERNAME/httpd/socket
 ENV APACHE_TIMEOUT          300
 ENV APACHE_USERNAME         $USERNAME
 ENV APACHE_GROUPNAME        $GROUPNAME
+ENV DB_CONNECT_TIMEOUT=10
+ENV DB_CONNECT_RETRY_SLEEP_TIME=0.5
+ENV DB_CONNECT_RETRY_LIMIT=2
 ENV SERVICE_NAME=ita-api-oase-receiver
 ENV EVENT_COLLECTION_PROGRESS_TTL   72
+ENV MAX_WORKER_THREAD_POOL_SIZE      12
+ENV NOTIFICATION_BATCH_SIZE         100
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
     dnf install -y \
     gcc \
     httpd \
     httpd-devel \
-    python3.12 \
-    python3.12-devel \
-    python3.12-pip \
-    python3.12-mod_wsgi \
     langpacks-en \
     wget \
     unzip \
-&&  pip3.12 install poetry==1.8.4 \
+    python3.11 \
+    python3.11-devel \
+    python3.11-pip \
+    python3.11-mod_wsgi \
+    --exclude=python3.11-setuptools \
+&&  alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1000000 \
+&&  alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 100 \
+&&  alternatives --set python3 /usr/bin/python3.11 \
+&&  pip3.11 install poetry==1.8.4 \
 &&  poetry config virtualenvs.create false \
 &&  groupadd $GROUPNAME \
 &&  useradd -m -s /bin/bash -g $GROUPNAME $USERNAME \
@@ -54,10 +63,6 @@ RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted
 &&  chown $USERNAME:$GROUPNAME $APACHE_PID_DIR \
 &&  mkdir -p $APACHE_SOCKET_DIR \
 &&  chown $USERNAME:$GROUPNAME $APACHE_SOCKET_DIR
-
-RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1000000 \
-&&  alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 31200 \
-&&  alternatives --set python3 /usr/bin/python3.12
 
 WORKDIR $APP_PATH
 
@@ -79,13 +84,16 @@ ARG GROUPNAME
 ARG APP_PATH
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
-    dnf install -y \
+    dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo \
+&&  dnf install -y \
     sudo \
     git \
     vim \
     diffutils \
     bind-utils \
     iputils \
+    docker-ce-cli \
+    jq \
 &&  usermod -G wheel $USERNAME \
 &&  echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
 &&  echo "%${GROUPNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers

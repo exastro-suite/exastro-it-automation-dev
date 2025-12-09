@@ -26,33 +26,38 @@ ENV LANGUAGE=en
 ENV STORAGEPATH=/storage/
 ENV CONTAINER_BASE=docker
 ENV DEFAULT_LOCAL_TMP=/tmp
+ENV DB_CONNECT_TIMEOUT=10
+ENV DB_CONNECT_RETRY_SLEEP_TIME=0.5
+ENV DB_CONNECT_RETRY_LIMIT=2
 ENV SERVICE_NAME=ita-by-ansible-execute
 ENV CHILD_PROCESS_RETRY_LIMIT=10
 ENV ANSIBLE_AGENT_NON_COMMUNICATION_DETECTION_TIME=600
+# ハングアップ監視用ファイル
+ENV FILE_PATH_LIVENESS=/tmp/liveness
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
     dnf install -y \
     gcc \
-    python3.12 \
-    python3.12-devel \
-    python3.12-pip \
-    python3.12-mod_wsgi \
     langpacks-en \
     wget \
     zip \
     unzip \
     openssh-clients \
     git \
-&&  curl -L https://storage.googleapis.com/kubernetes-release/release/v1.24.3/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
-&&  chmod +x /usr/local/bin/kubectl \
-&&  pip3.12 install poetry==1.8.4 \
+    python3.11 \
+    python3.11-devel \
+    python3.11-mod_wsgi \
+    python3.11-pip \
+    --exclude=python3.11-setuptools \
+&&  alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1000000 \
+&&  alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 100 \
+&&  alternatives --set python3 /usr/bin/python3.11 \
+&&  pip3.11 install poetry==1.8.4 \
 &&  poetry config virtualenvs.create false \
+&&  curl -L https://dl.k8s.io/release/v1.33.1/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl \
+&&  chmod +x /usr/local/bin/kubectl \
 &&  groupadd $GROUPNAME \
 &&  useradd -m -s /bin/bash -g $GROUPNAME $USERNAME
-
-RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1000000 \
-&&  alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 31200 \
-&&  alternatives --set python3 /usr/bin/python3.12
 
 WORKDIR $APP_PATH
 
@@ -84,8 +89,8 @@ RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted
     diffutils \
     bind-utils \
     iputils \
-&&  curl -fsSL https://get.docker.com/builds/Linux/x86_64/docker-17.05.0-ce.tgz | tar -xzC /usr/local/bin --strip=1 docker/docker \
-&&  curl -L https://github.com/docker/compose/releases/download/v2.5.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose \
+&&  curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-18.06.3-ce.tgz | tar -xzC /usr/local/bin --strip=1 docker/docker \
+&&  curl -L https://github.com/docker/compose/releases/download/v2.37.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose \
 &&  chmod +x /usr/local/bin/docker-compose \
 &&  usermod -G wheel $USERNAME \
 &&  echo '%wheel ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \

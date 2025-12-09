@@ -6,7 +6,7 @@ authors = ["Your Name <you@example.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.11"
 python-dotenv = ">=0.0.0"
 setuptools = ">=0.0.0"
 connexion = {version = "^2.0.0", extras = ["swagger-ui", "uvicorn"]}
@@ -26,6 +26,12 @@ certifi = ">=0.0.0"
 debugpy = ">=0.0.0"
 flake8 = ">=0.0.0"
 autopep8 = ">=0.0.0"
+pytest = ">=0.0.0"
+pytest-env = ">=0.0.0"
+pytest-cov = ">=0.0.0"
+pytest-docker = ">=0.0.0"
+pytest-mock = ">=0.0.0"
+requests-mock = ">=0.0.0"
 
 [build-system]
 requires = ["poetry-core"]

@@ -70,6 +70,10 @@ def agent_main(organization_id, workspace_id, loop_count, interval):
     else:
         g.applogger.debug(g.appmsg.get_log_message("AGT-10005", []))
 
+    g.AGENT_INFO = {}
+    g.AGENT_INFO["name"] = os.environ.get("HOSTNAME")
+    g.AGENT_INFO["version"] = get_agent_version()
+
     while True:
         print("")
         print("")
@@ -170,6 +174,7 @@ def collection_logic(sqliteDB, organization_id, workspace_id, exastro_api):
         try:
             sqliteDB.db_connect.execute("BEGIN")
             sqliteDB.insert_events(events, event_collection_result_list)
+            sqliteDB.db_connect.commit()
             # イベントが1件以上なら、イベントの中身・取得時間・最終取得時間をsqliteに保存する
             if len(events) != 0:
                 g.applogger.debug(g.appmsg.get_log_message("AGT-10014", []))
@@ -186,13 +191,16 @@ def collection_logic(sqliteDB, organization_id, workspace_id, exastro_api):
     post_body = {
         "events": []
     }
-    unsent_event_rowids = []  # アップデート用rowidリスト
-    unsent_timestamp_rowids = []  # アップデート用rowidリスト
+    unsent_event_rowids = {}  # アップデート用rowidリスト
+    unsent_timestamp_rowids = {}  # アップデート用rowidリスト
     send_to_ita_flag = False
 
     # event_collection_settings_nameとfetched_timeの組み合わせで辞書を作成
     # 設定名ごとに未送信の「取得回」を取得
     for name in setting_name_list:
+        unsent_event_rowids[name] = []
+        unsent_timestamp_rowids[name] = []
+
         try:
             sqliteDB.db_cursor.execute(
                 """
@@ -202,7 +210,7 @@ def collection_logic(sqliteDB, organization_id, workspace_id, exastro_api):
                 (name, 0)
             )
             unsent_timestamp = sqliteDB.db_cursor.fetchall()
-            unsent_timestamp_rowids.extend([row[0] for row in unsent_timestamp])
+            unsent_timestamp_rowids[name].extend([row[0] for row in unsent_timestamp])
         except sqlite3.OperationalError:
             continue
 
@@ -218,6 +226,7 @@ def collection_logic(sqliteDB, organization_id, workspace_id, exastro_api):
             fetched_time = item[2]
             unsent_event["fetched_time"] = fetched_time
             unsent_event["event_collection_settings_name"] = event_collection_settings_name
+            unsent_event["agent"] = g.AGENT_INFO
             unsent_event["event"] = []
 
             sqliteDB.db_cursor.execute(
@@ -229,7 +238,7 @@ def collection_logic(sqliteDB, organization_id, workspace_id, exastro_api):
             )
             unsent_events = sqliteDB.db_cursor.fetchall()
             for row in unsent_events:
-                unsent_event_rowids.append(row[0])
+                unsent_event_rowids[name].append(row[0])
                 # 文字列で保存されていたイベントをJSON形式に再変換
                 json_event = json.loads(row[2])
                 unsent_event["event"].append(json_event)
@@ -266,13 +275,16 @@ def collection_logic(sqliteDB, organization_id, workspace_id, exastro_api):
             # del response_data
             g.applogger.info(g.appmsg.get_log_message("AGT-10018", [msg]))
 
-            for table_name, data_list in {"events": unsent_event_rowids, "sent_timestamp": unsent_timestamp_rowids}.items():
-                try:
-                    sqliteDB.db_connect.execute("BEGIN")
-                    sqliteDB.update_sent_flag(table_name, data_list)
-                except AppException as e:  # noqa E405
-                    sqliteDB.db_connect.rollback()
-                    app_exception(e)
+            for name in setting_name_list:
+                for table_name, data_list in {"events": unsent_event_rowids[name], "sent_timestamp": unsent_timestamp_rowids[name]}.items():
+                    try:
+                        sqliteDB.db_connect.execute("BEGIN")
+                        sqliteDB.update_sent_flag(table_name, data_list)
+                        sqliteDB.db_connect.commit()
+                    except AppException as e:  # noqa E405
+                        sqliteDB.db_connect.rollback()
+                        app_exception(e)
+                        break
 
             g.applogger.debug(g.appmsg.get_log_message("AGT-10019", []))
         else:
@@ -335,8 +347,25 @@ def collection_logic(sqliteDB, organization_id, workspace_id, exastro_api):
         try:
             sqliteDB.db_connect.execute("BEGIN")
             sqliteDB.delete_unnecessary_records({"events": to_delete_events_rowids, "sent_timestamp": to_delete_timestamp_rowids})
+            sqliteDB.db_connect.commit()
             g.applogger.debug(g.appmsg.get_log_message("AGT-10023", []))
         except AppException as e:  # noqa F405
+            sqliteDB.db_connect.rollback()
             app_exception(e)
 
     return
+
+
+def get_agent_version():
+    """
+        agent_versionの取得
+    Returns:
+        agent_version
+    """
+    # ファイルが存在しない／読めなかった等はエラー落ちとする
+    version_file_path = os.path.join(os.environ.get("PYTHONPATH"), "VERSION.txt")
+    with open(version_file_path, mode='r') as f:
+        agent_version = f.read()
+        # 末尾の改行があった場合、取り除く
+        agent_version = agent_version.strip()
+    return agent_version
