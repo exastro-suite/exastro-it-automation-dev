@@ -40,7 +40,7 @@ setup(apiParam) {
             //     'Ansible Playbook内で指定する値は、冒頭でset_factで大文字の変数名の変数に代入してから使用してください。'
             // ]
             this.model = genAI.getGenerativeModel({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-2.5-flash',
                 systemInstruction: systemInstruction.join("\n")
             });
             resolve();
