@@ -19,6 +19,10 @@ padding-bottom: 5px;
 #menu-editor-info {
 height: 30%;
 padding-top: 5px;
+user-select: text;
+-moz-user-select: text;
+-webkit-user-select: text;
+-ms-user-select: text;
 }
 #menu-editor-row-resize {
 top: 70%;
@@ -89,10 +93,12 @@ text-shadow: 1px 1px 1px rgb(0 0 0 / 20%);
 color: var(--white100);
 }
 .menu-column-group-header {
+min-height: 32px;
 background-color: var(--mainColor80);
 border-bottom: 1px solid var(--mainColor100);
 }
 .menu-column-header {
+min-height: 64px;
 align-items: center;
 background-color: var(--mainColor70);
 }
@@ -155,9 +161,6 @@ overflow: hidden;
 height: 32px;
 padding: 4px 0;
 cursor: text;
-}
-.menu-column-delete {
-border-bottom: 1px solid rgba( 255,255,255,.2 );
 }
 .menu-column-title:first-child {
 border-bottom: 1px dashed rgba( 255,255,255,.2 );
@@ -223,6 +226,7 @@ background-color: rgba( 0,0,0,.2 );
 }
 .menu-column-delete {
 top: 0; right: 0;
+border-bottom: 1px solid rgba( 255,255,255,.2 );
 }
 .menu-column-delete::before,
 .menu-column-delete::after {
@@ -252,12 +256,10 @@ border: 1px solid #EEE;
 .menu-column-copy::after {
 border-top: none;
 border-right: none;
+left: calc( 50% - 1px ); top: calc( 50% + 1px );
 }
 .menu-column-copy::before {
 left: calc( 50% + 1px ); top: calc( 50% - 1px );
-}
-.menu-column-copy::after{
-left: calc( 50% - 1px ); top: calc( 50% + 1px )
 }
 .menu-column-repeat-number {
 position: absolute;
@@ -377,15 +379,12 @@ background-color: transparent!important;
 pointer-events: none;
 }
 .menu-column-type {
-background-color: #FFF;
+padding: 2px;
+background-color: #CCC;
 }
 /*
 Column type select
 */
-.menu-column-type {
-padding: 2px;
-background-color: #CCC;
-}
 select.menu-column-type-select {
 width: 100%;
 height: 24px;
@@ -410,22 +409,8 @@ width: 8px; min-width: 100%;
 display: block;
 }
 .menu-column-config-table tr {
-display: none;
-flex-wrap: wrap;
-}
-.menu-column-config-table tr.all,
-.menu-column-config-table[date-select-value="1"] tr.single,
-.menu-column-config-table[date-select-value="2"] tr.multiple,
-.menu-column-config-table[date-select-value="3"] tr.number-int,
-.menu-column-config-table[date-select-value="4"] tr.number-float,
-.menu-column-config-table[date-select-value="5"] tr.date-time,
-.menu-column-config-table[date-select-value="6"] tr.date,
-.menu-column-config-table[date-select-value="8"] tr.password,
-.menu-column-config-table[date-select-value="7"] tr.select-option,
-.menu-column-config-table[date-select-value="9"] tr.file,
-.menu-column-config-table[date-select-value="10"] tr.link,
-.menu-column-config-table[date-select-value="11"] tr.param-sheet-ref {
 display: flex;
+flex-wrap: wrap;
 }
 .menu-column-config-table th,
 .menu-column-config-table td {
@@ -463,7 +448,7 @@ text-align: right;
 .property-number,
 .config-number,
 .menu-column-repeat-number-input {
--moz-appearance: textfield;
+appearance: textfield;
 }
 .property-number::-webkit-outer-spin-button,
 .property-number::-webkit-inner-spin-button,
@@ -647,9 +632,6 @@ appearance: none
 #menu-editor[data-editor-mode="view"] .required-label[disabled],
 #menu-editor[data-editor-mode="view"] .unique-label[disabled] {
 color: #111!important;
-}
-#menu-editor[data-editor-mode="view"] .required-label[disabled],
-#menu-editor[data-editor-mode="view"] .unique-label[disabled] {
 cursor: default!important;
 }
 #menu-editor[data-editor-mode="view"] .config-checkbox:disabled + span::after {
@@ -741,13 +723,15 @@ display: none;
 }
 
 
-.column-empty {
+.column-empty,
+.previewEmpty {
 width: 100%;
 min-width: 80px;
 padding: 2px;
 background-color: #C3C6C8;
 }
-.column-empty p {
+.column-empty p,
+.previewEmptyInner {
 overflow: hidden;
 display: flex;
 align-items: center;
@@ -818,17 +802,6 @@ color: #60C60D;
 }
 .menu-editor-log-table tr:nth-child(even) {
 background-color: rgba(255,255,255,.05);
-}
-.tHeadLeftSticky:nth-child(2),
-.tBodyLeftSticky:nth-child(2) {
-left: 41px;
-}
-.tHeadLeftSticky:nth-child(3),
-.tBodyLeftSticky:nth-child(3) {
-left: 82px;
-}
-.tHeadGroup > .ci {
-left: 389px
 }
 .tHeadBlank.empty {
 padding: 0;
@@ -1344,11 +1317,6 @@ background-color: hsl( 0,0%,28% );
 .modal-table tbody tr:nth-child( even ) td {
 background-color: hsl( 0,0%,20% );
 }
-.modal-table thead th.id,
-.modal-table thead th.selectTh {
-width: 8px;
-white-space: nowrap;
-}
 .modal-table .modal-checkbox {
 width: 16px; height: 16px;
 pointer-events: none;
@@ -1558,4 +1526,157 @@ display: none!important;
 #property[data-menu-type="3"][data-vertical-menu="true"] #vertical-menu
 {
 display: block;
+}
+/*
+select2選択BOX
+*/
+.select-container {
+position: relative;
+flex: 1 1 auto;
+height: 30px;
+}
+.select-dummy {
+position: absolute;
+left: 0; top: 0;
+min-height: 28px;
+}
+.select-dummy-inner {
+white-space: nowrap;
+min-width: 100%;
+width: 16px;
+}
+.tableEditInputSelectContainer .select2-selection {
+height: 28px;
+}
+.select2-selection__rendered {
+line-height: 26px !important;
+}
+.config-select {
+visibility: hidden;
+}
+.pulldownDefaultLoading,
+.pulldownDefaultError {
+flex: 1 1 auto;
+display: flex;
+height: 30px;
+border: 1px solid var(--black40);
+background-color: var(--black10);
+justify-content: center;
+align-items: center;
+}
+
+
+.input:disabled,
+.disabled-select,
+.disabled-reference {
+background-color: var(--black10);
+border-color: var(--black30);
+color: var(--rowDiscardTextColor) !important;
+opacity: .8 !important;
+cursor: no-drop !important;
+}
+
+
+.tableWrap {
+display: flex;
+scrollbar-width: auto;
+scrollbar-color: initial;
+}
+.previewTable {
+flex: 1 1 auto;
+display: flex;
+}
+.previewTable .ci {
+height: 100%;
+}
+.previewGroupHeader,
+.previewColumnHeader {
+height: 30px;
+}
+.previewGroupHeader > div,
+.previewColumnHeader > div {
+height: 100%;
+}
+.previewGroupBody {
+display: flex;
+flex: 1 1 auto;
+}
+.previewContainer {
+display: flex;
+border-top: 1px solid var(--mainColor100);
+background-color: #CCC;
+background-image: linear-gradient(45deg, rgba( 0,0,0,.05 ) 25%, rgba( 0,0,0,.05 ) 25%, transparent 25%, transparent 75%, rgba( 0,0,0,.05 ) 75%, rgba( 0,0,0,.05 ) 75%),
+linear-gradient(-135deg, rgba( 0,0,0,.05 ) 25%, rgba( 0,0,0,.05 ) 25%, transparent 25%, transparent 75%, rgba( 0,0,0,.05 ) 75%, rgba( 0,0,0,.05 ) 75%);
+background-size: 30px 30px;
+background-position: 0 0, 15px 15px;
+}
+.previewTable .tHeadTh .ci {
+text-align: center;
+}
+.previewColumn .tBodyTh {
+background-color: var(--rowHeadColor);
+}
+.previewColumn .tBodyTh:nth-child(even) {
+background-color: var(--rowHeadEvenColor);
+}
+.previewColumn .tBodyTd:nth-child(even) {
+background-color: var(--rowEvenColor);
+}
+.previewColumn .tBodyTh,
+.previewColumn .tBodyTd {
+border-right-style: dashed;
+}
+.previewCommonRear .previewColumn:last-child .tBodyTd {
+border-right-style: solid;
+}
+.previewGroupContainer,
+.previewColumnContainer {
+flex: 1 1 auto;
+display: flex;
+}
+.previewGroup,
+.previewColumn {
+flex: 1 1 auto;
+display: flex;
+flex-direction: column;
+}
+.previewColumnBody {
+flex: 1 1 auto;
+display: flex;
+flex-direction: column;
+}
+.previewColumnBody > div {
+flex: 1 1 auto;
+display: flex;
+align-items: center;
+}
+.previewColumnHeader .ci,
+.previewColumnBody .ci {
+height: 100%;
+display: flex;
+align-items: center;
+justify-content: center;
+}
+.previewEmpty {
+width: 100%;
+height: 100%;
+}
+.previewEmptyInner {
+width: 100%;
+height: 100%;
+display: flex;
+justify-content: center;
+align-items: center;
+}
+.tableWrap[data-menugroup="2"] .previewBodyGroupHeader {
+display: none;
+}
+
+.previewCommon {
+left: 0;
+position: sticky;
+z-index: 10;
+}
+.tHeadGroup .ci {
+left: 372px
 }
