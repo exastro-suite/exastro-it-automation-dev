@@ -3,450 +3,374 @@
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //
 //   Dialog
-//
+// 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class Dialog {
-/*
---------------------------------------------------
-   Constructor
---------------------------------------------------
-*/
-constructor( config, btnFn ) {
-    if ( fn ) {
-        const d = this;
-        d.config = config;
-        d.btnFn = btnFn;
-
-        d.$ = {};
-        d.$.window = $( window );
-        d.$.body = $('body');
-
-        d.focusElements = 'a[href], area[href], input:not([disabled]), button:not([disabled]), object, embed, [tabindex="0"], [contenteditable]';
-    } else {
-        window.console.error('Dialog error. "fn" function cannot be found.');
-    }
-}
-/*
---------------------------------------------------
-   Open
---------------------------------------------------
-*/
-open( body ) {
-    const d = this;
-    if ( d.$.dialog === undefined ) {
-        d.openInit();
-
-        d.$.originTarget = $(':focus');
-        d.$.modalContainer.find('.active').removeClass('active');
-
-        // Dialog
-        d.$.dialog = $( d.dialog() );
-        d.$.header = d.$.dialog .find('.dialogHeader');
-        d.$.dbody = d.$.dialog.find('.dialogBody');
-        d.$.footer = d.$.dialog .find('.dialogFooter');
-
-        // sub Dialog
-        if ( d.config.subDialog ) {
-            d.$.dialog.addClass('subDialogMode').find('.dialog').append( d.subDialog() );
-            d.$.subHeader = d.$.dialog .find('.subDialogHeader');
-            d.$.subDbody = d.$.dialog.find('.subDialogBody');
-            d.$.subFooter = d.$.dialog .find('.subDialogFooter');
-
-            d.$.subDbody.html(`<div class="processingContainer"></div>`);
-        }
-
-        if ( body ) {
-            d.setBody( body );
+    /*
+    --------------------------------------------------
+       Constructor
+    --------------------------------------------------
+    */
+    constructor( config, btnFn ) {
+        if ( fn ) {
+            const d = this;
+            d.config = config;
+            d.btnFn = btnFn;
+    
+            d.$ = {};
+            d.$.window = $( window );
+            d.$.body = $('body');
+    
+            d.focusElements = 'a[href], area[href], input:not([disabled]), button:not([disabled]), object, embed, [tabindex="0"], [contenteditable]';
         } else {
-            d.$.dialog.addClass('dialogProcessing');
-            d.$.dbody.html(`<div class="processingContainer"></div>`);
+            window.console.error('Dialog error. "fn" function cannot be found.');
         }
-
-        // animation
-        d.$.dialog.find('.dialogMain').on('animationend', function(){
-            $( this ).removeClass('dialogAnimation');
-        });
-
-        // z-index
-        const length = d.$.modalContainer.find('.showDialog').length;
-        d.$.dialog.css('z-index', length ).addClass('active');
-
-        // Button
-        d.$.dialog.on('click', '.dialogButton', function(){
-            const kind = $( this ).attr('data-kind');
-            // activeチェック
-            if ( d.getActiveCheck ) {
-                if ( d.btnFn && d.btnFn[kind] ) {
-                    d.btnFn[kind].call( d );
-                } else if ( kind === 'close' || kind === 'headerClose') {
-                    d.close();
-                } else {
-                    window.console.error('Dialog "config" error.');
-                }
-            }
-        });
-
-        // Set
-        d.$.modalContainer.append( d.$.dialog );
-        d.$.dialog.find('.dialog').find( d.focusElements ).not('.dialogHeaderCloseButton').first().focus();
-
-        // callback
-        if ( d.callback ) d.callback.call( d );
-    } else {
-        window.console.error('Dialog "open()" error.');
     }
-}
-/*
---------------------------------------------------
-   Close
---------------------------------------------------
-*/
-close() {
-    const d = this;
-    return new Promise(function( resolve ){
-        d.$.dialog.remove();
-
+    /*
+    --------------------------------------------------
+       Open
+    --------------------------------------------------
+    */
+    open( body ) {
+        const d = this;
+        if ( d.$.dialog === undefined ) {
+            d.openInit();        
+            
+            d.$.originTarget = $(':focus');
+            d.$.modalContainer.find('.active').removeClass('active');
+    
+            // Dialog
+            d.$.dialog = $( d.dialog() );
+            d.$.header = d.$.dialog .find('.dialogHeader');
+            d.$.dbody = d.$.dialog.find('.dialogBody');
+            d.$.footer = d.$.dialog .find('.dialogFooter');
+            
+            if ( body ) {
+                d.setBody( body );
+            } else {
+                d.$.dialog.addClass('dialogProcessing');
+                d.$.dbody.html(`<div class="processingContainer"></div>`);
+            }
+            
+            // animation
+            d.$.dialog.find('.dialogMain').on('animationend', function(){
+                $( this ).removeClass('dialogAnimation');
+            });
+    
+            // z-index
+            const length = d.$.modalContainer.find('.showDialog').length;
+            d.$.dialog.css('z-index', length ).addClass('active');
+    
+            // Button
+            d.$.dialog.on('click', '.dialogButton', function(){
+                const kind = $( this ).attr('data-kind');
+                // activeチェック
+                if ( d.getActiveCheck ) {
+                    if ( d.btnFn && d.btnFn[kind] ) {
+                        d.btnFn[kind].call( d );
+                    } else if ( kind === 'close' || kind === 'headerClose') {
+                        d.close();
+                    } else {
+                        window.console.error('Dialog "config" error.');
+                    }
+                }
+            });        
+    
+            // Set
+            d.$.modalContainer.append( d.$.dialog );
+            d.$.dialog.find('.dialog').find( d.focusElements ).not('.dialogHeaderCloseButton').first().focus();
+            
+            // callback
+            if ( d.callback ) d.callback.call( d );
+        } else {
+            window.console.error('Dialog "open()" error.');
+        }
+    }
+    /*
+    --------------------------------------------------
+       Close
+    --------------------------------------------------
+    */
+    close() {
+        const d = this;
+        return new Promise(function( resolve ){
+            d.$.dialog.remove();
+    
+            if ( d.$.modalContainer.find('.showDialog').length ) {
+                d.$.modalContainer.find('.showDialog:last').addClass('active');
+            } else {
+                if ( d.$.modalContainer.find('.modalOverlay').length ) {
+                    d.$.modalContainer.hide();
+                } else {
+                    d.$.modalContainer.remove();
+                }
+                $('.modalContainerFocus').remove();
+                d.$.body.removeClass('modalOpen');
+                d.offFocusEvent();
+            }
+            d.$.originTarget.focus();
+            setTimeout( function(){ 
+                resolve();
+            }, 100 );
+        });
+    }
+    /*
+    --------------------------------------------------
+       Hide
+    --------------------------------------------------
+    */
+    hide() {
+        const d = this;
+        
+        d.$.dialog.removeClass('showDialog active').css('z-index', -1 );
+        d.$.dialog.hide();
+        
         if ( d.$.modalContainer.find('.showDialog').length ) {
             d.$.modalContainer.find('.showDialog:last').addClass('active');
         } else {
-            if ( d.$.modalContainer.find('.modalOverlay').length ) {
-                d.$.modalContainer.hide();
-            } else {
-                d.$.modalContainer.remove();
-            }
+            d.$.modalContainer.hide();
             $('.modalContainerFocus').remove();
             d.$.body.removeClass('modalOpen');
             d.offFocusEvent();
         }
-        d.$.originTarget.focus();
-        setTimeout( function(){
-            resolve();
-        }, 100 );
-    });
-}
-/*
---------------------------------------------------
-   Hide
---------------------------------------------------
-*/
-hide() {
-    const d = this;
-
-    d.$.dialog.removeClass('showDialog active').css('z-index', -1 );
-    d.$.dialog.hide();
-
-    if ( d.$.modalContainer.find('.showDialog').length ) {
-        d.$.modalContainer.find('.showDialog:last').addClass('active');
-    } else {
-        d.$.modalContainer.hide();
-        $('.modalContainerFocus').remove();
-        d.$.body.removeClass('modalOpen');
-        d.offFocusEvent();
     }
-}
-/*
---------------------------------------------------
-   Show
---------------------------------------------------
-*/
-show() {
-    const d = this;
-    if ( d.$.dialog !== undefined ) {
-        d.openInit();
-
-        const zIndex = d.$.modalContainer.find('.showDialog').length + 1;
-        d.$.dialog.find('.dialogMain').addClass('dialogAnimation');
-        d.$.dialog.show().addClass('showDialog active').css('z-index', zIndex );
+    /*
+    --------------------------------------------------
+       Show
+    --------------------------------------------------
+    */
+    show() {
+        const d = this;
+        if ( d.$.dialog !== undefined ) {
+            d.openInit();
+            
+            const zIndex = d.$.modalContainer.find('.showDialog').length + 1;
+            d.$.dialog.find('.dialogMain').addClass('dialogAnimation');
+            d.$.dialog.show().addClass('showDialog active').css('z-index', zIndex );
+        }
     }
-}
-/*
---------------------------------------------------
-   open, show 表示初期設定
---------------------------------------------------
-*/
-openInit() {
-    const d = this;
-
-    // Container確認
-    if ( !fn.exists('#modalContainer') ) {
-         d.$.body.addClass('modalOpen')
-            .prepend('<div class="modalContainerFocusFirst modalContainerFocus" tabindex="0"></div>')
-            .append('<div id="modalContainer"></div><div class="modalContainerFocusLast modalContainerFocus" tabindex="0"></div>');
-        d.$.modalContainer = $('#modalContainer');
-        d.onFocusEvent();
-    } else if ( $('#modalContainer').is(':hidden') ) {
-        if ( !d.$.modalContainer ) d.$.modalContainer = $('#modalContainer');
-        d.$.body.addClass('modalOpen')
+    /*
+    --------------------------------------------------
+       open, show 表示初期設定
+    --------------------------------------------------
+    */
+    openInit() {
+        const d = this;
+        
+        // Container確認
+        if ( !fn.exists('#modalContainer') ) {
+             d.$.body.addClass('modalOpen')
                 .prepend('<div class="modalContainerFocusFirst modalContainerFocus" tabindex="0"></div>')
-                .append('<div class="modalContainerFocusLast modalContainerFocus" tabindex="0"></div>');
-        d.$.modalContainer.show();
-        d.onFocusEvent();
-    } else {
-        if ( !d.$.modalContainer ) d.$.modalContainer = $('#modalContainer');
-    }
-}
-/*
-/*
---------------------------------------------------
-   Focus event on
---------------------------------------------------
-*/
-onFocusEvent() {
-    const d = this;
-    d.$.body.on('focusin.modal', d.focusElements, function(){
-        const $f = $( this ),
-              $t = d.$.modalContainer.find('.modalOverlay.active .dialog').find( d.focusElements );
-        if ( $f.is('.modalFocusFirst') || $f.is('.modalContainerFocusLast') ) {
-            $t.last().focus();
-        } else if ( $f.is('.modalContainerFocusFirst') || $f.is('.modalFocusLast') ) {
-            $t.first().focus();
-        } else if ( !$f.closest('.modalOverlay.active').length ) {
-            $t.first().focus();
+                .append('<div id="modalContainer"></div><div class="modalContainerFocusLast modalContainerFocus" tabindex="0"></div>');
+            d.$.modalContainer = $('#modalContainer');
+            d.onFocusEvent();
+        } else if ( $('#modalContainer').is(':hidden') ) {
+            if ( !d.$.modalContainer ) d.$.modalContainer = $('#modalContainer');
+            d.$.body.addClass('modalOpen')
+                    .prepend('<div class="modalContainerFocusFirst modalContainerFocus" tabindex="0"></div>')
+                    .append('<div class="modalContainerFocusLast modalContainerFocus" tabindex="0"></div>');
+            d.$.modalContainer.show();
+            d.onFocusEvent();
+        } else {
+            if ( !d.$.modalContainer ) d.$.modalContainer = $('#modalContainer');
         }
-    });
-}
-/*
-/*
---------------------------------------------------
-   Focus event off
---------------------------------------------------
-*/
-offFocusEvent() {
-    const d = this;
-    d.$.body.off('focusin.modal focusout.modal');
-}
-/*
---------------------------------------------------
-   Dialog
---------------------------------------------------
-*/
-dialog() {
-    const d = this,
-          style = [],
-          attrs = [],
-          className = ['dialog'],
-          mainStyle = [],
-          mainAttrs = [],
-          overlayClassName = ['modalOverlay', 'showDialog'],
-          mainClassName = ['dialogMain', 'dialogAnimation'],
-          html = [];
-
-    if ( d.config.visibility === false ) overlayClassName.push('hiddenDialog');
-
-    if ( d.config.width ) style.push(`width:${d.config.width};`);
-    if ( d.config.minWidth ) style.push(`min-width:${d.config.minWidth};`);
-    if ( d.config.position ) style.push(`justify-content:${d.config.position};`);
-
-    if ( d.config.height ) mainStyle.push(`height:${d.config.height};`);
-
-    if ( style.length ) attrs.push(`style="${style.join('')}"`);
-    if ( mainStyle.length ) mainAttrs.push(`style="${mainStyle.join('')}"`);
-
-    if ( d.config.className ) className.push( d.config.className );
-    if ( d.config.header ) html.push( d.header() );
-    html.push( d.body() );
-    if ( d.config.footer ) html.push( d.footer() );
-
-    attrs.push(`class="${className.join(' ')}"`);
-    mainAttrs.push(`class="${mainClassName.join(' ')}"`);
-
-    return `<div class="${overlayClassName.join(' ')}">`
-    + `<div class="modalFocusFirst modalFocus" tabindex="0"></div>`
-    + `<div ${attrs.join(' ')}><div ${mainAttrs.join(' ')}>${html.join('')}</div></div>`
-    + `<div class="modalFocusLast modalFocus" tabindex="0"></div>`
-    + `</div>`;
-}
-/*
---------------------------------------------------
-   Sub Dialog
---------------------------------------------------
-*/
-subDialog() {
-    const d = this,
-          mainAttrs = [],
-          mainClassName = ['subDialogMain', 'dialogMain', 'dialogAnimation'],
-          html = [];
-
-    if ( d.config.subHeader ) html.push( d.header('subDialogHeader') );
-    html.push( d.body('subDialogBody') );
-    if ( d.config.subFooter ) html.push( d.footer('subDialogFooter') );
-
-    mainAttrs.push(`class="${mainClassName.join(' ')}"`);
-
-    return `<div ${mainAttrs.join(' ')}>${html.join('')}</div>`;
-}
-/*
---------------------------------------------------
-   Ready
---------------------------------------------------
-*/
-ready() {
-    this.$.dialog.removeClass('hiddenDialog');
-}
-/*
---------------------------------------------------
-   Header
---------------------------------------------------
-*/
-header( subClassName ) {
-    const d = this,
-          h = ( subClassName )? d.config.subHeader: d.config.header,
-          className = ['dialogHeader'],
-          html = [];
-    if ( h.title ) html.push(`<div class="dialogHeaderTitle"><span class="dialogHeaderTitleInner">${h.title}</span></div>`);
-    if ( h.move ) className.push('dialogHeaderMove');
-    if ( h.close ) html.push(`<div class="dialogHeaderClose">${fn.html.iconButton('cross', '', 'dialogButton dialogHeaderCloseButton', {kind: 'headerClose'})}</div>`);
-    if ( subClassName ) className.push( subClassName );
-    return `<div class="${className.join(' ')}">${html.join('')}</div>`;
-}
-/*
---------------------------------------------------
-   Body
---------------------------------------------------
-*/
-body( subClassName ) {
-    const className = ['dialogBody'];
-    if ( subClassName ) className.push( subClassName );
-    return `<div class="${className.join(' ')}"></div>`;
-}
-/*
---------------------------------------------------
-   Set body
---------------------------------------------------
-*/
-setBody( elements ) {
-    const d = this;
-    d.$.dialog.removeClass('dialogProcessing');
-    d.buttonEnabled();
-    d.$.dbody.html( elements );
-}
-/*
---------------------------------------------------
-   Footer
---------------------------------------------------
-*/
-footer( subClassName ) {
-    const d = this,
-          f = ( subClassName )? d.config.subFooter: d.config.footer,
-          className = ['dialogFooter'],
-          html = [];
-    if ( f.button ) {
-        const buttonHtml = [];
-        for ( const kind in f.button ) {
-            const className = ['itaButton', 'dialogButton', 'dialogFooterMenuButton'],
-                  listAttr = ['class="dialogFooterMenuItem"'];
-            if ( f.button[ kind ].className ) className.push( f.button[ kind ].className );
-            if ( f.button[ kind ].separate ) listAttr.push('style="margin-left:auto;"')
-            const button = fn.html.button( f.button[kind].text, className,
-                { kind: kind, action: f.button[kind].action, style: f.button[kind].style, disabled: 'disabled'}, { minWidth:f.button[kind].width });
-
-            /* ----プロトタイプ用LLM選択/アクセストークン入力エリア ここから---- */
-            if ( kind == "support" ){
-                const llmSelectHtml = '<select id="developmentSupportLlmSelect" name="developmentSupportLlmSelect">'
-                                            + '<option value="gemini">gemini</option>'
-                                            + '<option value="ngs">NGS</option>'
-                                            + '<option value="github-copilot">Github Copilot</option>'
-                                        + '</select>';
-                const tokenGetBtnHtml = `<button data-kind="support" data-action="default" class="itaButton button" id="developmentSupportgetTokenButton" style="display:none;"><span class="inner" style="font-size: 12px; line-height:20px; height: 20px; width: 105px;">トークン取得<span class="buttonMinWidth""></span></span></button>`;
-                buttonHtml.push(`<li class="dialogFooterMenuItem" style="display: block;margin-left: auto;">${llmSelectHtml}${tokenGetBtnHtml}</li>`);
-
-                const geminiTokenInputHtml = `<input type="text" value="" placeholder="アクセストークン" id="developmentSupportGeminiTokenInput"></input>`;
-                const ngsGAcountHtml = `<input type="text" value="" placeholder="G-ACCOUNT" id="developmentSupportNgsGAccount" style="display:none;"></input>`;
-                const ngsTokenInputHtml = `<input type="text" value="" placeholder="アクセストークン" id="developmentSupportNgsTokenInput" style="display:none;"></input>`;
-                const clientIdInputHtml = `<input type="text" value="" placeholder="クライアントID" id="developmentSupportClientIdInput" style="display:none;"></input>`;
-                const clientSecretInputHtml = `<input type="text" value="" placeholder="クライアントシークレット" id="developmentSupportClientSecretInput" style="display:none;"></input>`;
-                const copilotTokenInputHtml = `<input type="text" value="" placeholder="アクセストークン" id="developmentSupportCopilotTokenInput" style="display:none;"></input>`;
-                buttonHtml.push(`<li class="dialogFooterMenuItem" style="display: block;margin-left: auto;">${geminiTokenInputHtml}${ngsGAcountHtml}${ngsTokenInputHtml}${clientIdInputHtml}${clientSecretInputHtml}${copilotTokenInputHtml}</li>`);
+    }
+    /*
+    /*
+    --------------------------------------------------
+       Focus event on
+    --------------------------------------------------
+    */
+    onFocusEvent() {
+        const d = this;
+        d.$.body.on('focusin.modal', d.focusElements, function(){
+            const $f = $( this ),
+                  $t = d.$.modalContainer.find('.modalOverlay.active .dialog').find( d.focusElements );
+            if ( $f.is('.modalFocusFirst') || $f.is('.modalContainerFocusLast') ) {
+                $t.last().focus();
+            } else if ( $f.is('.modalContainerFocusFirst') || $f.is('.modalFocusLast') ) {
+                $t.first().focus();
+            } else if ( !$f.closest('.modalOverlay.active').length ) {
+                $t.first().focus();
             }
-            /* ----プロトタイプ用LLM選択/アクセストークン入力エリア ここまで---- */
-
-            buttonHtml.push(`<li ${listAttr.join(' ')}>${button}</li>`);
-
+        });
+    }
+    /*
+    /*
+    --------------------------------------------------
+       Focus event off
+    --------------------------------------------------
+    */
+    offFocusEvent() {
+        const d = this;
+        d.$.body.off('focusin.modal focusout.modal');
+    }
+    /*
+    --------------------------------------------------
+       Dialog
+    --------------------------------------------------
+    */
+    dialog() {
+        const d = this,
+              style = [],
+              attrs = [],
+              className = ['dialog'],
+              mainStyle = [],
+              mainAttrs = [],
+              overlayClassName = ['modalOverlay', 'showDialog'],
+              mainClassName = ['dialogMain', 'dialogAnimation'],
+              html = [];
+        
+        if ( d.config.visibility === false ) overlayClassName.push('hiddenDialog');
+        
+        if ( d.config.width ) style.push(`width:${d.config.width};`);
+        if ( d.config.minWidth ) style.push(`min-width:${d.config.minWidth};`);
+        if ( d.config.position ) style.push(`justify-content:${d.config.position};`);
+        
+        if ( d.config.height ) mainStyle.push(`height:${d.config.height};`);
+        
+        if ( style.length ) attrs.push(`style="${style.join('')}"`);
+        if ( mainStyle.length ) mainAttrs.push(`style="${mainStyle.join('')}"`);
+        
+        if ( d.config.className ) className.push( d.config.className );
+        if ( d.config.header ) html.push( d.header() );
+        html.push( d.body() );
+        if ( d.config.footer ) html.push( d.footer() );
+        
+        attrs.push(`class="${className.join(' ')}"`);
+        mainAttrs.push(`class="${mainClassName.join(' ')}"`);
+        
+        return `<div class="${overlayClassName.join(' ')}">`
+        + `<div class="modalFocusFirst modalFocus" tabindex="0"></div>`
+        + `<div ${attrs.join(' ')}><div ${mainAttrs.join(' ')}>${html.join('')}</div></div>`
+        + `<div class="modalFocusLast modalFocus" tabindex="0"></div>`
+        + `</div>`;
+    }
+    /*
+    --------------------------------------------------
+       Ready
+    --------------------------------------------------
+    */
+    ready() {
+        this.$.dialog.removeClass('hiddenDialog');
+    }
+    /*
+    --------------------------------------------------
+       Header
+    --------------------------------------------------
+    */
+    header() {
+        const d = this,
+              h = d.config.header,
+              className = ['dialogHeader'],
+              html = [];
+        if ( h.title ) html.push(`<div class="dialogHeaderTitle"><span class="dialogHeaderTitleInner">${h.title}</span></div>`);
+        if ( h.move ) className.push('dialogHeaderMove');
+        if ( h.close ) html.push(`<div class="dialogHeaderClose">${fn.html.iconButton('cross', '', 'dialogButton dialogHeaderCloseButton', {kind: 'headerClose'})}</div>`);
+        return `<div class="${className.join(' ')}">${html.join('')}</div>`;
+    }
+    /*
+    --------------------------------------------------
+       Body
+    --------------------------------------------------
+    */
+    body() {
+        return `<div class="dialogBody"></div>`;
+    }
+    /*
+    --------------------------------------------------
+       Set body
+    --------------------------------------------------
+    */
+    setBody( elements ) {
+        const d = this;
+        d.$.dialog.removeClass('dialogProcessing');
+        d.buttonEnabled();
+        d.$.dbody.html( elements );
+    }
+    /*
+    --------------------------------------------------
+       Footer
+    --------------------------------------------------
+    */
+    footer() {
+        const d = this,
+              f = d.config.footer,
+              className = ['dialogFooter'],
+              html = [];
+        if ( f.button ) {
+            const buttonHtml = [];
+            for ( const kind in f.button ) {
+                const className = ['itaButton', 'dialogButton', 'dialogFooterMenuButton'],
+                      listAttr = ['class="dialogFooterMenuItem"'];
+                if ( f.button[ kind ].className ) className.push( f.button[ kind ].className );
+                if ( f.button[ kind ].separate ) listAttr.push('style="margin-left:auto;"')
+                
+                const button = fn.html.button( f.button[kind].text, className,
+                    { kind: kind, action: f.button[kind].action, style: f.button[kind].style, disabled: 'disabled'}, { minWidth:f.button[kind].width });
+                buttonHtml.push(`<li ${listAttr.join(' ')}>${button}</li>`);
+            }
+            html.push(`<ul class="dialogFooterMenuList">${buttonHtml.join('')}</ul>`);
         }
-        html.push(`<ul class="dialogFooterMenuList">${buttonHtml.join('')}</ul>`);
+        if ( f.resize ) html.push('<div class="dialogFooterResize"></div>');
+        return `<div class="${className.join(' ')}">${html.join('')}</div>`;
     }
-    if ( f.resize ) html.push('<div class="dialogFooterResize"></div>');
-    if ( subClassName ) className.push( subClassName );
-    return `<div class="${className.join(' ')}">${html.join('')}</div>`;
-}
-/*
---------------------------------------------------
-   Header and Footer button disabled
---------------------------------------------------
-*/
-buttonDisabled() {
-    const d = this;
-
-    d.$.header.add( d.$.footer ).find('.dialogButton').each(function(){
-        $( this ).prop('disabled', true );
-    });
-}
-/*
---------------------------------------------------
-   Header and Footer button enabled
---------------------------------------------------
-*/
-buttonEnabled() {
-    const d = this;
-
-    d.buttonEnabledCheck( d.$.header );
-    d.buttonEnabledCheck( d.$.footer );
-}
-subDialogButtonEnabled() {
-    const d = this;
-
-    d.buttonEnabledCheck( d.$.subHeader );
-    d.buttonEnabledCheck( d.$.subFooter );
-}
-buttonEnabledCheck( $obj ) {
-    if ( $obj && $obj instanceof jQuery ) $obj.find('.dialogButton').not('.dialogPositive').prop('disabled', false );
-}
-/*
---------------------------------------------------
-   Header and Footer positive button check
---------------------------------------------------
-*/
-buttonPositiveDisabled( flag ) {
-    const d = this;
-
-    d.$.header.add( d.$.footer ).find('.dialogPositive').prop('disabled', flag );
-}
-/*
---------------------------------------------------
-   Modal body print
---------------------------------------------------
-*/
-printBody() {
-    const d = this;
-
-    d.$.body.addClass('dialogPrintMode');
-    window.print();
-    d.$.body.removeClass('dialogPrintMode');
-}
-/*
---------------------------------------------------
-   GETTER: Active check
---------------------------------------------------
-*/
-get getActiveCheck() {
-    const d = this;
-    if ( d.$.dialog !== undefined ) {
-        return this.$.dialog.is('.active');
-    } else {
-        return undefined;
+    /*
+    --------------------------------------------------
+       Header and Footer button disabled
+    --------------------------------------------------
+    */
+    buttonDisabled() {
+        const d = this;
+        
+        d.$.header.add( d.$.footer ).find('.dialogButton').each(function(){
+            $( this ).prop('disabled', true );
+        });
     }
-}
-
-/*
---------------------------------------------------
-   プロトタイプ用トークン入力エリア
---------------------------------------------------
-*/
-tokenInputHtml() {
-    return ``
-    + `<dev class="dialogFooterTokenInput">`
-        + `<textarea wrap="soft" placeholder="アクセストークンを入力してください" id="developmentSupportTokenInput"></textarea>`
-    + `</dev>`;
-}
-
-}
+    /*
+    --------------------------------------------------
+       Header and Footer button enabled
+    --------------------------------------------------
+    */
+    buttonEnabled() {
+        const d = this;
+        
+        d.$.header.add( d.$.footer ).find('.dialogButton').not('.dialogPositive').prop('disabled', false );
+    }
+    /*
+    --------------------------------------------------
+       Header and Footer positive button check
+    --------------------------------------------------
+    */
+    buttonPositiveDisabled( flag ) {
+        const d = this;
+        
+        d.$.header.add( d.$.footer ).find('.dialogPositive').prop('disabled', flag );
+    }
+    /*
+    --------------------------------------------------
+       Modal body print
+    --------------------------------------------------
+    */
+    printBody() {
+        const d = this;
+        
+        d.$.body.addClass('dialogPrintMode');
+        window.print();
+        d.$.body.removeClass('dialogPrintMode');
+    }
+    /*
+    --------------------------------------------------
+       GETTER: Active check
+    --------------------------------------------------
+    */
+    get getActiveCheck() {
+        const d = this;
+        if ( d.$.dialog !== undefined ) {
+            return this.$.dialog.is('.active');
+        } else {
+            return undefined;
+        }
+    }
+    
+    }
