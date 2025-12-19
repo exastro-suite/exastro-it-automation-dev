@@ -751,7 +751,10 @@ sendMessage( e ) {
 
         // ユーザメッセージ
         const message = this.$.input.val();
-        if ( message === '') return;
+        if ( message === '') {
+            this.operationEnd();
+            return resolve();
+        }
         this.$.input.val('').trigger('input');
         const userMessage = {
             role: 'user',
@@ -853,13 +856,22 @@ db = {
         return new Promise( async ( resolve ) => {
             const transaction = this.IndexedDB.transaction([ this.db.storeName ], 'readwrite');
             const objectStore = transaction.objectStore( this.db.storeName );
-            const { iv, cipher } = await this.db.encryptJsonWithFixedKey(data);
-            const record = {
-                id,
-                iv: Array.from( iv ),
-                cipher: Array.from( cipher ),
-            };
-            objectStore.put( record );
+            if ( this.db.hasCrypto ) {
+                const { iv, cipher } = await this.db.encryptJsonWithFixedKey(data);
+                objectStore.put({
+                    id,
+                    type: 'crypto',
+                    iv: Array.from( iv ),
+                    cipher: Array.from( cipher ),
+                });
+            } else {
+                const record = this.db.toBase64( data );
+                objectStore.put({
+                    id,
+                    type: 'base64',
+                    value: record
+                });
+            }
     
             transaction.oncomplete = () => {
                 resolve();
@@ -874,16 +886,29 @@ db = {
     
             request.onsuccess = async () => {
                 const record = request.result;
-
                 if ( !record ) return resolve( null );
-                try {
-                    // Array → Uint8Array に戻す
-                    const iv = record.iv instanceof Uint8Array ? record.iv : new Uint8Array( record.iv );
-                    const cipher = record.cipher instanceof Uint8Array ? record.cipher : new Uint8Array( record.cipher );
-                    const plainData = await this.db.decryptJsonWithFixedKey( iv, cipher );
-                    resolve( plainData );
-                } catch (e) {
-                    console.error('decrypt error:', e);
+                
+                if ( record.type === 'crypto') {
+                    try {
+                        // Array → Uint8Array に戻す
+                        const iv = record.iv instanceof Uint8Array ? record.iv : new Uint8Array( record.iv );
+                        const cipher = record.cipher instanceof Uint8Array ? record.cipher : new Uint8Array( record.cipher );
+                        const plainData = await this.db.decryptJsonWithFixedKey( iv, cipher );
+                        resolve( plainData );
+                    } catch (e) {
+                        console.error('decrypt error:', e);
+                        resolve( null );
+                    }
+                } else if ( record.type === 'base64') {
+                    try {
+                        resolve( this.db.fromBase64( record.value ) );
+                    } catch (e) {
+                        console.error('pase error:', e);
+                        resolve( null );
+                    }
+                } else {
+                    alert('Read error.');
+                    console.error('read error:', e);
                     resolve( null );
                 }
             };
@@ -915,6 +940,13 @@ db = {
     close: () => {
         this.IndexedDB.close();
     },
+    // crypto
+    hasCrypto: () => {
+        return (
+          typeof window.crypto !== 'undefined' &&
+          typeof window.crypto.subtle !== 'undefined'
+        );
+    },
     setFixedAesKey: async () => {
         if ( this.cachedKey ) return;
         let raw = this.db.encoder.encode( this.id );
@@ -924,7 +956,7 @@ db = {
             raw = padded;
         } else if ( raw.length > 32 ) {
             raw = raw.slice( 0, 32 );
-        }    
+        }
         this.cachedKey = await crypto.subtle.importKey(
             'raw',
             raw,
@@ -958,6 +990,21 @@ db = {
         );    
         const plaintext = this.db.decoder.decode( plainBuffer );
         return JSON.parse( plaintext );
+    },
+    // base64
+    toBase64: ( dataObj ) => {
+        const json = JSON.stringify( dataObj );
+        const bytes = new TextEncoder().encode(json);
+        let binary = '';
+        bytes.forEach(b => binary += String.fromCharCode(b));
+        return btoa(binary);
+    },
+    fromBase64: ( base64 ) => {
+        const binary = atob(base64);
+        const bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+        const decode = new TextDecoder().decode(bytes);
+        const json = JSON.parse( decode );
+        return json;
     }
 }
 

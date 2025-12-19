@@ -27,6 +27,7 @@ setup( apiParam ) {
         try {
             const module = await import('https://esm.run/@google/generative-ai');
             this.genAI = new module.GoogleGenerativeAI( this.param.apiKey );
+            this.chat = null;
             if ( apiParam.modelDefault && apiParam.modelDefault.id ) {
                 this.setModel( apiParam.modelDefault.id );
             }
@@ -112,7 +113,7 @@ getChatHistory() {
 setModel( modelName = '') {
     const systemInstruction = [
         "あなたは日本語で回答するAIアシスタントです。",
-        "あなたは回答の冒頭に「Geminiからの回答は」とつけます。"
+        //"あなたは回答の冒頭に「Geminiからの回答は」とつけます。"
     ];
     // const systemInstruction = [
     //     'あなたは親切なインフラエンジニアです。',
