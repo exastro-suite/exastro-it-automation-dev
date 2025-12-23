@@ -856,7 +856,7 @@ db = {
         return new Promise( async ( resolve ) => {
             const transaction = this.IndexedDB.transaction([ this.db.storeName ], 'readwrite');
             const objectStore = transaction.objectStore( this.db.storeName );
-            if ( this.db.hasCrypto ) {
+            if ( this.db.hasCrypto() ) {
                 const { iv, cipher } = await this.db.encryptJsonWithFixedKey(data);
                 objectStore.put({
                     id,
