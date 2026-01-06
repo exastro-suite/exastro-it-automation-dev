@@ -499,7 +499,13 @@ def decompress_tar_file(organization_id, workspace_id, driver_id, dir_path, file
         tar.extractall(path=tar_path)
 
     # 展開したファイルの一覧を取得
+    # execution_noディレクトリを先に処理する
     lst = os.listdir(tar_path)
+    priority = {
+        execution_no: 0,
+        "conductor": 1
+    }
+    sorted_lst = sorted(lst, key=lambda x: priority.get(x, 1))
 
     # in/out親ディレクトリパス
     storagepath = os.environ.get('STORAGEPATH')
@@ -507,7 +513,7 @@ def decompress_tar_file(organization_id, workspace_id, driver_id, dir_path, file
 
     # 展開したファイルを移動する
     move_dir = ""
-    for dir_name in lst:
+    for dir_name in sorted_lst:
         if dir_name == execution_no:
             sublst = os.listdir(f"{tar_path}/{dir_name}")
             for dir_name in sublst:
