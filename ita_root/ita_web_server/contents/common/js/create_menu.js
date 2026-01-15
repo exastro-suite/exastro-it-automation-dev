@@ -286,8 +286,7 @@ setEditorEvents() {
 */
 checkErrorMenuTable() {
     // 空のグループ
-    const emptySize = this.$.menuTable.find('.column-empty').length;
-    console.log(emptySize)
+    const emptySize = this.$.menuTable.find('.menu-column-group-body > .column-empty').length;
     if ( emptySize > 0 ) {
         alert( getMessage.FTE01160 );
         return true;
