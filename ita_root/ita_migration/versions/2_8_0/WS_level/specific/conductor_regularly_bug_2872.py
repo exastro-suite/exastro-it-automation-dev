@@ -37,8 +37,9 @@ def main(work_dir_path, ws_db):
     table_name = "T_COMN_CONDUCTOR_REGULARLY_LIST"
     table_name_jnl = table_name + "_JNL"
 
-    # 冪等性があるので、トランザクションは発行しない
-    # Since idempotent, do not issue a transaction
+    # トランザクション開始
+    # Start transaction
+    ws_db.db_transaction_start()
 
     # 曜日分更新（纏めてでもよいが、確実に更新するために１曜日単位で実行）
     # Update each weekday individually to ensure reliable execution (batch update is possible but not recommended)
@@ -55,6 +56,8 @@ def main(work_dir_path, ws_db):
             g.applogger.debug(f"{sql=}")
             ws_db.sql_execute(sql, parameter)
 
+    # トランザクションコミット
+    # Commit transaction
     ws_db.db_commit()
 
     g.applogger.info(f"[Trace][end] {os.path.splitext(os.path.basename(inspect.currentframe().f_code.co_filename))[0]}")
