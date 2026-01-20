@@ -51,7 +51,6 @@ def main(work_dir_path, ws_db):
 
     # 検索条件の更新
     # Update Search Condition
-    table_name = "T_OASE_SEARCH_CONDITION"
 
     # トランザクション開始
     # Start transaction
@@ -113,6 +112,9 @@ Grouping: Groups events that match the filter conditions based on the labels and
 
     # 「グルーピング（期間延長なし）」の追加
     # Add "Grouping (No Period Extension)"
+
+    table_name = "T_OASE_SEARCH_CONDITION"
+
     current_record = ws_db.table_select(
         table_name,
         "WHERE SEARCH_CONDITION_ID = 4",
