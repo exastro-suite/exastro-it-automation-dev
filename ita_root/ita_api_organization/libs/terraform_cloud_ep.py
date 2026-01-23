@@ -417,11 +417,13 @@ def create_workspace(objdbca, tf_organization_name, parameters):
         raise AppException("999-99999", [], [])  # noqa: F405
 
     # parameterを取得
+    tf_project_name = parameters.get('tf_project_name') or None
+    g.applogger.info(f'tf_project_name: {tf_project_name}')
     tf_workspace_name = parameters.get('tf_workspace_name')
     terraform_version = parameters.get('terraform_version') or ''
 
     # RESTAPIコール
-    response_array = create_tf_workspace(restApiCaller, tf_organization_name, tf_workspace_name, terraform_version)  # noqa: F405
+    response_array = create_tf_workspace(restApiCaller, tf_organization_name, tf_workspace_name, terraform_version, tf_project_name)  # noqa: F405
     response_status_code = response_array.get('statusCode')
 
     if response_status_code == 201:
@@ -541,10 +543,11 @@ def update_workspace(objdbca, tf_organization_name, tf_workspace_name, parameter
         raise AppException("999-99999", [], [])  # noqa: F405
 
     # parameterを取得
+    tf_project_name = parameters.get('tf_project_name') or None
     terraform_version = parameters.get('terraform_version') or ''
 
     # RESTAPIコール
-    response_array = update_tf_workspace(restApiCaller, tf_organization_name, tf_workspace_name, terraform_version)  # noqa: F405
+    response_array = update_tf_workspace(restApiCaller, tf_organization_name, tf_workspace_name, terraform_version, tf_project_name)  # noqa: F405
     response_status_code = response_array.get('statusCode')
     if response_status_code == 200:
         # 正常系
