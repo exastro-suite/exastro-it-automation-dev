@@ -91,6 +91,7 @@ def check_workspace(objdbca, tf_organization_name, tf_workspace_name):
     organization_registered_flag = False
     registered_flag = False
     updated_flag = False
+    project_flag = False
 
     # 対象のorganiation_name, workspace_nameのレコードを取得
     where_str = 'WHERE ORGANIZATION_NAME = %s AND WORKSPACE_NAME = %s AND DISUSE_FLAG = %s'
@@ -101,6 +102,7 @@ def check_workspace(objdbca, tf_organization_name, tf_workspace_name):
     target_organization_name = tf_organization_name
     target_workspace_name = tf_workspace_name
     target_version = target_record[0].get('TERRAFORM_VERSION')
+    tf_project_name = target_record[0].get('PROJECT_NAME') or 'Default Project'
 
     # 連携先TerraformからOrganizationの一覧を取得
     organization_list = get_organization_list(objdbca)
@@ -130,6 +132,21 @@ def check_workspace(objdbca, tf_organization_name, tf_workspace_name):
     if not ret:
         raise AppException("999-99999", [], [])  # noqa: F405
 
+    # 連携先TerraformからProjectの一覧を取得
+    target_project_id = None
+    response_array = get_tf_project_list(restApiCaller, tf_organization_name)  # noqa: F405
+    response_status_code = response_array.get('statusCode')
+    if response_status_code == 200:
+        # 正常系
+        respons_contents_json = response_array.get('responseContents')
+        if respons_contents_json:
+            respons_contents = json.loads(respons_contents_json)
+            respons_contents_data = respons_contents.get('data')
+            for data in respons_contents_data:
+                attributes = data.get('attributes')
+                if tf_project_name == attributes.get('name'):
+                    target_project_id = data.get('id')
+
     # 連携先TerraformからWorkspaceの一覧を取得
     response_array = get_tf_workspace_list(restApiCaller, tf_organization_name)  # noqa: F405
     response_status_code = response_array.get('statusCode')
@@ -146,20 +163,33 @@ def check_workspace(objdbca, tf_organization_name, tf_workspace_name):
                     if target_version:
                         if target_version != attributes.get('terraform-version'):
                             updated_flag = True
+                    relationships = data.get('relationships') or {}
+                    if target_project_id is not None and "project" in relationships:
+                        project_data = relationships.get('project').get('data') or {}
+                        if target_project_id != project_data.get('id'):
+                            project_flag = True
 
     # 一覧から対象の有無と、登録内容を比較する
     if not registered_flag:
         # 未登録パターンの返却値
-        return_data = {'registar_status': 0, 'update_status': 0}
+        return_data = {'registar_status': 0, 'update_status': 0, "project_status": 0}
         msg = g.appmsg.get_api_message("MSG-80004", [tf_workspace_name])
     else:
-        if not updated_flag:
-            # 登録済みパターンの返却値
-            return_data = {'registar_status': 1, 'update_status': 0}
+        if not updated_flag and not project_flag:
+            # 登録済みパターンの返却値(VersionとProject両方相違なし)
+            return_data = {'registar_status': 1, 'update_status': 0, "project_status": 0}
             msg = g.appmsg.get_api_message("MSG-80005", [tf_workspace_name])
+        elif updated_flag and project_flag:
+            # 更新ありパターンの返却値(VersionとProject両方相違あり)
+            return_data = {'registar_status': 1, 'update_status': 1, "project_status": 1}
+            msg = g.appmsg.get_api_message("MSG-80026", [tf_workspace_name])
+        elif not updated_flag and project_flag:
+            # 更新ありパターンの返却値(Projectのみ相違あり)
+            return_data = {'registar_status': 1, 'update_status': 0, "project_status": 1}
+            msg = g.appmsg.get_api_message("MSG-80027", [tf_workspace_name])
         else:
-            # 更新ありパターンの返却値
-            return_data = {'registar_status': 1, 'update_status': 1}
+            # 更新ありパターンの返却値(Versionのみ相違あり)
+            return_data = {'registar_status': 1, 'update_status': 1, "project_status": 0}
             msg = g.appmsg.get_api_message("MSG-80006", [tf_workspace_name])
 
     return return_data, msg
@@ -417,8 +447,7 @@ def create_workspace(objdbca, tf_organization_name, parameters):
         raise AppException("999-99999", [], [])  # noqa: F405
 
     # parameterを取得
-    tf_project_name = parameters.get('tf_project_name') or None
-    g.applogger.info(f'tf_project_name: {tf_project_name}')
+    tf_project_name = parameters.get('tf_project_name') or 'Default Project'
     tf_workspace_name = parameters.get('tf_workspace_name')
     terraform_version = parameters.get('terraform_version') or ''
 
@@ -543,7 +572,7 @@ def update_workspace(objdbca, tf_organization_name, tf_workspace_name, parameter
         raise AppException("999-99999", [], [])  # noqa: F405
 
     # parameterを取得
-    tf_project_name = parameters.get('tf_project_name') or None
+    tf_project_name = parameters.get('tf_project_name') or 'Default Project'
     terraform_version = parameters.get('terraform_version') or ''
 
     # RESTAPIコール

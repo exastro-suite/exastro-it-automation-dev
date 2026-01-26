@@ -201,68 +201,50 @@ def create_tf_workspace(restApiCaller, tf_organization_name, tf_workspace_name, 
     execution_mode = True  # リモート実行モードをしようするかどうか。ITAからWorkspaceを作成する際はTrue固定とする
     auto_apply = False  # Planが成功した際に自動でApplyを実行するかどうか。ITAからWorkspaceを作成する際はFalse固定とする
     working_directory = ''  # Terraformが実行される相対パス。ITAからWorkspaceを作成する際は空欄固定とする。
-    if tf_project_name is None:
-        request_contents = {
-            "data": {
-                "type": "workspaces",
-                "attributes": {
-                    "name": tf_workspace_name,
-                    "operations": execution_mode,
-                    "auto-apply": auto_apply,
-                    "terraform-version": terraform_version,
-                    "working-directory": working_directory
-                }
-            }
-        }
-        response_array = restApiCaller.rest_call('POST', api_uri, request_contents)
+
+    # Project一覧取得
+    response_array = get_tf_project_list(restApiCaller, tf_organization_name)  # noqa: F405
+    response_status_code = response_array.get('statusCode')
+    # ステータスコードが200以外の場合はエラー判定
+    if response_status_code != 200:
         return response_array
-    else:
-        # tf_project_nameが指定されている場合はProject紐付けも行う
-        # ただし先にProjectの名称からidを引けるようにしておく
 
-        # Project一覧取得
-        response_array = get_tf_project_list(restApiCaller, tf_organization_name)  # noqa: F405
-        response_status_code = response_array.get('statusCode')
-        # ステータスコードが200以外の場合はエラー判定
-        if not response_status_code == 200:
-            return response_array
-
-        # 取得したProject一覧から、該当のProjectが存在するか確認
-        respons_contents_json = response_array.get('responseContents')
-        respons_contents = json.loads(respons_contents_json)
-        respons_contents_data = respons_contents.get('data')
-        for data in respons_contents_data:
-            attributes = data.get('attributes')
-            if tf_project_name == attributes.get('name'):
-                request_contents = {
-                    "data": {
-                        "type": "workspaces",
-                        "attributes": {
-                            "name": tf_workspace_name,
-                            "operations": execution_mode,
-                            "auto-apply": auto_apply,
-                            "terraform-version": terraform_version,
-                            "working-directory": working_directory
-                        },
-                        "relationships": {
-                            "project": {
-                                "data": {
-                                    "type": "projects",
-                                    "id": data.get('id')
-                                }
+    # 取得したProject一覧から、該当のProjectが存在するか確認
+    respons_contents_json = response_array.get('responseContents')
+    respons_contents = json.loads(respons_contents_json)
+    respons_contents_data = respons_contents.get('data')
+    for data in respons_contents_data:
+        attributes = data.get('attributes')
+        if tf_project_name == attributes.get('name'):
+            request_contents = {
+                "data": {
+                    "type": "workspaces",
+                    "attributes": {
+                        "name": tf_workspace_name,
+                        "operations": execution_mode,
+                        "auto-apply": auto_apply,
+                        "terraform-version": terraform_version,
+                        "working-directory": working_directory
+                    },
+                    "relationships": {
+                        "project": {
+                            "data": {
+                                "type": "projects",
+                                "id": data.get('id')
                             }
                         }
                     }
                 }
-                response_array = restApiCaller.rest_call('POST', api_uri, request_contents)
-                return response_array
-        # 該当Projectが存在しない場合はエラー
-        response_array = {
-            'statusCode': 499,
-            'responseContents': {
-                'errorMessage': 'Specified Project does not exist.'}
-        }
-        return response_array
+            }
+            response_array = restApiCaller.rest_call('POST', api_uri, request_contents)
+            return response_array
+    # 該当Projectが存在しない場合はエラー
+    response_array = {
+        'statusCode': 499,
+        'responseContents': {
+            'errorMessage': 'Specified Project does not exist.'}
+    }
+    return response_array
 
 
 def update_tf_workspace(restApiCaller, tf_organization_name, tf_workspace_name, terraform_version, tf_project_name):
@@ -278,69 +260,50 @@ def update_tf_workspace(restApiCaller, tf_organization_name, tf_workspace_name, 
     execution_mode = True  # リモート実行モードをしようするかどうか。ITAからWorkspaceを作成する際はTrue固定とする
     auto_apply = False  # Planが成功した際に自動でApplyを実行するかどうか。ITAからWorkspaceを作成する際はFalse固定とする
     working_directory = ''  # Terraformが実行される相対パス。ITAからWorkspaceを作成する際は空欄固定とする。
-    
-    if tf_project_name is None:
-        request_contents = {
-            "data": {
-                "type": "workspaces",
-                "attributes": {
-                    "name": tf_workspace_name,
-                    "operations": execution_mode,
-                    "auto-apply": auto_apply,
-                    "terraform-version": terraform_version,
-                    "working-directory": working_directory
-                }
-            }
-        }
-        response_array = restApiCaller.rest_call('PATCH', api_uri, request_contents)
+
+    # Project一覧取得
+    response_array = get_tf_project_list(restApiCaller, tf_organization_name)  # noqa: F405
+    response_status_code = response_array.get('statusCode')
+    # ステータスコードが200以外の場合はエラー判定
+    if response_status_code != 200:
         return response_array
-    else:
-        # tf_project_nameが指定されている場合はProject紐付けも行う
-        # ただし先にProjectの名称からidを引けるようにしておく
 
-        # Project一覧取得
-        response_array = get_tf_project_list(restApiCaller, tf_organization_name)  # noqa: F405
-        response_status_code = response_array.get('statusCode')
-        # ステータスコードが200以外の場合はエラー判定
-        if not response_status_code == 200:
-            return response_array
-
-        # 取得したProject一覧から、該当のProjectが存在するか確認
-        respons_contents_json = response_array.get('responseContents')
-        respons_contents = json.loads(respons_contents_json)
-        respons_contents_data = respons_contents.get('data')
-        for data in respons_contents_data:
-            attributes = data.get('attributes')
-            if tf_project_name == attributes.get('name'):
-                request_contents = {
-                    "data": {
-                        "type": "workspaces",
-                        "attributes": {
-                            "name": tf_workspace_name,
-                            "operations": execution_mode,
-                            "auto-apply": auto_apply,
-                            "terraform-version": terraform_version,
-                            "working-directory": working_directory
-                        },
-                        "relationships": {
-                            "project": {
-                                "data": {
-                                    "type": "projects",
-                                    "id": data.get('id')
-                                }
+    # 取得したProject一覧から、該当のProjectが存在するか確認
+    respons_contents_json = response_array.get('responseContents')
+    respons_contents = json.loads(respons_contents_json)
+    respons_contents_data = respons_contents.get('data')
+    for data in respons_contents_data:
+        attributes = data.get('attributes')
+        if tf_project_name == attributes.get('name'):
+            request_contents = {
+                "data": {
+                    "type": "workspaces",
+                    "attributes": {
+                        "name": tf_workspace_name,
+                        "operations": execution_mode,
+                        "auto-apply": auto_apply,
+                        "terraform-version": terraform_version,
+                        "working-directory": working_directory
+                    },
+                    "relationships": {
+                        "project": {
+                            "data": {
+                                "type": "projects",
+                                "id": data.get('id')
                             }
                         }
                     }
                 }
-                response_array = restApiCaller.rest_call('PATCH', api_uri, request_contents)
-                return response_array
-        # 該当Projectが存在しない場合はエラー
-        response_array = {
-            'statusCode': 499,
-            'responseContents': {
-                'errorMessage': 'Specified Project does not exist.'}
-        }
-        return response_array
+            }
+            response_array = restApiCaller.rest_call('PATCH', api_uri, request_contents)
+            return response_array
+    # 該当Projectが存在しない場合はエラー
+    response_array = {
+        'statusCode': 499,
+        'responseContents': {
+            'errorMessage': 'Specified Project does not exist.'}
+    }
+    return response_array
 
 
 
