@@ -134,18 +134,28 @@ def check_workspace(objdbca, tf_organization_name, tf_workspace_name):
 
     # 連携先TerraformからProjectの一覧を取得
     target_project_id = None
-    response_array = get_tf_project_list(restApiCaller, tf_organization_name)  # noqa: F405
-    response_status_code = response_array.get('statusCode')
-    if response_status_code == 200:
+    # ページネーション対応
+    respons_contents_data = []
+    next_query = "?page[number]=1&page[size]=20"
+    while next_query is not None:
+        # Project一覧取得
+        response_array = get_tf_project_list(restApiCaller, tf_organization_name, next_query)  # noqa: F405
+        response_status_code = response_array.get('statusCode')
         # 正常系
-        respons_contents_json = response_array.get('responseContents')
-        if respons_contents_json:
+        if response_status_code == 200:
+            respons_contents_json = response_array.get('responseContents')
             respons_contents = json.loads(respons_contents_json)
-            respons_contents_data = respons_contents.get('data')
-            for data in respons_contents_data:
-                attributes = data.get('attributes')
-                if tf_project_name == attributes.get('name'):
-                    target_project_id = data.get('id')
+            respons_contents_data.extend(respons_contents.get('data'))
+            next_page = respons_contents.get("meta", {}).get("pagination", {}).get("next-page")
+            if next_page is not None:
+                next_query = "?page[number]=" + str(next_page) + "&page[size]=20"
+            else:
+                next_query = None
+    for data in respons_contents_data:
+        attributes = data.get('attributes')
+        if tf_project_name == attributes.get('name'):
+            target_project_id = data.get('id')
+            break
 
     # 連携先TerraformからWorkspaceの一覧を取得
     response_array = get_tf_workspace_list(restApiCaller, tf_organization_name)  # noqa: F405

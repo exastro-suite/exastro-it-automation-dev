@@ -67,21 +67,31 @@ def external_valid_menu_before(objdbca, objtable, option):
             retBool = False
             return retBool, msg, option,
 
-        # Project一覧取得
-        response_array = get_tf_project_list(restApiCaller, org_name)  # noqa: F405
-        response_status_code = response_array.get('statusCode')
-        # ステータスコードが200以外の場合はエラー判定
-        if not response_status_code == 200:
-            log_msg = g.appmsg.get_log_message("MSG-82042", [])
-            g.applogger.info(log_msg)
-            msg = "[API Error]" + g.appmsg.get_api_message("MSG-82042", []) + " StatusCode:" + str(response_status_code)
-            retBool = False
-            return retBool, msg, option,
+        # ページネーション対応
+        respons_contents_data = []
+        next_query = "?page[number]=1&page[size]=20"
+        while next_query is not None:
+            # Project一覧取得
+            response_array = get_tf_project_list(restApiCaller, org_name, next_query)  # noqa: F405
+            response_status_code = response_array.get('statusCode')
+            # ステータスコードが200以外の場合はエラー判定
+            if not response_status_code == 200:
+                log_msg = g.appmsg.get_log_message("MSG-82042", [])
+                g.applogger.info(log_msg)
+                msg = "[API Error]" + g.appmsg.get_api_message("MSG-82042", []) + " StatusCode:" + str(response_status_code)
+                retBool = False
+                return retBool, msg, option,
 
-        # 取得したProject一覧から、該当のProjectが存在するか確認
-        respons_contents_json = response_array.get('responseContents')
-        respons_contents = json.loads(respons_contents_json)
-        respons_contents_data = respons_contents.get('data')
+            # 取得したProject一覧から、該当のProjectが存在するか確認
+            respons_contents_json = response_array.get('responseContents')
+            respons_contents = json.loads(respons_contents_json)
+            respons_contents_data.extend(respons_contents.get('data'))
+            next_page = respons_contents.get("meta", {}).get("pagination", {}).get("next-page")
+            if next_page is not None:
+                next_query = "?page[number]=" + str(next_page) + "&page[size]=20"
+            else:
+                next_query = None
+
         pj_exist_flag = False
         for data in respons_contents_data:
             attributes = data.get('attributes')
