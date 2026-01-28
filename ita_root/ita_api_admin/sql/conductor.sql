@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_CLASS
 (
     CONDUCTOR_CLASS_ID              VARCHAR(40),                                -- ConductorクラスID
     CONDUCTOR_NAME                  VARCHAR(255),                               -- Conductor名称
-    SETTING                         TEXT,                                       -- 設定
+    SETTING                         LONGTEXT,                                   -- 設定
     NOTE                            VARCHAR(4000),                              -- 備考
     DISUSE_FLAG                     VARCHAR(1)  ,                               -- 廃止フラグ
     LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_CLASS_JNL
     JOURNAL_ACTION_CLASS            VARCHAR (8),                                -- 履歴用変更種別
     CONDUCTOR_CLASS_ID              VARCHAR(40),                                -- ConductorクラスID
     CONDUCTOR_NAME                  VARCHAR(255),                               -- Conductor名称
-    SETTING                         TEXT,                                       -- 設定
+    SETTING                         LONGTEXT,                                   -- 設定
     NOTE                            VARCHAR(4000),                              -- 備考
     DISUSE_FLAG                     VARCHAR(1)  ,                               -- 廃止フラグ
     LAST_UPDATE_TIMESTAMP           DATETIME(6),                                -- 最終更新日時
@@ -109,9 +109,9 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_INSTANCE
     CONDUCTOR_INSTANCE_NAME         VARCHAR(255),                               -- Conductor名称
     I_CONDUCTOR_CLASS_ID            VARCHAR(40),                                -- インスタンス元のクラスID
     I_CONDUCTOR_NAME                VARCHAR(255),                               -- インスタンス元のクラス名
-    I_CLASS_JSON                    TEXT,                                       -- インスタンス元の設定
+    I_CLASS_JSON                    LONGTEXT,                                   -- インスタンス元の設定
     I_NOTE                          TEXT,                                       -- インスタンス元の備考
-    CLASS_JSON                      TEXT,                                       -- クラス設定
+    CLASS_JSON                      LONGTEXT,                                   -- クラス設定
     OPERATION_ID                    VARCHAR(40),                                -- オペレーションID
     I_OPERATION_NAME                VARCHAR(255),                               -- 実行時のオペレーション名
     EXECUTION_USER                  VARCHAR(255),                               -- 作業実行ユーザー
@@ -145,9 +145,9 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_INSTANCE_JNL
     CONDUCTOR_INSTANCE_NAME         VARCHAR(255),                               -- Conductor名称
     I_CONDUCTOR_CLASS_ID            VARCHAR(40),                                -- インスタンス元のクラスID
     I_CONDUCTOR_NAME                VARCHAR(255),                               -- インスタンス元のクラス名
-    I_CLASS_JSON                    TEXT,                                       -- インスタンス元の設定
+    I_CLASS_JSON                    LONGTEXT,                                   -- インスタンス元の設定
     I_NOTE                          TEXT,                                       -- インスタンス元の備考
-    CLASS_JSON                      TEXT,                                       -- クラス設定
+    CLASS_JSON                      LONGTEXT,                                   -- クラス設定
     OPERATION_ID                    VARCHAR(40),                                -- オペレーションID
     I_OPERATION_NAME                VARCHAR(255),                               -- 実行時のオペレーション名
     EXECUTION_USER                  VARCHAR(255),                               -- 作業実行ユーザー
@@ -187,7 +187,7 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_NODE_INSTANCE
     I_MOVEMENT_JSON                 TEXT,                                       -- インスタンス元のMovement情報
     I_CONDUCTOR_CLASS_ID            VARCHAR(40),                                -- インスタンス元のConductorID
     I_CONDUCTOR_CLASS_NAME          VARCHAR(255),                               -- インスタンス元のConductor名
-    I_CONDUCTOR_CLASS_JSON          TEXT,                                       -- インスタンス元のConductor情報
+    I_CONDUCTOR_CLASS_JSON          LONGTEXT,                                   -- インスタンス元のConductor情報
     CONDUCTOR_INSTANCE_ID           VARCHAR(40),                                -- ConductorインスタンスID
     PARENT_CONDUCTOR_INSTANCE_ID    VARCHAR(40),                                -- 親ConductorインスタンスID
     PARENT_CONDUCTOR_INSTANCE_NAME  VARCHAR(255),                               -- 親Conductor名称
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_NODE_INSTANCE_JNL
     I_MOVEMENT_JSON                 TEXT,                                       -- インスタンス元のMovement情報
     I_CONDUCTOR_CLASS_ID            VARCHAR(40),                                -- インスタンス元のConductorID
     I_CONDUCTOR_CLASS_NAME          VARCHAR(255),                               -- インスタンス元のConductor名
-    I_CONDUCTOR_CLASS_JSON          TEXT,                                       -- インスタンス元のConductor情報
+    I_CONDUCTOR_CLASS_JSON          LONGTEXT,                                   -- インスタンス元のConductor情報
     CONDUCTOR_INSTANCE_ID           VARCHAR(40),                                -- ConductorインスタンスID
     PARENT_CONDUCTOR_INSTANCE_ID    VARCHAR(40),                                -- 親ConductorインスタンスID
     PARENT_CONDUCTOR_INSTANCE_NAME  VARCHAR(255),                               -- 親Conductor名称
