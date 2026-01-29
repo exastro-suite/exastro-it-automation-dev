@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_NODE_INSTANCE
     ORCHESTRA_ID                    VARCHAR(40),                                -- Movement種別
     I_MOVEMENT_ID                   VARCHAR(40),                                -- インスタンス元のMovementID
     I_MOVEMENT_NAME                 VARCHAR(255),                               -- インスタンス元のMovement名
-    I_MOVEMENT_JSON                 TEXT,                                       -- インスタンス元のMovement情報
+    I_MOVEMENT_JSON                 LONGTEXT,                                   -- インスタンス元のMovement情報
     I_CONDUCTOR_CLASS_ID            VARCHAR(40),                                -- インスタンス元のConductorID
     I_CONDUCTOR_CLASS_NAME          VARCHAR(255),                               -- インスタンス元のConductor名
     I_CONDUCTOR_CLASS_JSON          LONGTEXT,                                   -- インスタンス元のConductor情報
@@ -223,7 +223,7 @@ CREATE TABLE IF NOT EXISTS T_COMN_CONDUCTOR_NODE_INSTANCE_JNL
     ORCHESTRA_ID                    VARCHAR(40),                                -- Movement種別
     I_MOVEMENT_ID                   VARCHAR(40),                                -- インスタンス元のMovementID
     I_MOVEMENT_NAME                 VARCHAR(255),                               -- インスタンス元のMovement名
-    I_MOVEMENT_JSON                 TEXT,                                       -- インスタンス元のMovement情報
+    I_MOVEMENT_JSON                 LONGTEXT,                                   -- インスタンス元のMovement情報
     I_CONDUCTOR_CLASS_ID            VARCHAR(40),                                -- インスタンス元のConductorID
     I_CONDUCTOR_CLASS_NAME          VARCHAR(255),                               -- インスタンス元のConductor名
     I_CONDUCTOR_CLASS_JSON          LONGTEXT,                                   -- インスタンス元のConductor情報
