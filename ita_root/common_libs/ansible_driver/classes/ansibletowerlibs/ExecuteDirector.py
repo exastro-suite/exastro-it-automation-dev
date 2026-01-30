@@ -922,9 +922,11 @@ class ExecuteDirector():
                         self.ExceptionErrorLog(e, errorMessage, "", "")
                         return False
 
-            retry_unlink(tmp_log_file)
+            if os.path.isfile(tmp_log_file):
+                retry_unlink(tmp_log_file)
 
-            retry_unlink(tmp_TowerInfo_File)
+            if os.path.isfile(tmp_TowerInfo_File):
+                retry_unlink(tmp_TowerInfo_File)
 
             ########################################################################################################
             # ITA作業ディレクトリ配下のoutディレクトリ(__ita_out_dir__)をITAに転送
@@ -981,9 +983,11 @@ class ExecuteDirector():
                     self.ExceptionErrorLog(e, errorMessage, "", "")
                     return False
 
-            retry_unlink(tmp_log_file)
+            if os.path.isfile(tmp_log_file):
+                retry_unlink(tmp_log_file)
 
-            retry_unlink(tmp_TowerInfo_File)
+            if os.path.isfile(tmp_TowerInfo_File):
+                retry_unlink(tmp_TowerInfo_File)
 
             ########################################################################################################
             # ITA作業ディレクトリ配下の_parameters配下をITAに転送
@@ -1040,9 +1044,11 @@ class ExecuteDirector():
                     self.ExceptionErrorLog(e, errorMessage, "", "")
                     return False
 
-            retry_unlink(tmp_log_file)
+            if os.path.isfile(tmp_log_file):
+                retry_unlink(tmp_log_file)
 
-            retry_unlink(tmp_TowerInfo_File)
+            if os.path.isfile(tmp_TowerInfo_File):
+                retry_unlink(tmp_TowerInfo_File)
 
             ########################################################################################################
             # Towerプロジェクトディレクトリ配下の_parameters_file配下をITAに転送
@@ -1097,9 +1103,11 @@ class ExecuteDirector():
                     self.ExceptionErrorLog(e, errorMessage, "", "")
                     return False
 
-            retry_unlink(tmp_log_file)
+            if os.path.isfile(tmp_log_file):
+                retry_unlink(tmp_log_file)
 
-            retry_unlink(tmp_TowerInfo_File)
+            if os.path.isfile(tmp_TowerInfo_File):
+                retry_unlink(tmp_TowerInfo_File)
 
         return result_code
 
@@ -2499,9 +2507,7 @@ class ExecuteDirector():
             g.applogger.info("[Trace] git clone done.")
 
             retry_copytree(SrcFilePath.replace("/*", ""),
-                            self.gitLoaclRepositoriesPath,
-                            dirs_exist_ok=True,
-                            )
+                            self.gitLoaclRepositoriesPath)
             g.applogger.debug(f"[Trace] shutil.copytree. src: {SrcFilePath}, dst: {self.gitLoaclRepositoriesPath}")
 
             # __ita_tmp_dir__配下のconductor_workflowr_dirに使う資材は不要なので除外する
