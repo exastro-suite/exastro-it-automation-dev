@@ -34,6 +34,8 @@ OptionType = TypedDict(
 
 
 class TestConstants:
+    """Constants used in the tests."""
+
     NOT_EXISTS_ORG_ON_DB_UUID = "41842c9c-a3e0-4c8c-a7a2-4502a66437c3"
     VALID_ORG_UUID = "e6a2a790-a852-4e09-b33a-0c407605af25"
     NOT_EXISTS_ORG_ON_HCP_UUID = "3bb26fdb-22ab-4a3d-9329-e8a977231ced"
@@ -77,7 +79,6 @@ def mock_g(mocker):
 
     # gオブジェクトを直接モックする
     mocker.patch("common_libs.validate.valid_80103.g", new=mock_g_object)
-    # mocker.patch("common_libs.terraform_driver.cloud_ep.RestApiCaller.g", new=mock_g_object)
 
     return mock_g_object
 
@@ -97,7 +98,12 @@ def call_rest_mock(
     path_segments = parsed_url.path.split("/")
     match method, path_segments[1:], parsed_query, content:
         # List projects /organizations/:organization_name/projects
-        case "GET", ["organizations", TestConstants.NOT_EXISTS_ORG_ON_HCP_NAME, "projects"], _, _:
+        case (
+            "GET",
+            ["organizations", TestConstants.NOT_EXISTS_ORG_ON_HCP_NAME, "projects"],
+            _,
+            _,
+        ):
             # Organizationが存在しない場合のレスポンスモック
             # https://developer.hashicorp.com/terraform/enterprise/api-docs#authentication
             # > forbidden requests with a valid token result in a 404.
@@ -194,11 +200,14 @@ def get_project_list_response_mock(
     total_count: int = 2,
     organization_name: str = TestConstants.VALID_ORG_NAME,
 ):
+    """Mock function to get project list response."""
     return {
         "data": [
             get_project_data_mock(
                 organization_name,
                 (
+                    # 最初の1件はDefault Project、最後の1件はTestConstants.PROJECT_NAME、
+                    # それ以外は連番付きのプロジェクト名とする
                     "Default Project"
                     if i == 0
                     else (
@@ -246,6 +255,7 @@ def get_project_list_response_mock(
 
 
 def create_list_project_url(page_number, page_size, organization_name):
+    """Create a mock URL for listing projects."""
     return f"https://app.terraform.io/api/v2/organizations/{organization_name}/projects?page%5Bnumber%5D={page_number}&page%5Bsize%5D={page_size}"
 
 
@@ -320,6 +330,7 @@ def get_project_data_mock(
 
 def get_table_select_mock(no_interface_info: bool):
     """Return a mock function for objdbca.table_select method."""
+
     def table_select_mock(table_name: str, where_str: str, bind_values: list):
         match table_name, bind_values:
             case "T_TERE_ORGANIZATION", [TestConstants.NOT_EXISTS_ORG_ON_DB_UUID, 0]:
@@ -333,6 +344,7 @@ def get_table_select_mock(no_interface_info: bool):
                 return [{}]
             case _:
                 return []
+
     return table_select_mock
 
 
@@ -363,6 +375,7 @@ def patch_call_restapi_class(mocker):
             {"ret": True, "msg_code": ""},
             id="Discard command",
         ),
+        # Register, Update, Restoreコマンドのパラメータをまとめて生成: 正常系
         *(
             pytest.param(
                 {
@@ -375,6 +388,7 @@ def patch_call_restapi_class(mocker):
             )
             for cmd in TestConstants.upsert_commands
         ),
+        # Register, Update, Restoreコマンドのパラメータをまとめて生成: 異常系
         *(
             pytest.param(
                 {
