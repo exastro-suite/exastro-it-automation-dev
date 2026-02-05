@@ -39,11 +39,15 @@ class TestConstants:
     NOT_EXISTS_ORG_ON_DB_UUID = "41842c9c-a3e0-4c8c-a7a2-4502a66437c3"
     VALID_ORG_UUID = "e6a2a790-a852-4e09-b33a-0c407605af25"
     NOT_EXISTS_ORG_ON_HCP_UUID = "3bb26fdb-22ab-4a3d-9329-e8a977231ced"
+    INVALID_CHAR_USING_ORG_UUID = "31b4e0f65-1a3e-44f7-9577-221461aefe92"
     INVALID_TOKEN_ORG_UUID = "3963f306-9405-427d-94a5-2385d37f78d1"
     RATE_LIMIT_ORG_UUID = "5a25ec7c-2b99-4f85-867d-76a8603c9cdf"
 
     VALID_ORG_NAME = "valid-organization"
     NOT_EXISTS_ORG_ON_HCP_NAME = "invalid-organization"
+    # https://developer.hashicorp.com/terraform/cloud-docs/users-teams-organizations/organizations#create-an-organization
+    # Organization names can include numbers, letters, underscores (_), and hyphens (-).
+    INVALID_CHAR_USING_ORG_NAME = "無効な文字$を使用したOrganization"
     INVALID_TOKEN_ORG_NAME = "invalid-token"
     RATE_LIMIT_ORG_NAME = "rate-limit"
 
@@ -56,6 +60,7 @@ class TestConstants:
     mapping_org_uuid_to_name = {
         VALID_ORG_UUID: VALID_ORG_NAME,
         NOT_EXISTS_ORG_ON_HCP_UUID: NOT_EXISTS_ORG_ON_HCP_NAME,
+        INVALID_CHAR_USING_ORG_UUID: INVALID_CHAR_USING_ORG_NAME,
         INVALID_TOKEN_ORG_UUID: INVALID_TOKEN_ORG_NAME,
         RATE_LIMIT_ORG_UUID: RATE_LIMIT_ORG_NAME,
     }
@@ -105,7 +110,7 @@ def call_rest_mock(
             _,
         ):
             # Organizationが存在しない場合のレスポンスモック
-            # https://developer.hashicorp.com/terraform/enterprise/api-docs#authentication
+            # https://developer.hashicorp.com/terraform/cloud-docs/api-docs#authentication
             # > forbidden requests with a valid token result in a 404.
             return {
                 "statusCode": 404,
@@ -113,9 +118,30 @@ def call_rest_mock(
                     {
                         "errors": [
                             {
-                                "detail": "Organization not found",
                                 "status": 404,
-                                "title": "Not Found",
+                                "title": "not found",
+                            }
+                        ]
+                    }
+                ),
+            }
+        case (
+            "GET",
+            ["organizations", TestConstants.INVALID_CHAR_USING_ORG_NAME, "projects"],
+            _,
+            _,
+        ):
+            # Organizationが無効な文字を含む場合のレスポンスモック
+            # https://developer.hashicorp.com/terraform/cloud-docs/users-teams-organizations/organizations#create-an-organization
+            # > Organization names can include numbers, letters, underscores (_), and hyphens (-).
+            return {
+                "statusCode": 404,
+                "responseContents": json.dumps(
+                    {
+                        "errors": [
+                            {
+                                "status": 404,
+                                "title": "not found",
                             }
                         ]
                     }
@@ -128,7 +154,7 @@ def call_rest_mock(
             _,
         ):
             # Tokenが無効な場合のレスポンスモック
-            # https://developer.hashicorp.com/terraform/enterprise/api-docs#authentication
+            # https://developer.hashicorp.com/terraform/cloud-docs/api-docs#authentication
             # > The 401 status code is reserved for problems with the authentication token;
             return {
                 "statusCode": 401,
@@ -136,9 +162,8 @@ def call_rest_mock(
                     {
                         "errors": [
                             {
-                                "detail": "Invalid authentication token",
                                 "status": 401,
-                                "title": "Unauthorized",
+                                "title": "unauthorized",
                             }
                         ]
                     }
@@ -151,7 +176,7 @@ def call_rest_mock(
             _,
         ):
             # Rate Limit超過の場合のレスポンスモック
-            # https://developer.hashicorp.com/terraform/enterprise/api-docs#rate-limits
+            # https://developer.hashicorp.com/terraform/cloud-docs/api-docs#rate-limits
             return {
                 "statusCode": 404,
                 "responseContents": json.dumps(
@@ -426,6 +451,15 @@ def patch_call_restapi_class(mocker):
             },
             {"ret": False, "msg_code": "MSG-82042"},
             id="Organization does not exist on HCP Terraform",
+        ),
+        pytest.param(
+            {
+                "cmd_type": "Register",
+                "tf_organization_name": TestConstants.INVALID_CHAR_USING_ORG_UUID,
+                "tf_project_name": TestConstants.PROJECT_NAME,
+            },
+            {"ret": False, "msg_code": "MSG-82042"},
+            id="Organization contains invalid characters",
         ),
         pytest.param(
             {
