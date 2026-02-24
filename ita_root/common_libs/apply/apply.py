@@ -221,8 +221,10 @@ def rest_apply_parameter(objdbca, request_data, menu_list, parameter_sheet_list,
             api_msg_args = [menu]
             raise AppException(status_code, log_msg_args, api_msg_args)  # noqa: F405
 
-    # テーブルロック
+    # テーブルロック対象
     locktable_list = []
+    # 行ロック対象
+    lockrecord_list = {}
     if isinstance(parameter_info, dict):
         parameter_info = [parameter_info, ]
     for params in parameter_info:
@@ -235,17 +237,48 @@ def rest_apply_parameter(objdbca, request_data, menu_list, parameter_sheet_list,
                 for v in val:
                     # 更新系の操作の場合のみ、ロック対象とする
                     if v['type'] in ['Update', 'Restore', 'Discard']:
+                        # メニュー-テーブル紐付からロック対象テーブルを取得する
                         tmp_list = loadtable_obj_dict[menu].get_locktable()
-                        if tmp_list is None:
-                            tmp_list = [loadtable_obj_dict[menu].get_table_name()]
-                        else:
+                        if tmp_list is not None:
+                            # ロック対象テーブルがあるならテーブルロックの対象とする
                             tmp_list = json.loads(tmp_list)
-                            tmp_list.append(loadtable_obj_dict[menu].get_table_name())
-                        locktable_list = list(set(locktable_list) | set(tmp_list))
+                            locktable_list = list(set(locktable_list) | set(tmp_list))
 
+                        # ロック対象テーブルの有無に関わらず,更新対象のメニューに紐付くテーブルは行ロックの対象とする.
+                        # テーブル
+                        target_table = loadtable_obj_dict[menu].get_table_name()
+                        # PK
+                        primary_key = loadtable_obj_dict[menu].get_primary_key()
+                        # PKのrest
+                        target_uuid_key = loadtable_obj_dict[menu].get_rest_key(primary_key)
+                        # 今回のtarget_uuid
+                        target_uuid = v['parameter'].get(target_uuid_key)
+                        # 行ロック対象を作成する
+                        lockrecord_list.setdefault(target_table, {}).setdefault(primary_key, []).append(target_uuid)
+
+    # テーブルロック
     if len(locktable_list) > 0:
         locktable_list.sort()
         objdbca.table_lock(locktable_list)
+
+    # 行ロック
+    if len(lockrecord_list) > 0:
+        for table_name, where_dict in lockrecord_list.items():
+            where_list = []
+            value_params = []
+            g.applogger.info(f"{table_name=},{where_dict=}")
+            # テーブル毎にWHERE句を作成する
+            for pk, target_uuids in where_dict.items():
+                placeholders = ", ".join(["%s"] * len(target_uuids))
+                where_list.append(f"`{pk}` IN ({placeholders})")
+                value_params.extend(target_uuids)
+            if len(where_list) > 0:
+                where_str = " AND ".join(where_list)
+                sql = f"SELECT * FROM `{table_name}` WHERE {where_str} FOR UPDATE"
+                res = objdbca.sql_execute(sql, value_params)
+                if res is False:
+                    g.applogger.info(f"SELECT FOR UPDATE failed. {where_str=}, {value_params=}")
+                    raise Exception()
 
     # オペレーション確認
     now = None
