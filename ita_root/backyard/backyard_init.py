@@ -72,19 +72,20 @@ def main():
 
         args = sys.argv
         loop_count = 500 if len(args) == 1 else args[1]
-        if g.SERVICE_NAME == "ita-by-ansible-execute":
-            wrapper_job_all_org(main_logic, loop_count)
-        else:
-            wrapper_job(main_logic, None, None, loop_count)
+        try:
+            if g.SERVICE_NAME == "ita-by-ansible-execute":
+                wrapper_job_all_org(main_logic, loop_count)
+            else:
+                wrapper_job(main_logic, None, None, loop_count)
+        finally:
+            if enable_on_exit_process():
+                # 処理終了時のコンテ独自処理(backyard_main.on_exit_process)がある場合はそれを実行します
+                func = getattr(importlib.import_module('backyard_main'), 'on_exit_process')
+                func()
 
-        if enable_on_exit_process():
-            # 処理終了時のコンテ独自処理(backyard_main.on_exit_process)がある場合はそれを実行します
-            func = getattr(importlib.import_module('backyard_main'), 'on_exit_process')
-            func()
-
-        if use_log_queue():
-            # log queue serverを終了します
-            log_server.stop_server()
+            if use_log_queue():
+                # log queue serverを終了します
+                log_server.stop_server()
 
 
 def use_log_queue() -> bool:
