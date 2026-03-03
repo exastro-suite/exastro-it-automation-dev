@@ -30,8 +30,6 @@ def wrapper_job(main_logic, organization_id=None, workspace_id=None, loop_count=
     '''
     backyard job wrapper
     '''
-    common_db = DBConnectCommon()  # noqa: F405
-    g.applogger.debug("ITA_DB is connected")
 
     # service_name
     service_name = os.environ.get("SERVICE_NAME")
@@ -50,18 +48,25 @@ def wrapper_job(main_logic, organization_id=None, workspace_id=None, loop_count=
         g.applogger.set_env_message()
         g.applogger.info("Backyard job has started")
 
-        # get organization_info_list
-        if is_child_ps is False:
-            organization_info_list = common_db.table_select("T_COMN_ORGANIZATION_DB_INFO", "WHERE `DISUSE_FLAG`=0 ORDER BY `LAST_UPDATE_TIMESTAMP`")
-        else:
-            organization_info_list = common_db.table_select("T_COMN_ORGANIZATION_DB_INFO", "WHERE `DISUSE_FLAG`=0 AND `ORGANIZATION_ID`=%s", [organization_id])  # noqa: E501
-        # autocommit=falseの場合に、ループ中にorganizationが更新されても、最新データが取得できないバグへの対策
-        common_db.db_transaction_start()
-        common_db.db_commit()
+        try:
+            common_db = DBConnectCommon()  # noqa: F405
+            g.applogger.debug("ITA_DB is connected")
+            # get organization_info_list
+            if is_child_ps is False:
+                organization_info_list = common_db.table_select("T_COMN_ORGANIZATION_DB_INFO", "WHERE `DISUSE_FLAG`=0 ORDER BY `LAST_UPDATE_TIMESTAMP`")
+            else:
+                organization_info_list = common_db.table_select("T_COMN_ORGANIZATION_DB_INFO", "WHERE `DISUSE_FLAG`=0 AND `ORGANIZATION_ID`=%s", [organization_id])  # noqa: E501
+            # autocommit=falseの場合に、ループ中にorganizationが更新されても、最新データが取得できないバグへの対策
+            common_db.db_transaction_start()
+            common_db.db_commit()
+        except:
+            g.applogger.error("SELECT ITA_DB.T_COMN_ORGANIZATION_DB_INFO Failed.")
+            return
 
         # set applogger.set_level: default:INFO / Use ITA_DB config value
         set_service_loglevel(common_db)
 
+        common_db.db_disconnect()
         for organization_info in organization_info_list:
             # set applogger.set_level: default:INFO / Use ITA_DB config value
             # set_service_loglevel(common_db)
@@ -129,7 +134,6 @@ def wrapper_job(main_logic, organization_id=None, workspace_id=None, loop_count=
             f.write(str(int(time.time())))
 
         if count >= max:
-            common_db.db_disconnect()
             break
         else:
             count = count + 1
