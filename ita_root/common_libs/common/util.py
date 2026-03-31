@@ -356,6 +356,7 @@ def file_read_retry(func):
         retBool = False
         i = 1
         max = 3 # リトライ回数
+        # logger_class: コンテキスト外等でg.apploggerが使用できない時の対処
         logger = kwargs.get("logger_class") or g.applogger
         while True:
             try:
@@ -1350,6 +1351,7 @@ def url_check(url_string, scheme='', path=False, params=False, query=False, frag
 def print_exception_msg(e, logger_class=None):
     """
     例外メッセージを、infoログに出力する
+    logger_class: コンテキスト外等でg.apploggerが使用できない時の対処
     """
     logger = logger_class or g.applogger
     # 例外と、発生したファイ名と行番号を出力
