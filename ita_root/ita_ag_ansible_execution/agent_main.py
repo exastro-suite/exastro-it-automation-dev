@@ -257,17 +257,46 @@ def child_process_exist_check(organization_id, workspace_id, execution_no, drive
     if is_running is False:
         # ステータスファイルがあるか確認
         status_file_dir_path, status_file_path = get_execution_status_file_path(organization_id, workspace_id, driver_id, execution_no)  # noqa: F405
+        os.listdir(os.path.dirname(status_file_dir_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         if os.path.isfile(status_file_path):
             # ステータスファイルに書き込まれている再起動回数取得
-            with open(status_file_path) as f:
-                reboot_cnt = f.read()
+            reboot_cnt = ""
+
+            @file_read_retry  # noqa: F405
+            def read_reboot_cnt():
+                nonlocal reboot_cnt
+                try:
+                    with open(status_file_path) as f:
+                        reboot_cnt = f.read()
+                    return True
+                except Exception as e:
+                    g.applogger.info("read_reboot_cnt failed. file_path={}".format(status_file_path))
+                    t = traceback.format_exc()  # noqa: F405
+                    g.applogger.info(arrange_stacktrace_format(t))  # noqa: F405
+                    raise e
+            read_reboot_cnt()
+
+            if len(reboot_cnt) == 0:
+                reboot_cnt = "0"
 
             # 再起動回数回を超える場合、再起動しない
             if int(reboot_cnt) < child_process_retry_limit:
-                # ステータスファイルに再起動回数書き込み
-                with open(status_file_path, "w") as f:
-                    reboot_cnt = int(reboot_cnt) + 1
-                    f.write(str(reboot_cnt))
+
+                @file_read_retry  # noqa: F405
+                def write_status_file():
+                    nonlocal reboot_cnt
+                    try:
+                        # ステータスファイルに再起動回数書き込み
+                        with open(status_file_path, "w") as f:
+                            reboot_cnt = int(reboot_cnt) + 1
+                            f.write(str(reboot_cnt))
+                        return True
+                    except Exception as e:
+                        g.applogger.info("write_status_file failed. file_path={}".format(status_file_path))
+                        t = traceback.format_exc()  # noqa: F405
+                        g.applogger.info(arrange_stacktrace_format(t))  # noqa: F405
+                        raise e
+                write_status_file()
 
                 g.applogger.info(g.appmsg.get_log_message("MSG-11005", [workspace_id, execution_no, str(reboot_cnt)]))
                 # 子プロ再起動
