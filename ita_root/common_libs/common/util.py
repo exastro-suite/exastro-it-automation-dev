@@ -1739,7 +1739,7 @@ def retry_rmtree(dir_path, raise_error=True):
         # - 存在しないケースがあるディレクトリに対してもos.path.isdirで存在確認をせずに削除するため
         # - 作成することでキャッシュをクリアできる可能性もあるため
         # 一旦作成してから削除する
-        g.applogger.debug(f"shutil.rmtree({dir_path})")
+        g.applogger.debug(f"os.makedirs({dir_path})")
         os.makedirs(dir_path, exist_ok=True)
         g.applogger.debug(f"shutil.rmtree({dir_path})")
         shutil.rmtree(dir_path)
