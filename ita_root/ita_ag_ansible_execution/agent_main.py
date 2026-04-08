@@ -363,8 +363,23 @@ def get_working_child_process(organization_id, workspace_id, start_up_list):
                 continue
 
             # ステータスファイルに書き込まれている再起動回数取得
-            with open(_file) as f:
-                reboot_cnt = f.read()
+            reboot_cnt = ""
+
+            @file_read_retry  # noqa: F405
+            def read_reboot_cnt():
+                nonlocal reboot_cnt
+                try:
+                    os.listdir(os.path.dirname(_file.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
+                    with open(_file) as f:
+                        reboot_cnt = f.read()
+                    return True
+                except Exception as e:
+                    g.applogger.info("read_reboot_cnt failed. file_path={}".format(_file))
+                    t = traceback.format_exc()  # noqa: F405
+                    g.applogger.info(arrange_stacktrace_format(t))  # noqa: F405
+                    raise e
+            read_reboot_cnt()
+
             if len(reboot_cnt) == 0:
                 reboot_cnt = "0"
 
@@ -418,9 +433,19 @@ def update_error_executions(organization_id, workspace_id, exastro_api, error_ps
             # ログファイルのパス取得
             exec_log_pass, error_log_pass, parent_error_log_pass, child_exec_log_pass, child_error_log_pass, runner_exec_log_pass, runner_error_log_pass = get_log_file_path(organization_id, workspace_id, driver_id, del_execution)  # noqa: F405
 
-            with open(parent_error_log_pass, 'w') as f:
-                # Ansible実行エージェントで作業中の実行プロセスが停止した為、終了します。(Execution no:{})
-                f.write(g.appmsg.get_log_message('MSG-10985', [del_execution]))
+            @file_read_retry  # noqa: F405
+            def write_parent_error_log():
+                try:
+                    with open(parent_error_log_pass, 'w') as f:
+                        # Ansible実行エージェントで作業中の実行プロセスが停止した為、終了します。(Execution no:{})
+                        f.write(g.appmsg.get_log_message('MSG-10985', [del_execution]))
+                    return True
+                except Exception as e:
+                    g.applogger.info("write_parent_error_log failed. file_path={}".format(parent_error_log_pass))
+                    t = traceback.format_exc()  # noqa: F405
+                    g.applogger.info(arrange_stacktrace_format(t))  # noqa: F405
+                    raise e
+            write_parent_error_log()
 
             # ansibleのログファイルとアプリのログをマージする
             log_merge(exec_log_pass, error_log_pass, parent_error_log_pass, child_exec_log_pass, child_error_log_pass, runner_exec_log_pass, runner_error_log_pass, driver_id)  # noqa: F405

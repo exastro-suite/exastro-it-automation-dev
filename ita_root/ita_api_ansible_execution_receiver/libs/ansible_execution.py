@@ -338,9 +338,7 @@ def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no
         def copy_dir_execution_no():
             g.applogger.debug(f"copy_dir_execution_no called ({dir_path}, {tmp_path})")
             try:
-                g.applogger.debug(f"os.listdir({os.path.dirname(dir_path.rstrip('/'))})")
                 os.listdir(os.path.dirname(dir_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる コピー元のみ(コピー先はこの場合無いこともある)
-                g.applogger.debug(f"shutil.copytree({dir_path}, {tmp_path})")
                 shutil.copytree(dir_path, tmp_path, dirs_exist_ok=True)
                 return True
             except Exception as e:
@@ -354,15 +352,11 @@ def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no
         def copy_dir_conductor():
             g.applogger.debug(f"copy_dir_conductor called ({conductor_dir_path}, {tmp_c_path})")
             try:
-                g.applogger.debug(f"os.listdir({os.path.dirname(conductor_dir_path.rstrip('/'))})")
                 os.listdir(os.path.dirname(conductor_dir_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる コピー元
                 # conductor_dir_path -> tmp_c_path に移動: conductor_dir_path無ければ作成
-                g.applogger.debug(f"os.makedirs({conductor_dir_path})")
                 os.makedirs(conductor_dir_path, exist_ok=True)
                 os.chmod(conductor_dir_path, 0o777)
-                g.applogger.debug(f"os.listdir({os.path.dirname(tmp_c_path.rstrip('/'))})")
                 os.listdir(os.path.dirname(tmp_c_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる コピー先
-                g.applogger.debug(f"shutil.copytree({conductor_dir_path}, {tmp_c_path})")
                 shutil.copytree(conductor_dir_path, tmp_c_path, dirs_exist_ok=True)
                 return True
             except Exception as e:
@@ -377,9 +371,7 @@ def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no
             g.applogger.debug(f"mkdir_conductor called ({tmp_c_path})")
             # tmp_c_pathをdummyで空作成
             try:
-                g.applogger.debug(f"os.listdir({os.path.dirname(tmp_c_path.rstrip('/'))})")
                 os.listdir(os.path.dirname(tmp_c_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
-                g.applogger.debug(f"os.makedirs, os.chmod, ({tmp_c_path})")
                 os.makedirs(tmp_c_path, exist_ok=True)
                 os.chmod(tmp_c_path, 0o777)
                 return True
@@ -405,7 +397,6 @@ def get_populated_data_path(objdbca, organization_id, workspace_id, execution_no
         @file_read_retry  # noqa: F405
         def tarfile_gztar_path():
             try:
-                g.applogger.debug(f"os.listdir({os.path.dirname(gztar_path.rstrip('/'))})")
                 os.listdir(os.path.dirname(gztar_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
                 with tarfile.open(gztar_path, "w:gz") as tar:
                     tar.add(tmp_base_path, arcname="")
@@ -507,6 +498,7 @@ def update_result(objdbca, organization_id, workspace_id, execution_no, paramete
             def tarfile_extractall_path():
                 try:
                     os.makedirs(tmp_path + file_key, exist_ok=True)
+                    os.listdir(os.path.dirname(record_file_paths.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる コピー元のみ(コピー先はこの場合無いこともある)
                     with tarfile.open(record_file_paths, 'r:gz') as tar:
                         tar.extractall(path=tmp_path + file_key)
                     g.applogger.debug(f"tarfile.open({record_file_paths}, 'r:gz'):  tar.extractall({tmp_path + file_key})")

@@ -342,7 +342,7 @@ def retry_makedirs(dir_path, raise_error=True):
             dir_path: 作成するディレクトリパス
             raise_error: リトライを実施してもエラーが発生した際に例外スローするか (True: 例外スロー&ログ出力/ False: ログ出力のみ)
     """
-    g.applogger.debug(f"os.makedirs({dir_path})")
+    g.applogger.debug(f"retry_makedirs({dir_path})")
     try:
         os.makedirs(dir_path, exist_ok=True)
         return True
@@ -368,11 +368,8 @@ def retry_copy2(src_path, dest_path, raise_error=True):
     """
     g.applogger.debug(f"retry_copy2({src_path, dest_path})")
     try:
-        g.applogger.debug(f"os.listdir({os.path.dirname(src_path.rstrip('/'))})")
         os.listdir(os.path.dirname(src_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
-        g.applogger.debug(f"os.listdir({os.path.dirname(dest_path.rstrip('/'))})")
         os.listdir(os.path.dirname(dest_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
-        g.applogger.debug(f"shutil.copy2({src_path, dest_path})")
         shutil.copy2(src_path, dest_path)
         return True
     except Exception as e:
@@ -396,9 +393,7 @@ def retry_rmdir(dir_path, raise_error=True):
     """
     g.applogger.debug(f"retry_rmdir({dir_path})")
     try:
-        g.applogger.debug(f"os.listdir({os.path.dirname(dir_path.rstrip('/'))})")
         os.listdir(os.path.dirname(dir_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
-        g.applogger.debug(f"os.rmdir({dir_path})")
         os.rmdir(dir_path)
         return True
     except Exception as e:
@@ -422,9 +417,7 @@ def retry_remove(file_path, raise_error=True):
     """
     g.applogger.debug(f"retry_remove({file_path})")
     try:
-        g.applogger.debug(f"os.listdir({os.path.dirname(file_path.rstrip('/'))})")
         os.listdir(os.path.dirname(file_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
-        g.applogger.debug(f"os.remove({file_path})")
         os.remove(file_path)
         return True
     except Exception as e:
