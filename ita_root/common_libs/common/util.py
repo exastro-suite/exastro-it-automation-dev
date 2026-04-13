@@ -359,6 +359,8 @@ def file_read_retry(func):
         retBool = False
         i = 1
         max = 3 # リトライ回数
+        # logger_class: コンテキスト外等でg.apploggerが使用できない時の対処
+        logger = kwargs.get("logger_class") or g.applogger
         while True:
             try:
                 retBool = func(*args, **kwargs)
@@ -370,12 +372,12 @@ def file_read_retry(func):
                     # 最後のログ出力のみ、stacktraceを出力
                     # Output stacktrace only the last log output
                     t = traceback.format_exc()
-                    g.applogger.info(arrange_stacktrace_format(t))
+                    logger.info(arrange_stacktrace_format(t))
                     raise e
                 else:
                     # retry分は、メッセージのみを出力
                     # For retry minutes, only the message is output
-                    g.applogger.info(print_exception_msg(e))
+                    logger.info(print_exception_msg(e, logger_class=logger))
 
             if i == max:
                 break
@@ -1351,16 +1353,17 @@ def url_check(url_string, scheme='', path=False, params=False, query=False, frag
     return True, parse_obj
 
 
-def print_exception_msg(e):
+def print_exception_msg(e, logger_class=None):
     """
     例外メッセージを、infoログに出力する
+    logger_class: コンテキスト外等でg.apploggerが使用できない時の対処
     """
-
+    logger = logger_class or g.applogger
     # 例外と、発生したファイ名と行番号を出力
     info = inspect.getouterframes(inspect.currentframe())[1]
     msg_line = "({}:{})".format(os.path.basename(info.filename), info.lineno)
     exception_msg = "exception_msg='{}'".format(e)
-    g.applogger.info('[timestamp={}] {} {}'.format(get_iso_datetime(), exception_msg, msg_line))
+    logger.info('[timestamp={}] {} {}'.format(get_iso_datetime(), exception_msg, msg_line))
 
 
 def get_ita_version(common_db):
@@ -1722,22 +1725,24 @@ def retry_rmtree(dir_path, raise_error=True):
 
 # 空ディレクトリ削除(os.rmdir)
 @file_read_retry
-def retry_rmdir(dir_path, raise_error=True):
+def retry_rmdir(dir_path, raise_error=True, logger_class=None):
     """
         `os.rmdir(dir_path)` を`@file_read_retry`付きで実行する
         Args:
             dir_path: 削除するディレクトリパス
             raise_error: リトライを実施してもエラーが発生した際に例外スローするか (True: 例外スロー&ログ出力/ False: ログ出力のみ)
+            logger_class: コンテキスト外等でg.apploggerが使用できない時の対処
     """
-    g.applogger.debug(f"retry_rmdir({dir_path})")
+    logger = logger_class or g.applogger
+    logger.debug(f"os.rmdir({dir_path})")
     try:
         os.listdir(os.path.dirname(dir_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         os.rmdir(dir_path)
         return True
     except Exception as e:
-        g.applogger.info("retry_rmdir failed. dir_path={}".format(dir_path))
+        logger.info("retry_rmdir failed. dir_path={}".format(dir_path))
         t = traceback.format_exc()
-        g.applogger.debug(arrange_stacktrace_format(t))
+        logger.debug(arrange_stacktrace_format(t))
         if raise_error is True:
             raise e
         else:
@@ -1746,22 +1751,24 @@ def retry_rmdir(dir_path, raise_error=True):
 
 # ファイル削除(os.remove)
 @file_read_retry
-def retry_remove(file_path, raise_error=True):
+def retry_remove(file_path, raise_error=True, logger_class=None):
     """
         `os.remove(file_path)` を`@file_read_retry`付きで実行する
         Args:
             file_path: 削除するファイルパス
             raise_error: リトライを実施してもエラーが発生した際に例外スローするか (True: 例外スロー&ログ出力/ False: ログ出力のみ)
+            logger_class: コンテキスト外等でg.apploggerが使用できない時の対処
     """
-    g.applogger.debug(f"retry_remove({file_path})")
+    logger = logger_class or g.applogger
+    logger.debug(f"os.remove({file_path})")
     try:
         os.listdir(os.path.dirname(file_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         os.remove(file_path)
         return True
     except Exception as e:
-        g.applogger.info("retry_remove failed. file_path={}".format(file_path))
+        logger.info("retry_remove failed. file_path={}".format(file_path))
         t = traceback.format_exc()
-        g.applogger.debug(arrange_stacktrace_format(t))
+        logger.debug(arrange_stacktrace_format(t))
         if raise_error is True:
             raise e
         else:

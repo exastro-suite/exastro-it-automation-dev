@@ -108,11 +108,11 @@ def make_response_file_download(data=None, msg="", result_code="000-00000", stat
         file_name = quote(os.path.basename(data))
         resp.headers["Content-Disposition"] = f"attachment; filename={file_name}"
 
-
+        logger = g.applogger
         if remove_file:
             @resp.call_on_close
             def exec_remove():
-                remove_temporary_file(data)
+                remove_temporary_file(data, logger)
 
 
     log_status = "SUCCESS" if result_code == "000-00000" else "FAILURE"
@@ -197,16 +197,16 @@ def exception_response(e, exception_log_need=False):
     return make_response(None, api_msg, "999-99999", 500)
 
 
-def remove_temporary_file(file_path):
+def remove_temporary_file(file_path, logger):
 
     tmp_path = "/tmp"
     storage_path = os.environ.get('STORAGEPATH')
 
     try:
         if file_path.startswith(tmp_path) or file_path.startswith(storage_path):
-            retry_remove(file_path)
+            retry_remove(file_path, logger_class=logger)
             directory_name = os.path.dirname(file_path)
-            retry_rmdir(directory_name)
+            retry_rmdir(directory_name, logger_class=logger)
     except Exception as e:
         raise e
 
