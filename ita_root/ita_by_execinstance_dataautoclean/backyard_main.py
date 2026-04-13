@@ -307,18 +307,14 @@ class MainFunctions():
         # 廃止されているレコードも対象にする。
         sql = '''
               SELECT
-                CONCAT('"', OPERATION_ID, '"') AS OPERATION_ID
+                OPERATION_ID
               FROM
                 T_COMN_OPERATION
               WHERE
                 DATE_FORMAT(OPERATION_DATE, '%%Y/%%m/%%d %%H:%%i') <= %s
               '''
         rows = self.ws_db.sql_execute(sql, [TgtDelDate])
-        TgtOpeList = ""
-        for row in rows:
-            if len(TgtOpeList) != 0:
-                TgtOpeList += ","
-            TgtOpeList += row['OPERATION_ID']
+        TgtOpeList = [row['OPERATION_ID'] for row in rows]
         return TgtOpeList
 
     def LogicalDeleteDB(self, DelList, TgtOpeList):
@@ -341,39 +337,52 @@ class MainFunctions():
         SelectObjName = DelList['TABLE_NAME']
         if DelList['VIEW_NAME']:
             SelectObjName = DelList['VIEW_NAME']
+        # 削除対象のオペレーションIDリストを分割して処理する。
+        # TgtOpeListに、削除日数に該当するオペレーションによって、SQLのIN句のパラメータ数が増減するため、分割して処理する。
+        n = min(int(g.delete_batch_size), len(TgtOpeList))
+        for i in range(0, len(TgtOpeList), int(n)):
+            rows = []
+            # 対象メニューがビューの場合、SELECTはビューを使用
+            sql = '''SELECT
+                    {},
+                    DISUSE_FLAG,
+                    LAST_UPDATE_USER
+                    FROM
+                    `{}`
+                    WHERE
+                    DISUSE_FLAG = '0' AND
+                    {} in ({})
+                '''.format(DelList['PKEY_NAME'], SelectObjName, self.operation_id_column_name, ', '.join(['%s'] * len(TgtOpeList[i: int(i + n)])))
 
-        # 対象メニューがビューの場合、SELECTはビューを使用
-        sql = '''SELECT
-                   {},
-                   DISUSE_FLAG,
-                   LAST_UPDATE_USER
-                 FROM
-                   `{}`
-                 WHERE
-                   DISUSE_FLAG = '0' AND
-                   {} in ({})
-              '''.format(DelList['PKEY_NAME'], SelectObjName, self.operation_id_column_name, TgtOpeList)
+            # 論理削除対象のcursorを取得
+            _cursor = self.ws_db.sql_execute_cursor(sql, TgtOpeList[i: int(i + n)])
 
-        rows = self.ws_db.sql_execute(sql)
+            # [処理] テーブルから保管期限切れレコードの廃止(テーブル名:{})
+            FREE_LOG = g.appmsg.get_api_message("MSG-100007", [DelList["TABLE_NAME"]])
+            g.applogger.debug(FREE_LOG)
 
-        if len(rows) == 0:
-            g.applogger.info(f"No matching records found for logical deletion. ({DelList['TABLE_NAME']})")
-            return
+            # 論理削除対象のレコードを分割取得(読み飛ばし防止のため、一度取得してから廃止処理を行う)
+            with _cursor as _cur:
+                while True:
+                    _rows = _cur.fetchmany(g.delete_batch_size)
+                    if len(_rows) == 0:
+                        del _rows
+                        # データ0件の為、break
+                        break
+                    rows.extend(_rows)
+            g.applogger.info(f"Fetched {len(rows)} rows for logical deletion from {DelList['TABLE_NAME']}") if len(rows) else None
 
-        # [処理] テーブルから保管期限切れレコードの廃止(テーブル名:{})
-        FREE_LOG = g.appmsg.get_api_message("MSG-100007", [DelList["TABLE_NAME"]])
-        g.applogger.debug(FREE_LOG)
-
-        for row in rows:
             # 論理削除対象のレコードを廃止する。
-            row['LAST_UPDATE_USER'] = DelList['LAST_UPD_USER_ID']
-            row['DISUSE_FLAG'] = '1'
-            history_table = False
-            if DelList['HISTORY_TABLE_FLAG'] == '1':
-                history_table = True
+            for row in rows:
+                # 論理削除対象のレコードを廃止する。
+                row['LAST_UPDATE_USER'] = DelList['LAST_UPD_USER_ID']
+                row['DISUSE_FLAG'] = '1'
+                history_table = False
+                if DelList['HISTORY_TABLE_FLAG'] == '1':
+                    history_table = True
 
-            g.applogger.debug(f"Executing UPDATE: TABLE_NAME: {DelList['TABLE_NAME']}, ID: {row.get(DelList['PKEY_NAME'])}, HISTORY_TABLE: {history_table}")
-            self.ws_db.table_update(DelList['TABLE_NAME'], row, DelList['PKEY_NAME'], history_table)
+                g.applogger.debug(f"Executing UPDATE: TABLE_NAME: {DelList['TABLE_NAME']}, ID: {row.get(DelList['PKEY_NAME'])}, HISTORY_TABLE: {history_table}")
+                self.ws_db.table_update(DelList['TABLE_NAME'], row, DelList['PKEY_NAME'], history_table)
 
     def PhysicalDeleteDB(self, DelList, TgtOpeList):
         """
@@ -395,77 +404,85 @@ class MainFunctions():
         if DelList['VIEW_NAME']:
             SelectObjName = DelList['VIEW_NAME']
 
-        # 対象メニューがビューの場合、SELECTはビューを使用
-        sql = '''SELECT
-                   {}
-                 FROM
-                   `{}`
-                 WHERE
-                   {} in ({})
-              '''.format(DelList['PKEY_NAME'], SelectObjName, self.operation_id_column_name, TgtOpeList)
+        # 削除対象のオペレーションIDリストを分割して処理する。
+        # TgtOpeListに、削除日数に該当するオペレーションによって、SQLのIN句のパラメータ数が増減するため、分割して処理する。
+        n = min(int(g.delete_batch_size), len(TgtOpeList))
+        for i in range(0, len(TgtOpeList), int(n)):
+            # 対象メニューがビューの場合、SELECTはビューを使用
+            sql = '''SELECT
+                       {}
+                     FROM
+                       `{}`
+                     WHERE
+                       {} in ({})
+                  '''.format(DelList['PKEY_NAME'], SelectObjName, self.operation_id_column_name, ', '.join(['%s'] * len(TgtOpeList[i: int(i + n)])))
 
-        rows = self.ws_db.sql_execute(sql)
+            # 物理削除対象のcursorを取得
+            _cursor = self.ws_db.sql_execute_cursor(sql, TgtOpeList[i: int(i + n)])
 
-        PkeyList = []
-        PkeyString = ""
-        # 物理対象のレコードのPkeyを取得
-        for row in rows:
-            PkeyList.append(row[DelList['PKEY_NAME']])
-            if len(PkeyString) != 0:
-                PkeyString += ","
-            PkeyString += "'" + row[DelList['PKEY_NAME']] + "'"
+            g.applogger.debug(f"PhysicalDeleteDB: {DelList['TABLE_NAME']} rows to physical delete: {_cursor.rowcount}")
 
-        # 削除対象のレコードがない場合
-        if len(PkeyList) == 0:
-            g.applogger.info(f"No matching records found for physical deletion. ({DelList['TABLE_NAME']})")
-            return
+            all_pkeys = []
+            # 物理削除対象のレコードを分割取得(読み飛ばし防止のため、一度取得してから廃止処理を行う)
+            with _cursor as _cur:
+                while True:
+                    rows = _cur.fetchmany(g.delete_batch_size)
+                    if len(rows) == 0:
+                        del rows
+                        # データ0件の為、break
+                        break
+                    # 取得したレコードを一時リストに格納（SELECTカーソルへの影響を避けるため）
+                    for row in rows:
+                        all_pkeys.append(row[DelList['PKEY_NAME']])
+            g.applogger.info(f"Fetched {len(all_pkeys)} rows for physical deletion from {DelList['TABLE_NAME']}")
 
-        # 物理対象のレコードに紐づいているファイルアップロードカラムのファイルを削除
-        for Pkey in PkeyList:
-            for TgtPath in DelList['FILE_UPLOAD_COLUMNS']:
-                DelPath = "{}/{}/{}".format(self.getDataRelayStorageDir(), TgtPath, Pkey)
-                # [処理] テーブルに紐づく不要ディレクトリ削除(テーブル名:({}) ディレクトリ名:({}))
-                FREE_LOG = g.appmsg.get_api_message("MSG-100009", [DelList["TABLE_NAME"], DelPath])
+            # 削除フェーズ：SELECTカーソルを閉じた後にDELETEを実行する
+            for j in range(0, len(all_pkeys), int(g.delete_batch_size)):
+                PkeyList = all_pkeys[j: j + int(g.delete_batch_size)]
+
+                # 物理削除対象のレコードのファイル削除処理
+                for Pkey in PkeyList:
+                    # 物理対象のレコードに紐づいているファイルアップロードカラムのファイルを削除
+                    for TgtPath in DelList['FILE_UPLOAD_COLUMNS']:
+                        DelPath = "{}/{}/{}".format(self.getDataRelayStorageDir(), TgtPath, Pkey)
+                        # [処理] テーブルに紐づく不要ディレクトリ削除(テーブル名:({}) ディレクトリ名:({}))
+                        FREE_LOG = g.appmsg.get_api_message("MSG-100009", [DelList["TABLE_NAME"], DelPath])
+                        g.applogger.debug(FREE_LOG)
+                        retry_rmtree(DelPath)
+
+                # [処理] テーブルから保管期限切れレコードの物理削除(テーブル名:{})
+                FREE_LOG = g.appmsg.get_api_message("MSG-100008", [DelList["TABLE_NAME"]])
                 g.applogger.debug(FREE_LOG)
-                retry_rmtree(DelPath)
 
-        # [処理] テーブルから保管期限切れレコードの物理削除(テーブル名:{})
-        FREE_LOG = g.appmsg.get_api_message("MSG-100008", [DelList["TABLE_NAME"]])
-        g.applogger.debug(FREE_LOG)
-
-        # 分割処理で削除
-        n = len(PkeyList) if int(g.delete_batch_size) >= len(PkeyList) else int(g.delete_batch_size)
-        for i in range(0, len(PkeyList), int(n)):
-            try:
-                g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME']} = {len(PkeyList[i: int(i + n)])} / {len(PkeyList)}")
-                _prepared_list = ','.join(list(map(lambda a: "%s", PkeyList[i: int(i + n)])))
-                sql = f"DELETE FROM `{DelList['TABLE_NAME']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list})"
-                self.ws_db.db_transaction_start()
-                self.ws_db.sql_execute(sql, PkeyList[i: int(i + n)])
-                self.ws_db.db_transaction_end(True)
-            except Exception as e:
-                g.applogger.error(e)
-                g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME']}")
-                self.ws_db.db_transaction_end(False)
-
-        if DelList['HISTORY_TABLE_FLAG'] == '1':
-            n = len(PkeyList) if int(g.delete_batch_size) >= len(PkeyList) else int(g.delete_batch_size)
-            for i in range(0, len(PkeyList), int(n)):
+                # 物理削除対象のレコードのファイル削除処理が完了した後、レコード・履歴レコードを削除する。
                 try:
-                    g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME_JNL']} = {len(PkeyList[i: int(i + n)])} / {len(PkeyList)}")
-                    _prepared_list_jnl = ','.join(list(map(lambda a: "%s", PkeyList[i: int(i + n)])))
-                    sql = f"DELETE FROM `{DelList['TABLE_NAME_JNL']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list_jnl})"
+                    g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME']} = {len(PkeyList)}")
+                    _prepared_list = ','.join(list(map(lambda a: "%s", PkeyList)))
+                    sql = f"DELETE FROM `{DelList['TABLE_NAME']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list})"
                     self.ws_db.db_transaction_start()
-                    self.ws_db.sql_execute(sql, PkeyList[i: int(i + n)])
+                    self.ws_db.sql_execute(sql, PkeyList)
                     self.ws_db.db_transaction_end(True)
                 except Exception as e:
                     g.applogger.error(e)
-                    g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME_JNL']}")
+                    g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME']}")
                     self.ws_db.db_transaction_end(False)
 
-            # [処理] テーブルから保管期限切れレコードの物理削除(テーブル名:{})
-            FREE_LOG = g.appmsg.get_api_message("MSG-100008", [DelList["TABLE_NAME_JNL"]])
-            g.applogger.debug(FREE_LOG)
+                if DelList['HISTORY_TABLE_FLAG'] == '1':
+                    try:
+                        g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME_JNL']} = {len(PkeyList)}")
+                        _prepared_list_jnl = ','.join(list(map(lambda a: "%s", PkeyList)))
+                        sql = f"DELETE FROM `{DelList['TABLE_NAME_JNL']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list_jnl})"
+                        self.ws_db.db_transaction_start()
+                        self.ws_db.sql_execute(sql, PkeyList)
+                        self.ws_db.db_transaction_end(True)
+                    except Exception as e:
+                        g.applogger.error(e)
+                        g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME_JNL']}")
+                        self.ws_db.db_transaction_end(False)
+
+                    # [処理] テーブルから保管期限切れレコードの物理削除(テーブル名:{})
+                    FREE_LOG = g.appmsg.get_api_message("MSG-100008", [DelList["TABLE_NAME_JNL"]])
+                    g.applogger.debug(FREE_LOG)
 
     def PhysicalDeleteDBbyOperationDelete(self, DelList):
         """
@@ -475,21 +492,30 @@ class MainFunctions():
           Returns:
             なし
         """
+        # 削除対象テーブルのカーソルを取得
         MasterRows, JournalRows = self.getOperationDeleteRows(DelList)
 
-        PkeyList = []
-        PkeyString = ""
-        # 物理対象のレコードのPkeyを取得
-        for row in MasterRows:
-            PkeyList.append(row[DelList['PKEY_NAME']])
-            if len(PkeyString) != 0:
-                PkeyString += ","
-            PkeyString += "'" + row[DelList['PKEY_NAME']] + "'"
+        # 読み飛ばし防止のため、カーソルを閉じた後に削除する
+        all_master_pkeys = []
+        if MasterRows:
+            # 削除対象のレコードを分割取得(読み飛ばし防止のため、一度取得してから廃止処理を行う)
+            with MasterRows as _cur:
+                while True:
+                    rows = _cur.fetchmany(g.delete_batch_size)
+                    if len(rows) == 0:
+                        del rows
+                        # データ0件の為、break
+                        break
+                    # 取得したレコードを一時リストに格納
+                    for row in rows:
+                        all_master_pkeys.append(row[DelList['PKEY_NAME']])
+        g.applogger.info(f"Fetched {len(all_master_pkeys)} rows for physical deletion(OperationDeleted) from {DelList['TABLE_NAME']}")
 
-        # 削除対象のレコードがある場合
-        if len(PkeyList) != 0:
-            # 物理対象のレコードに紐づいているファイルアップロードカラムのファイルを削除
+        # 本体テーブルの削除フェーズ：SELECTカーソルを閉じた後に実行
+        for j in range(0, len(all_master_pkeys), int(g.delete_batch_size)):
+            PkeyList = all_master_pkeys[j: j + int(g.delete_batch_size)]
             for Pkey in PkeyList:
+                # 物理対象のレコードに紐づいているファイルアップロードカラムのファイルを削除
                 for TgtPath in DelList['FILE_UPLOAD_COLUMNS']:
                     DelPath = "{}/{}/{}".format(self.getDataRelayStorageDir(), TgtPath, Pkey)
                     # [処理] テーブルに紐づく不要ディレクトリ削除(テーブル名:({}) ディレクトリ名:({}))
@@ -497,48 +523,73 @@ class MainFunctions():
                     g.applogger.debug(FREE_LOG)
                     retry_rmtree(DelPath)
 
-            n = len(PkeyList) if int(g.delete_batch_size) >= len(PkeyList) else int(g.delete_batch_size)
-            for i in range(0, len(PkeyList), int(n)):
-                try:
-                    g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME']} = {len(PkeyList[i: int(i + n)])} / {len(PkeyList)}")
-                    _prepared_list_mr = ','.join(list(map(lambda a: "%s", PkeyList[i: int(i + n)])))
-                    sql = f"DELETE FROM `{DelList['TABLE_NAME']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list_mr})"
-                    self.ws_db.db_transaction_start()
-                    self.ws_db.sql_execute(sql, PkeyList[i: int(i + n)])
-                    self.ws_db.db_transaction_end(True)
-                except Exception as e:
-                    g.applogger.error(e)
-                    g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME']}")
-                    self.ws_db.db_transaction_end(False)
+            # 物理削除対象のレコードのファイル削除処理が完了した後、レコードを削除する。
+            try:
+                g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME']} = {len(PkeyList)} / {len(all_master_pkeys)}")
+                _prepared_list_mr = ','.join(list(map(lambda a: "%s", PkeyList)))
+                sql = f"DELETE FROM `{DelList['TABLE_NAME']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list_mr})"
+                self.ws_db.db_transaction_start()
+                self.ws_db.sql_execute(sql, PkeyList)
+                self.ws_db.db_transaction_end(True)
+            except Exception as e:
+                g.applogger.error(e)
+                g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME']}")
+                self.ws_db.db_transaction_end(False)
 
+        # [処理] 削除されたオペレーションに紐づいているレコードの物理削除(テーブル名:{})
+        FREE_LOG = g.appmsg.get_api_message("MSG-100022", [DelList["TABLE_NAME"]])
+        g.applogger.debug(FREE_LOG)
 
-            # [処理] 削除されたオペレーションに紐づいているレコードの物理削除(テーブル名:{})
-            FREE_LOG = g.appmsg.get_api_message("MSG-100022", [DelList["TABLE_NAME"]])
-            g.applogger.debug(FREE_LOG)
+        # 履歴テーブルがない場合は、処理を終了する。(HISTORY_TABLE_FLAG='1'の場合のみJournalRowsが返されるため、JournalRowsの有無で判断する)
+        if JournalRows is None:
+            g.applogger.debug(f"No matching records found for physical deletion by operation delete. ({DelList['TABLE_NAME_JNL']})")
+            return
 
-        PkeyList = []
-        PkeyString = ""
-        # 物理対象の履歴レコードのPkeyを取得
-        PkeyList = [row[DelList['PKEY_NAME']] for row in JournalRows]
-        if len(PkeyList) != 0:
-            n = len(PkeyList) if int(g.delete_batch_size) >= len(PkeyList) else int(g.delete_batch_size)
-            for i in range(0, len(PkeyList), int(n)):
-                try:
-                    g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME_JNL']} = {len(PkeyList[i: int(i + n)])} / {len(PkeyList)}")
-                    _prepared_list_jnl = ','.join(list(map(lambda a: "%s", PkeyList[i: int(i + n)])))
-                    sql = f"DELETE FROM `{DelList['TABLE_NAME_JNL']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list_jnl})"
-                    self.ws_db.db_transaction_start()
-                    self.ws_db.sql_execute(sql, PkeyList[i: int(i + n)])
-                    self.ws_db.db_transaction_end(True)
-                except Exception as e:
-                    g.applogger.error(e)
-                    g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME_JNL']}")
-                    self.ws_db.db_transaction_end(False)
-            # [処理] 削除されたオペレーションに紐づいているレコードの物理削除(テーブル名:{})
-            FREE_LOG = g.appmsg.get_api_message("MSG-100022", [DelList["TABLE_NAME_JNL"]])
-            g.applogger.debug(FREE_LOG)
+        # 読み飛ばし防止のため、履歴テーブルのPKEYを先行して全件取得する
+        all_journal_pkeys = []
+        # 削除対象の履歴レコードを分割取得
+        with JournalRows as _cur:
+            while True:
+                rows = _cur.fetchmany(g.delete_batch_size)
+                if len(rows) == 0:
+                    del rows
+                    # データ0件の為、break
+                    break
+                # 物理対象の履歴レコードのPkeyを取得
+                for row in rows:
+                    all_journal_pkeys.append(row[DelList['PKEY_NAME']])
+        g.applogger.info(f"Fetched {len(all_journal_pkeys)} rows for physical deletion(OperationDeleted) from {DelList['TABLE_NAME_JNL']}")
+
+        # 履歴テーブルの削除フェーズ
+        for j in range(0, len(all_journal_pkeys), int(g.delete_batch_size)):
+            PkeyList = all_journal_pkeys[j: j + int(g.delete_batch_size)]
+
+            # 物理削除対象のレコードを削除する。
+            try:
+                g.applogger.debug(f"Processing batch: {DelList['TABLE_NAME_JNL']} = {len(PkeyList)} / {len(all_journal_pkeys)}")
+                _prepared_list_jnl = ','.join(list(map(lambda a: "%s", PkeyList)))
+                sql = f"DELETE FROM `{DelList['TABLE_NAME_JNL']}` WHERE `{DelList['PKEY_NAME']}` in ({_prepared_list_jnl})"
+                self.ws_db.db_transaction_start()
+                self.ws_db.sql_execute(sql, PkeyList)
+                self.ws_db.db_transaction_end(True)
+            except Exception as e:
+                g.applogger.error(e)
+                g.applogger.error(f"Error occurred while deleting records from {DelList['TABLE_NAME_JNL']}")
+                self.ws_db.db_transaction_end(False)
+
+        # [処理] 削除されたオペレーションに紐づいているレコードの物理削除(テーブル名:{})
+        FREE_LOG = g.appmsg.get_api_message("MSG-100022", [DelList["TABLE_NAME_JNL"]])
+        g.applogger.debug(FREE_LOG)
 
     def getOperationDeleteRows(self, DelList):
+        """
+            オペレーション削除対象レコードの取得
+        Arguments:
+            DelList: 削除対象リスト
+        Returns:
+            MasterRows: マスターレコードのCursor
+            JournalRows: ジャーナルレコードのCursor
+        """
         # 対象メニューがビューの場合
         # オペレーションIDがないテーブルの対応「T_COMN_CONDUCTOR_NODE_INSTANCE」
         # 履歴用Viewの作成が必要
@@ -546,8 +597,8 @@ class MainFunctions():
         if DelList['VIEW_NAME']:
             SelectObjName = DelList['VIEW_NAME']
 
-        MasterRows = []
-        JournalRows = []
+        MasterRows = None
+        JournalRows = None
         # Terraform作業管理系テーブルについて、RUN_MODE:3(リソース削除)の場合オペレーションIDが指定されないので、削除対象として除外する。
         Terrafomesql = '''
                     select {} from `{}` TAB_A
@@ -579,15 +630,14 @@ class MainFunctions():
         else:
             sql = Otherssql.format(DelList['PKEY_NAME'], SelectObjName, self.operation_id_column_name)
 
-        MasterRows = self.ws_db.sql_execute(sql)
+        MasterRows = self.ws_db.sql_execute_cursor(sql)
 
         if DelList['HISTORY_TABLE_FLAG'] == '1':
             if DelList['TABLE_NAME'] in ("T_TERE_EXEC_STS_INST", "T_TERC_EXEC_STS_INST"):
                 sql = Terrafomesql.format(DelList['PKEY_NAME'], SelectObjName + "_JNL", self.operation_id_column_name)
             else:
                 sql = Otherssql.format(DelList['PKEY_NAME'], SelectObjName + "_JNL", self.operation_id_column_name)
-
-            JournalRows = self.ws_db.sql_execute(sql)
+            JournalRows = self.ws_db.sql_execute_cursor(sql)
 
         return MasterRows, JournalRows
 
@@ -618,6 +668,7 @@ class MainFunctions():
             return False
         if int_value <= 0:
             return False
+        return True
 
     def DateCalc(self, AddDay):
         """
