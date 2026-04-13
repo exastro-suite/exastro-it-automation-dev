@@ -348,7 +348,10 @@ def execution_scram(objdbca, driver_id, execution_no):
                 raise AppException("499-00911", [execution_no, errmsg], [execution_no, errmsg])
         else:
             # ansible agentの場合、緊急停止時の処理は緊急停止フラグをTrueに設定のみ
-            pass
+            # 既にフラグ更新されている場合は、再度更新しない。
+            if execrow["ABORT_EXECUTE_FLAG"] == '1':
+                g.applogger.debug(f"execution_no: {execution_no} has already ABORT_EXECUTE_FLAG set to 1.")
+                return True
         # 緊急停止フラグをTrueに設定
         item = {}
         item["ABORT_EXECUTE_FLAG"] = '1'
