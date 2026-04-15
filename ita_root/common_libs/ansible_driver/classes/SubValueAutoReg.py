@@ -867,6 +867,8 @@ class SubValueAutoReg():
         host_ary = []
         dict_objmenu = {} # パラシ情報（load_tableの取得結果のキャッシュ）
         for table_name, sql in in_tableNameToSqlList.items():
+            # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施するためのループ数カウント
+            select1_loop_count = 0
             # トレースメッセージ
             traceMsg = g.appmsg.get_api_message("MSG-10806", [in_tableNameToMenuIdList[table_name]])
             frame = inspect.currentframe().f_back
@@ -956,6 +958,12 @@ class SubValueAutoReg():
                                 load_table_cache_count += 1
                                 # キャッシュあり
                                 tmp_result = dict_objmenu[menu_name_rest]
+                                select1_loop_count += 1
+                                # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施する
+                                if select1_loop_count > int(os.getenv("DB_SELECT_EVERY_N_LOOPS", 500000)):
+                                    g.applogger.debug("over DB_SELECT_EVERY_N_LOOPS")
+                                    WS_DB.sql_execute("SELECT 1", [])
+                                    select1_loop_count = 0
 
                             if tmp_table_name == table_name:
                                 # 縦メニューの場合
