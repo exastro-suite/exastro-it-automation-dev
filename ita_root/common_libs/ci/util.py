@@ -68,6 +68,10 @@ def wrapper_job(main_logic, organization_id=None, workspace_id=None, loop_count=
             g.applogger.error(e)
             return False
 
+        # ハングアップ監視用に時刻を出力する
+        with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
+            f.write(str(int(time.time())))
+
         for organization_info in organization_info_list:
             # set applogger.set_level: default:INFO / Use ITA_DB config value
             # set_service_loglevel(common_db)
@@ -130,9 +134,6 @@ def wrapper_job(main_logic, organization_id=None, workspace_id=None, loop_count=
                 print_exception_msg(e)
                 exception(e)
 
-        # ハングアップ監視用に時刻を出力する
-        with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
-            f.write(str(int(time.time())))
 
         if count >= max:
             common_db.db_disconnect()
@@ -194,11 +195,13 @@ def organization_job(main_logic, organization_id=None, workspace_id=None):
         # job for workspace
         try:
             if allow_proc(organization_id, workspace_id) is True:
-                main_logic_exec = main_logic
-                main_logic_exec(organization_id, workspace_id)
                 # ハングアップ監視用に時刻を出力する
                 with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
                     f.write(str(int(time.time())))
+
+                main_logic_exec = main_logic
+                main_logic_exec(organization_id, workspace_id)
+
                 del main_logic_exec
         except AppException as e:
             # catch - raise AppException("xxx-xxxxx", log_format)
@@ -250,12 +253,12 @@ def wrapper_job_all_org(main_logic, loop_count=500):
             # set applogger.set_level: default:INFO / Use ITA_DB config value
             set_service_loglevel(common_db)
 
-            main_logic_exec = main_logic
-            main_logic_exec(common_db)
-
             # ハングアップ監視用に時刻を出力する
             with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
                 f.write(str(int(time.time())))
+
+            main_logic_exec = main_logic
+            main_logic_exec(common_db)
 
             common_db.db_disconnect()
         except AppException as e:
