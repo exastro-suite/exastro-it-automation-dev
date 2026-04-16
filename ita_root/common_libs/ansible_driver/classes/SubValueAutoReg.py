@@ -962,7 +962,11 @@ class SubValueAutoReg():
                                 # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施する
                                 if select1_loop_count > int(os.getenv("DB_SELECT_EVERY_N_LOOPS", 500000)):
                                     g.applogger.debug("over DB_SELECT_EVERY_N_LOOPS")
-                                    WS_DB.sql_execute("SELECT 1", [])
+                                    try:
+                                        WS_DB.sql_execute("SELECT 1", [])
+                                    except Exception as e:
+                                        # 「SELECT 1」で失敗してもループではエラーにしない(パラシ毎の処理でエラーにする)
+                                        g.applogger.info("SELECT 1 Failed...exception_msg='{}'".format(e))
                                     select1_loop_count = 0
 
                             if tmp_table_name == table_name:
