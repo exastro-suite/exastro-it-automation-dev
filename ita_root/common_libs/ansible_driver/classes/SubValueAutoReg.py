@@ -880,6 +880,7 @@ class SubValueAutoReg():
                 data_list = WS_DB.sql_execute(sql, [AnscConst.DF_ITA_LOCAL_HOST_CNT, AnscConst.DF_ITA_LOCAL_PKEY])
 
             # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施するために最後にクエリ発行したUNIX時刻を取得
+            db_session_keepalive = int(os.getenv("DB_SESSION_KEEPALIVE", 60))
             last_sql_execute = int(time.time())
 
             # FETCH行数を取得
@@ -962,7 +963,7 @@ class SubValueAutoReg():
                                 tmp_result = dict_objmenu[menu_name_rest]
                                 # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施する
                                 idle_time = int(time.time()) - last_sql_execute
-                                if idle_time > int(os.getenv("DB_SESSION_KEEPALIVE", 60)):
+                                if idle_time > db_session_keepalive:
                                     g.applogger.debug(f"over DB_SESSION_KEEPALIVE {tmp_table_name=}")
                                     try:
                                         WS_DB.sql_execute("SELECT 1", [])
