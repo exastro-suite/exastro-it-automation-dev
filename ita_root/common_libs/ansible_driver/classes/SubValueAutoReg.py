@@ -18,6 +18,7 @@
 import os
 import inspect
 import copy
+import time
 
 from flask import g
 
@@ -867,8 +868,6 @@ class SubValueAutoReg():
         host_ary = []
         dict_objmenu = {} # パラシ情報（load_tableの取得結果のキャッシュ）
         for table_name, sql in in_tableNameToSqlList.items():
-            # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施するためのループ数カウント
-            select1_loop_count = 0
             # トレースメッセージ
             traceMsg = g.appmsg.get_api_message("MSG-10806", [in_tableNameToMenuIdList[table_name]])
             frame = inspect.currentframe().f_back
@@ -879,6 +878,9 @@ class SubValueAutoReg():
                 data_list = WS_DB.sql_execute(sql, [AnscConst.DF_ITA_LOCAL_HOST_CNT, AnscConst.DF_ITA_LOCAL_PKEY, reg_operation_id])
             else:
                 data_list = WS_DB.sql_execute(sql, [AnscConst.DF_ITA_LOCAL_HOST_CNT, AnscConst.DF_ITA_LOCAL_PKEY])
+
+            # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施するために最後にクエリ発行したUNIX時刻を取得
+            last_sql_execute = int(time.time())
 
             # FETCH行数を取得
             if len(data_list) == 0:
@@ -958,16 +960,16 @@ class SubValueAutoReg():
                                 load_table_cache_count += 1
                                 # キャッシュあり
                                 tmp_result = dict_objmenu[menu_name_rest]
-                                select1_loop_count += 1
                                 # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施する
-                                if select1_loop_count > int(os.getenv("DB_SELECT_EVERY_N_LOOPS", 500000)):
-                                    g.applogger.debug("over DB_SELECT_EVERY_N_LOOPS")
+                                idle_time = int(time.time()) - last_sql_execute
+                                if idle_time > int(os.getenv("DB_SELECT_EVERY_N_SECOND", 60)):
+                                    g.applogger.debug("over DB_SELECT_EVERY_N_SECOND")
                                     try:
                                         WS_DB.sql_execute("SELECT 1", [])
                                     except Exception as e:
                                         # 「SELECT 1」で失敗してもループではエラーにしない(パラシ毎の処理でエラーにする)
                                         g.applogger.info("SELECT 1 Failed...exception_msg='{}'".format(e))
-                                    select1_loop_count = 0
+                                    last_sql_execute = int(time.time())
 
                             if tmp_table_name == table_name:
                                 # 縦メニューの場合
