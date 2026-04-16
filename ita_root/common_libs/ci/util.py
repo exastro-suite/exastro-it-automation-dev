@@ -260,7 +260,6 @@ def wrapper_job_all_org(main_logic, loop_count=500):
             main_logic_exec = main_logic
             main_logic_exec(common_db)
 
-
             common_db.db_disconnect()
         except AppException as e:
             # catch - raise AppException("xxx-xxxxx", log_format)
