@@ -962,8 +962,8 @@ class SubValueAutoReg():
                                 tmp_result = dict_objmenu[menu_name_rest]
                                 # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施する
                                 idle_time = int(time.time()) - last_sql_execute
-                                if idle_time > int(os.getenv("DB_SELECT_EVERY_N_SECOND", 60)):
-                                    g.applogger.debug("over DB_SELECT_EVERY_N_SECOND")
+                                if idle_time > int(os.getenv("DB_SESSION_KEEPALIVE", 60)):
+                                    g.applogger.debug(f"over DB_SESSION_KEEPALIVE {tmp_table_name=}")
                                     try:
                                         WS_DB.sql_execute("SELECT 1", [])
                                     except Exception as e:

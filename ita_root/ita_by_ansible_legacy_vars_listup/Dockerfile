@@ -31,7 +31,7 @@ ENV SERVICE_NAME=ita-by-ansible-legacy-vars-listup
 # ハングアップ監視用ファイル
 ENV FILE_PATH_LIVENESS=/tmp/liveness
 # 定期的にSELECT1を実施する秒数
-ENV DB_SELECT_EVERY_N_SECOND=60
+ENV DB_SESSION_KEEPALIVE=60
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
     dnf install -y \
