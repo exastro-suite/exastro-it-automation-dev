@@ -40,8 +40,9 @@ def check_oase_installed():
 
 
 def add_group_period_column(ws_db):
-    """T_OASE_FILTERテーブルにGROUP_PERIODカラムを追加
-    Add GROUP_PERIOD column to T_OASE_FILTER table
+    """#2901
+    T_OASE_FILTERテーブルにGROUP_PERIODカラムを追加
+    Add GROUP_PERIOD column to T_OASE_FILTER table.
     """
     filter_table_name = "T_OASE_FILTER"
     filter_table_name_jnl = filter_table_name + "_JNL"
@@ -65,8 +66,9 @@ def add_group_period_column(ws_db):
 
 
 def add_menu_column_link(ws_db):
-    """GROUP_PERIOD用のメニューカラムリンクを追加
-    Add menu column link for GROUP_PERIOD
+    """#2901
+    メニューカラム紐付けにグルーピング期間（GROUP_PERIOD）を追加
+    Add grouping period (GROUP_PERIOD) to menu column link.
     """
     menu_column_link_table_name = "T_COMN_MENU_COLUMN_LINK"
     menu_column_link_table_name_jnl = menu_column_link_table_name + "_JNL"
@@ -107,7 +109,8 @@ Use this field to define the grouping duration independently of the first event 
 
 
 def update_search_condition_data(ws_db):
-    """検索条件を「グルーピング」から「グルーピング（期間延長あり）」に更新し、説明文を更新
+    """#2895
+    検索条件の選択肢「グルーピング」を「グルーピング（期間延長あり）」に更新し、検索条件カラムの説明文を更新
     Update search condition from 'Grouping' to 'Grouping (Period Extension)' and update descriptions
     """
     column_description_en = """Select a search method.
@@ -165,7 +168,8 @@ Grouping: Groups events that match the filter conditions based on the labels and
 
 
 def add_new_search_condition(ws_db):
-    """「グルーピング（期間延長なし）」を追加
+    """#2895
+    検索条件の選択肢「グルーピング（期間延長なし）」を追加
     Add new search condition 'Grouping (No Period Extension)'
     """
     table_name = "T_OASE_SEARCH_CONDITION"
@@ -202,14 +206,10 @@ def add_new_search_condition(ws_db):
 
 def main(work_dir_path, ws_db):
     """
-    1. T_OASE_FILTERテーブルにGROUP_PERIODカラムを追加
-       Adds GROUP_PERIOD column to T_OASE_FILTER table
-    2. GROUP_PERIOD用のメニューカラムリンクを追加
-       Adds menu column link for GROUP_PERIOD
-    3. 検索条件を「グルーピング」から「グルーピング（期間延長あり）」に更新
-       Updates search condition from 'Grouping' to 'Grouping (Period Extension)'
-    4. 新しい検索条件「グルーピング（期間延長なし）」を追加
-       Adds new search condition 'Grouping (No Period Extension)'
+    #2901: add_group_period_column
+    #2901: add_menu_column_link
+    #2895: add_new_search_condition
+    #2895: add_group_period_column
     """
     g.applogger.info(f"[Trace][start] {os.path.splitext(os.path.basename(inspect.currentframe().f_code.co_filename))[0]}")
 
@@ -219,30 +219,26 @@ def main(work_dir_path, ws_db):
         g.applogger.info("[Trace][skipped] Migration skipped because OASE is not installed.")
         return 0
 
-    # トランザクション開始
-    # Start transaction
-    ws_db.db_transaction_start()
-
     try:
-        # T_OASE_FILTERにGROUP_PERIODカラムを追加
-        # Add GROUP_PERIOD column to T_OASE_FILTER
-        if not add_group_period_column(ws_db):
-            raise Exception("Failed to add GROUP_PERIOD column")
+        # トランザクション開始
+        # Start transaction
+        ws_db.db_transaction_start()
 
-        # GROUP_PERIOD用のメニューカラムリンクを追加
-        # Add menu column link for GROUP_PERIOD
-        if not add_menu_column_link(ws_db):
-            raise Exception("Failed to add menu column link")
+        # T_OASE_FILTERテーブルにGROUP_PERIODカラムを追加
+        # Add GROUP_PERIOD column to T_OASE_FILTER table.
+        add_group_period_column(ws_db)
 
-        # 検索条件データを更新
-        # Update search condition data
-        if not update_search_condition_data(ws_db):
-            raise Exception("Failed to update search condition data")
+        # メニューカラム紐付けにグルーピング期間（GROUP_PERIOD）を追加
+        # Add grouping period (GROUP_PERIOD) to menu column link.
+        add_menu_column_link(ws_db)
 
-        # 新しい検索条件を追加
-        # Add new search condition
-        if not add_new_search_condition(ws_db):
-            raise Exception("Failed to add new search condition")
+        # 検索条件の選択肢「グルーピング」を「グルーピング（期間延長あり）」に更新し、検索条件カラムの説明文を更新
+        # Update search condition from 'Grouping' to 'Grouping (Period Extension)' and update descriptions
+        update_search_condition_data(ws_db)
+
+        # 検索条件の選択肢「グルーピング（期間延長なし）」を追加
+        # Add new search condition 'Grouping (No Period Extension)'
+        add_new_search_condition(ws_db)
 
         # トランザクションコミット
         # Commit transaction

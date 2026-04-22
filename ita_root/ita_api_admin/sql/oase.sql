@@ -452,7 +452,6 @@ CREATE TABLE IF NOT EXISTS T_OASE_FILTER
     SEARCH_CONDITION_ID             VARCHAR(2),                                 -- 検索方法
     GROUP_LABEL_KEY_IDS             TEXT,                                       -- グルーピングラベル
     GROUP_CONDITION_ID              VARCHAR(2),                                 -- グルーピング条件ID
-    GROUP_PERIOD                    INT,                                        -- グルーピング対象期間
     NOTE                            TEXT,                                       -- 備考
     DISUSE_FLAG                     VARCHAR(1)  ,                               -- 廃止フラグ
     LAST_UPDATE_TIMESTAMP           DATETIME(6)  ,                              -- 最終更新日時
@@ -472,7 +471,6 @@ CREATE TABLE IF NOT EXISTS T_OASE_FILTER_JNL
     SEARCH_CONDITION_ID             VARCHAR(2),                                 -- 検索方法
     GROUP_LABEL_KEY_IDS             TEXT,                                       -- グルーピングラベル
     GROUP_CONDITION_ID              VARCHAR(2),                                 -- グルーピング条件ID
-    GROUP_PERIOD                    INT,                                        -- グルーピング対象期間
     NOTE                            TEXT,                                       -- 備考
     DISUSE_FLAG                     VARCHAR(1)  ,                               -- 廃止フラグ
     LAST_UPDATE_TIMESTAMP           DATETIME(6)  ,                              -- 最終更新日時
