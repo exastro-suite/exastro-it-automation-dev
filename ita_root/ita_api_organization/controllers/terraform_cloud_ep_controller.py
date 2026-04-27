@@ -173,7 +173,7 @@ def create_terraform_workspace(organization_id, workspace_id, tf_organization_na
         # メニューに対するロール権限をチェック
         check_auth_menu(menu, objdbca)
 
-        parameters = {"workspace_name": "", "terraform_version": ""}
+        parameters = {"tf_project_name": "", "workspace_name": "", "terraform_version": ""}
         if connexion.request.is_json:
             body = dict(connexion.request.get_json())
             parameters = body
@@ -722,7 +722,7 @@ def update_terraform_workspace(organization_id, workspace_id, tf_organization_na
         # メニューに対するロール権限をチェック
         check_auth_menu(menu, objdbca)
 
-        parameters = {"terraform_version": ""}
+        parameters = {"tf_project_name": "", "terraform_version": ""}
         if connexion.request.is_json:
             body = dict(connexion.request.get_json())
             parameters = body

@@ -77,6 +77,7 @@ CREATE TABLE IF NOT EXISTS T_TERE_WORKSPACE
 (
     WORKSPACE_ID                    VARCHAR(40),                                -- 項番(UUID)
     ORGANIZATION_ID                 VARCHAR(40),                                -- Organization(ID連携)
+    PROJECT_NAME                    VARCHAR(40),                                -- Project名
     WORKSPACE_NAME                  VARCHAR(90),                                -- Workspace名
     TERRAFORM_VERSION               VARCHAR(8),                                 -- バージョン
     NOTE                            TEXT,                                       -- 備考
@@ -93,6 +94,7 @@ CREATE TABLE IF NOT EXISTS T_TERE_WORKSPACE_JNL
     JOURNAL_ACTION_CLASS            VARCHAR (8),                                -- 履歴用変更種別
     WORKSPACE_ID                    VARCHAR(40),                                -- 項番(UUID)
     ORGANIZATION_ID                 VARCHAR(40),                                -- Organization(ID連携)
+    PROJECT_NAME                    VARCHAR(40),                                -- Project名
     WORKSPACE_NAME                  VARCHAR(90),                                -- Workspace名
     TERRAFORM_VERSION               VARCHAR(8),                                 -- バージョン
     NOTE                            TEXT,                                       -- 備考
@@ -814,6 +816,7 @@ SELECT
     TAB_A.WORKSPACE_NAME         ,
     CONCAT(TAB_B.ORGANIZATION_NAME,':',TAB_A.WORKSPACE_NAME) ORGANIZATION_WORKSPACE,
     TAB_A.TERRAFORM_VERSION      ,
+    TAB_A.PROJECT_NAME           ,
     TAB_A.NOTE                   ,
     TAB_A.DISUSE_FLAG            ,
     TAB_A.LAST_UPDATE_TIMESTAMP  ,
@@ -832,6 +835,7 @@ SELECT
     TAB_A.WORKSPACE_NAME         ,
     CONCAT(TAB_B.ORGANIZATION_NAME,':',TAB_A.WORKSPACE_NAME) ORGANIZATION_WORKSPACE,
     TAB_A.TERRAFORM_VERSION      ,
+    TAB_A.PROJECT_NAME           ,
     TAB_A.NOTE                   ,
     TAB_A.DISUSE_FLAG            ,
     TAB_A.LAST_UPDATE_TIMESTAMP  ,
