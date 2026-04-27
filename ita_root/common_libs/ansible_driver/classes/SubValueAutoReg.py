@@ -18,6 +18,7 @@
 import os
 import inspect
 import copy
+import time
 
 from flask import g
 
@@ -878,6 +879,10 @@ class SubValueAutoReg():
             else:
                 data_list = WS_DB.sql_execute(sql, [AnscConst.DF_ITA_LOCAL_HOST_CNT, AnscConst.DF_ITA_LOCAL_PKEY])
 
+            # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施するために最後にクエリ発行したUNIX時刻を取得
+            db_session_keepalive = int(os.getenv("DB_SESSION_KEEPALIVE", 60))
+            last_sql_execute = int(time.time())
+
             # FETCH行数を取得
             if len(data_list) == 0:
                 msgstr = g.appmsg.get_api_message("MSG-10368", [in_tableNameToMenuIdList[table_name]])
@@ -956,6 +961,16 @@ class SubValueAutoReg():
                                 load_table_cache_count += 1
                                 # キャッシュあり
                                 tmp_result = dict_objmenu[menu_name_rest]
+                                # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施する
+                                idle_time = int(time.time()) - last_sql_execute
+                                if idle_time > db_session_keepalive:
+                                    g.applogger.debug(f"over DB_SESSION_KEEPALIVE {tmp_table_name=}")
+                                    try:
+                                        WS_DB.sql_execute("SELECT 1", [])
+                                    except Exception as e:
+                                        # 「SELECT 1」で失敗してもループではエラーにしない(パラシ毎の処理でエラーにする)
+                                        g.applogger.info("SELECT 1 Failed...exception_msg='{}'".format(e))
+                                    last_sql_execute = int(time.time())
 
                             if tmp_table_name == table_name:
                                 # 縦メニューの場合
@@ -1344,10 +1359,11 @@ class SubValueAutoReg():
                 # 既に登録されている
                 chk_flg = False
 
-                dup_column_id = ina_vars_ass_chk_list[chk_key]
-                msgstr = g.appmsg.get_api_message("MSG-10369", [dup_column_id, in_column_id, in_column_id, in_operation_id, in_host_id, keyValueType])
-                frame = inspect.currentframe().f_back
-                g.applogger.info(os.path.basename(__file__) + str(frame.f_lineno) + msgstr)
+                # ログ膨大化の抑止のためコメントアウト #2947
+                # dup_column_id = ina_vars_ass_chk_list[chk_key]
+                # msgstr = g.appmsg.get_api_message("MSG-10369", [dup_column_id, in_column_id, in_column_id, in_operation_id, in_host_id, keyValueType])
+                # frame = inspect.currentframe().f_back
+                # g.applogger.info(os.path.basename(__file__) + str(frame.f_lineno) + msgstr)
 
             if chk_flg is True:
                 chk_status = True
@@ -1380,10 +1396,11 @@ class SubValueAutoReg():
                 # 既に登録されている
                 chk_flg = False
 
-                dup_column_id = ina_array_vars_ass_chk_list[chk_key]
-                msgstr = g.appmsg.get_api_message("MSG-10369", [dup_column_id, in_column_id, in_column_id, in_operation_id, in_host_id, keyValueType])
-                frame = inspect.currentframe().f_back
-                g.applogger.info(os.path.basename(__file__) + str(frame.f_lineno) + msgstr)
+                # ログ膨大化の抑止のためコメントアウト #2947
+                # dup_column_id = ina_array_vars_ass_chk_list[chk_key]
+                # msgstr = g.appmsg.get_api_message("MSG-10369", [dup_column_id, in_column_id, in_column_id, in_operation_id, in_host_id, keyValueType])
+                # frame = inspect.currentframe().f_back
+                # g.applogger.info(os.path.basename(__file__) + str(frame.f_lineno) + msgstr)
 
             if chk_flg is True:
                 chk_status = True

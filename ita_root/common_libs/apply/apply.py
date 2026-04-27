@@ -124,7 +124,7 @@ def get_specify_menu(request_data):
     return menu_list
 
 
-def rest_apply_parameter(objdbca, request_data, menu_list, lock_list, parameter_sheet_list, conductor_menu_list):
+def rest_apply_parameter(objdbca, request_data, menu_list, parameter_sheet_list, conductor_menu_list):
     """
     """
 
@@ -221,21 +221,25 @@ def rest_apply_parameter(objdbca, request_data, menu_list, lock_list, parameter_
             api_msg_args = [menu]
             raise AppException(status_code, log_msg_args, api_msg_args)  # noqa: F405
 
+    t_comn_proc_loadtable = "T_COMN_PROC_LOADED_LIST"
     # テーブルロック
     locktable_list = []
-    for menu, obj in loadtable_obj_dict.items():
-        if menu not in lock_list:
-            continue
-
-        tmp_list = loadtable_obj_dict[menu].get_locktable()
-        if tmp_list is None:
-            tmp_list = [obj.get_table_name()]
-
-        else:
-            tmp_list = json.loads(tmp_list)
-            tmp_list.append(loadtable_obj_dict[menu].get_table_name())
-
-        locktable_list = list(set(locktable_list) | set(tmp_list))
+    if isinstance(parameter_info, dict):
+        parameter_info = [parameter_info, ]
+    for params in parameter_info:
+        if isinstance(params, dict):
+            params = [params, ]
+        for param in params:
+            for menu, val in param.items():
+                if isinstance(val, dict):
+                    val = [val, ]
+                for v in val:
+                    # パラメータシート及び、変数刈取の起動契機となるメニューに関して:
+                    # 処理実行フラグ管理（T_COMN_PROC_LOADED_LIST）がロック対象テーブルの場合、テーブルロック対象とする
+                    tmp_list = loadtable_obj_dict[menu].get_locktable()
+                    if tmp_list is not None and (t_comn_proc_loadtable.lower() in tmp_list or t_comn_proc_loadtable.upper() in tmp_list):
+                        tmp_list = json.loads(tmp_list)
+                        locktable_list = list(set(locktable_list) | set(tmp_list))
 
     if len(locktable_list) > 0:
         locktable_list.sort()
@@ -316,14 +320,15 @@ def rest_apply_parameter(objdbca, request_data, menu_list, lock_list, parameter_
                     if 'parameter' in v:
                         target_uuid = v.get('parameter').get(target_uuid_key)
 
-                    # 更新系の操作の場合、最終更新日時を取得
+                    # 更新系の操作の場合、最終更新日時を取得・設定し、行ロックをかける
                     if target_uuid and v['type'] in ['Update', 'Restore', 'Discard'] \
                     and ('last_update_date_time' not in v['parameter'] or not v['parameter']['last_update_date_time']):
-                        filter_parameter = {}
-                        filter_parameter[target_uuid_key] = {'LIST': [target_uuid]}
-                        status_code, rset, msg = loadtable_obj_dict[menu].rest_filter(filter_parameter, 'nomal')
-                        if status_code == '000-00000' and len(rset) > 0:
-                            v['parameter']['last_update_date_time'] = rset[0]['parameter']['last_update_date_time']
+                        _table_name = loadtable_obj_dict[menu].get_table_name()
+                        sql = f"SELECT * FROM `{_table_name}` WHERE `{primary_key}` = %s FOR UPDATE"
+                        _target_uuid_row = objdbca.sql_execute(sql, [target_uuid])
+                        # 最終更新日時の設定、文字列変換
+                        if _target_uuid_row and len(_target_uuid_row) > 0:
+                            v['parameter']['last_update_date_time'] = _target_uuid_row[0]['LAST_UPDATE_TIMESTAMP'].strftime('%Y/%m/%d %H:%M:%S.%f')
 
                     # maintenance呼び出し
                     rset = loadtable_obj_dict[menu].exec_maintenance(v, target_uuid, v['type'])
