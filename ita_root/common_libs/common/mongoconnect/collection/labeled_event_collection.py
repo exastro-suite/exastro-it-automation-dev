@@ -327,7 +327,7 @@ class LabeledEventCollection(CollectionBase):
                     str: group_idの値がObjectIdが付与された形式に変換された文字列。例: '"group_id": "ObjectId('xxxx...')"'
                 """
                 try:
-                    # json形式出来た場合: '{"group_id": ""xxxx...", "is_first_event": "1"}'
+                    # json形式で来た場合: '{"group_id": ""xxxx...", "is_first_event": "1"}'
                     json_dict = json.loads(val)
                 except Exception:
                     try:
