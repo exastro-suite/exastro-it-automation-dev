@@ -327,11 +327,15 @@ class LabeledEventCollection(CollectionBase):
                     str: group_idの値がObjectIdが付与された形式に変換された文字列。例: '"group_id": "ObjectId('xxxx...')"'
                 """
                 try:
-                    # '"group_id": "xxxx..." ' -> 外側に{}を付けてパース
-                    json_dict = json.loads("{" + val + "}")
+                    # json形式で来た場合: '{"group_id": ""xxxx...", "is_first_event": "1"}'
+                    json_dict = json.loads(val)
                 except Exception:
-                    # パースできない場合は元の文字列を返す（安全策）
-                    return val
+                    try:
+                        # json形式ではないキーバリュー形式: '"group_id": "xxxx..." ' -> 外側に{}を付けてパース
+                        json_dict = json.loads("{" + val + "}")
+                    except Exception:
+                        # パースできない場合は元の文字列を返す（安全策）
+                        return val
 
                 # group_idの変換: value='"group_id": "xxxx..."' -> '"group_id": "ObjectId('xxxx...')"
                 if "group_id" in json_dict:
