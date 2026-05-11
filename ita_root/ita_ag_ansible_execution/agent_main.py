@@ -453,6 +453,7 @@ def update_error_executions(organization_id, workspace_id, exastro_api, error_ps
     """
 
     status_id = AnscConst.FAILURE  # 完了(異常)
+    runtime_data_del = 2  # 実行時削除フラグは最初の処理対象の作業実行Noのものを共通利用する（0 or 1 or Noneなので、2は未取得）
     for driver_id, del_execution_list in error_ps_list.items():
         for del_execution in del_execution_list:
             try:
@@ -537,12 +538,15 @@ def update_error_executions(organization_id, workspace_id, exastro_api, error_ps
                         status_update = False
 
             finally:
+                # 実行時削除フラグを取得しておく
+                if runtime_data_del == 2:
+                    _, runtime_data_del = get_execution_parameters_file(organization_id, workspace_id, driver_id, del_execution)  # noqa: F405
                 # ステータスファイルの削除
                 delete_status_file(organization_id, workspace_id, driver_id, del_execution)  # noqa: F405
                 # /tmpのゴミ掃除
                 clear_execution_tmpdir(organization_id, workspace_id, driver_id, del_execution)  # noqa: F405
                 # 作業ディレクトリ削除(実行時データ削除フラグは見れないけど削除)
-                clear_execution_dir(organization_id, workspace_id, driver_id, del_execution, "1")  # noqa: F405
+                clear_execution_dir(organization_id, workspace_id, driver_id, del_execution, runtime_data_del)  # noqa: F405
 
 
 def getenv_int(key, default):
