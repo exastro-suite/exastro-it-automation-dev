@@ -517,14 +517,14 @@ def split_host_grp(hgsp_config, hgsp_data):
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # 対象ホスト、ホストグループ-オペレーション
-        # tmp_msg = "target hostgroup-operation"
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = "target hostgroup-operation id->name"
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = "target hostgroup-operation"
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = "target hostgroup-operation id->name"
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # オペレーションID毎にホストデータ作成(基準日時->オペレーション名:昇順)
         for input_data in input_data_array:
@@ -581,15 +581,11 @@ def split_host_grp(hgsp_config, hgsp_data):
 
         # ホストデータの廃止を行うために対象のレコードを特定する
         hold_host_id = hgsp_data.get('hold_host_id')
-        # tmp_msg = 'hold_host_id'
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = hold_host_id
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = 'hold_host_id'
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = hold_host_id
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
-        # tmp_msg = 'hold_host_id id->name'
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = id_conv(hold_host_id, hgsp_config['alllist'])
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         for output_data in output_data_array:
             # 分割データにある場合は廃止しない
@@ -764,10 +760,9 @@ def make_host_data(hgsp_config, hgsp_data):
         alone_data_array = []
 
         # 処理対象オペレーション
-        # target_op_name = list(set(id_conv([x['OPERATION_ID'] for x in sameid_array], hgsp_config['alllist'])))[0]
-        # target_opid = list(set([x['OPERATION_ID'] for x in sameid_array]))[0]
-        # tmp_msg = 'operation: {}({})'.format(target_op_name, target_opid)
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        target_opid = list(set([x['OPERATION_ID'] for x in sameid_array]))[0]
+        tmp_msg = 'operation: {}'.format(target_opid)
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # ツリー配列にデータを設定する
         for sameid_data in sameid_array:
@@ -796,25 +791,16 @@ def make_host_data(hgsp_config, hgsp_data):
             if treematch_flg is False:
                 alone_data_array.append(sameid_data)
 
-        # tmp_msg = 'set data tree/alone'
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = tree_array
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = 'set data tree/alone'
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = tree_array
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
-        # tmp_msg = 'set data tree_array id->name'
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = id_conv([v for v in tree_array if v['HOST_ID'] not in host_group_id_list], hgsp_config['alllist'], 'dict')
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = 'set alone_data_array'
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = alone_data_array
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
-        # tmp_msg = 'set alone_data_array'
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = alone_data_array
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-
-        # tmp_msg = 'set alone_data_array id->name'
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = id_conv([v for v in alone_data_array if v['HOST_ID'] not in host_group_id_list], hgsp_config['alllist'], 'dict')
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # ツリー上にいなかったデータを単独で登録する
         for alone_data in alone_data_array:
@@ -1138,13 +1124,9 @@ def make_host_data(hgsp_config, hgsp_data):
 
         tmp_msg = 'set parent->child copy data tree_array'
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = tree_array
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        tmp_msg = tree_array
+        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
-        # tmp_msg = 'set parent->child copy data tree_array id->name'
-        # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        # tmp_msg = id_conv([v for v in tree_array if v['HOST_ID'] not in host_group_id_list], hgsp_config['alllist'], 'dict')
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         kykey_array = [tmp_tree.get('HOST_ID') for tmp_tree in tree_array]
 
