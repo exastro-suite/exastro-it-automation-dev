@@ -517,14 +517,9 @@ def split_host_grp(hgsp_config, hgsp_data):
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # 対象ホスト、ホストグループ-オペレーション
-        tmp_msg = "target hostgroup-operation"
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = "target hostgroup-operation id->name"
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        for _t in input_data_array:
+            tmp_msg = 'target hostgroup-operation: {}[{}]'.format(_t.get('HOST_ID'), _t.get('OPERATION_NAME'))
+            g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # オペレーションID毎にホストデータ作成(基準日時->オペレーション名:昇順)
         for input_data in input_data_array:
