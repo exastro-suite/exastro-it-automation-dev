@@ -452,6 +452,7 @@ CREATE TABLE IF NOT EXISTS T_OASE_FILTER
     SEARCH_CONDITION_ID             VARCHAR(2),                                 -- 検索方法
     GROUP_LABEL_KEY_IDS             TEXT,                                       -- グルーピングラベル
     GROUP_CONDITION_ID              VARCHAR(2),                                 -- グルーピング条件ID
+    GROUP_PERIOD                    INT,                                        -- グルーピング対象期間
     NOTE                            TEXT,                                       -- 備考
     DISUSE_FLAG                     VARCHAR(1)  ,                               -- 廃止フラグ
     LAST_UPDATE_TIMESTAMP           DATETIME(6)  ,                              -- 最終更新日時
@@ -471,6 +472,7 @@ CREATE TABLE IF NOT EXISTS T_OASE_FILTER_JNL
     SEARCH_CONDITION_ID             VARCHAR(2),                                 -- 検索方法
     GROUP_LABEL_KEY_IDS             TEXT,                                       -- グルーピングラベル
     GROUP_CONDITION_ID              VARCHAR(2),                                 -- グルーピング条件ID
+    GROUP_PERIOD                    INT,                                        -- グルーピング対象期間
     NOTE                            TEXT,                                       -- 備考
     DISUSE_FLAG                     VARCHAR(1)  ,                               -- 廃止フラグ
     LAST_UPDATE_TIMESTAMP           DATETIME(6)  ,                              -- 最終更新日時
@@ -815,6 +817,10 @@ CREATE INDEX IND_T_OASE_EVENT_COLLECTION_PROGRESS_01 ON T_OASE_EVENT_COLLECTION_
 CREATE INDEX IND_T_OASE_ACTION_STATUS_01 ON T_OASE_ACTION_STATUS (DISUSE_FLAG);
 CREATE INDEX IND_T_OASE_ACTION_01 ON T_OASE_ACTION (DISUSE_FLAG);
 CREATE INDEX IND_T_OASE_ACTION_LOG_01 ON T_OASE_ACTION_LOG (DISUSE_FLAG);
+CREATE INDEX IND_T_OASE_LABELING_SETTINGS_02 ON T_OASE_LABELING_SETTINGS (DISUSE_FLAG, LABELING_SETTINGS_NAME);
+CREATE INDEX IND_T_OASE_EVENT_COLLECTION_PROGRESS_02 ON T_OASE_EVENT_COLLECTION_PROGRESS (EVENT_COLLECTION_SETTINGS_ID, AGENT_NAME(512), FETCHED_TIME);
+CREATE INDEX IND_T_OASE_LABELING_SETTINGS_JNL_01 ON T_OASE_LABELING_SETTINGS_JNL (LABELING_SETTINGS_ID, LAST_UPDATE_TIMESTAMP);
+CREATE INDEX IND_T_OASE_ACTION_LOG_JNL_01 ON T_OASE_ACTION_LOG_JNL (ACTION_LOG_ID, LAST_UPDATE_TIMESTAMP);
 
 
 

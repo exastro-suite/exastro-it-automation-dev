@@ -101,6 +101,18 @@ INDEX_DEFINITIONS = [
         "columns": "EXECUTION_NO",
         "requires_oase": False,
     },
+    {
+        "table_name": "T_OASE_LABELING_SETTINGS_JNL",
+        "index_name": "IND_T_OASE_LABELING_SETTINGS_JNL_01",
+        "columns": "LABELING_SETTINGS_ID, LAST_UPDATE_TIMESTAMP",
+        "requires_oase": True,
+    },
+    {
+        "table_name": "T_OASE_ACTION_LOG_JNL",
+        "index_name": "IND_T_OASE_ACTION_LOG_JNL_01",
+        "columns": "ACTION_LOG_ID, LAST_UPDATE_TIMESTAMP",
+        "requires_oase": True,
+    }
 ]
 
 
