@@ -112,6 +112,36 @@ INDEX_DEFINITIONS = [
         "index_name": "IND_T_OASE_ACTION_LOG_JNL_01",
         "columns": "ACTION_LOG_ID, LAST_UPDATE_TIMESTAMP",
         "requires_oase": True,
+    },
+    {
+        "table_name": "T_ANSR_EXEC_STS_INST",
+        "index_name": "IND_T_ANSR_EXEC_STS_INST_02",
+        "columns": "STATUS_ID, TIME_REGISTER",
+        "requires_oase": False,
+    },
+    {
+        "table_name": "T_ANSP_EXEC_STS_INST_JNL",
+        "index_name": "IND_T_ANSP_EXEC_STS_INST_JNL_01",
+        "columns": "EXECUTION_NO",
+        "requires_oase": False,
+    },
+    {
+        "table_name": "T_ANSR_EXEC_STS_INST_JNL",
+        "index_name": "IND_T_ANSR_EXEC_STS_INST_JNL_01",
+        "columns": "EXECUTION_NO",
+        "requires_oase": False,
+    },
+    {
+        "table_name": "T_ANSL_EXEC_STS_INST",
+        "index_name": "IND_T_ANSL_EXEC_STS_INST_02",
+        "columns": "STATUS_ID, TIME_REGISTER",
+        "requires_oase": False,
+    },
+    {
+        "table_name": "T_ANSP_EXEC_STS_INST",
+        "index_name": "IND_T_ANSP_EXEC_STS_INST_02",
+        "columns": "STATUS_ID, TIME_REGISTER",
+        "requires_oase": False,
     }
 ]
 
