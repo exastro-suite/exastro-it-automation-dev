@@ -2214,12 +2214,10 @@ addItem( type, id ) {
 ##################################################
 */
 addItemIdCheck( type, number ) {
-    console.log(number)
     let id = `${type}${number}`;
     while ( this.menuMap.has( id ) ) {
         id = `${type}${++number}`;
     }
-    console.log(number)
     return number;
 }
 /*
@@ -2592,14 +2590,16 @@ createItemIntersectionObserver() {
                 // 画面外に出たら
                 if ( type === 'c') {
                     const data = this.menuMap.get( id );
-                    const name = data.item_name ?? '';
-                    const rest = data.item_name_rest ?? '';
-                    const rect = el.getBoundingClientRect()
-                    const width = rect.width;
-                    const height = rect.height;
-                    el.style.width = `${width}px`;
-                    el.style.height = `${height}px`;
-                    el.innerHTML = `<span class="column-dummy">${fn.escape(name)}<br>${fn.escape(rest)}</span>`;
+                    if ( data ) {
+                        const name = data.item_name ?? '';
+                        const rest = data.item_name_rest ?? '';
+                        const rect = el.getBoundingClientRect()
+                        const width = rect.width;
+                        const height = rect.height;
+                        el.style.width = `${width}px`;
+                        el.style.height = `${height}px`;
+                        el.innerHTML = `<span class="column-dummy">${fn.escape(name)}<br>${fn.escape(rest)}</span>`;
+                    }
                 } else {
                     el.querySelector('.menu-column-group-header').innerHTML = '';
                 }                
@@ -2625,9 +2625,11 @@ createItemIntersectionObserver() {
             } else {
                 if ( type === 'c') {
                     const data = this.menuMap.get( id );
-                    const name = data.item_name ?? '';
-                    const dummy = this.getPreviewColumnPreviewContents( id );
-                    el.innerHTML = `<span class="column-dummy">${fn.escape(name)}<br>${dummy}</span>`;;
+                    if ( data ) {
+                        const name = data.item_name ?? '';
+                        const dummy = this.getPreviewColumnPreviewContents( id );
+                        el.innerHTML = `<span class="column-dummy">${fn.escape(name)}<br>${dummy}</span>`;;
+                    }
                 } else {
                     el.querySelector('.previewGroupHeader .ci').innerText = '';
                 }
