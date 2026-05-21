@@ -857,6 +857,8 @@ class SubValueAutoReg():
                 WHERE \
                     TBL_A.DISUSE_FLAG = '0'"""
         data_list = WS_DB.sql_execute(sql, [])
+        # 明示的にトランザクションを開始していないなら、長時間のトランザクション対策として一度コミットする
+        WS_DB._db_con.commit()
         for data in data_list:
             if data['MENU_ID'] not in in_MenuIdList:
                 continue
@@ -879,6 +881,8 @@ class SubValueAutoReg():
             else:
                 data_list = WS_DB.sql_execute(sql, [AnscConst.DF_ITA_LOCAL_HOST_CNT, AnscConst.DF_ITA_LOCAL_PKEY])
 
+            # 長時間のトランザクション対策として一度コミットする
+            WS_DB._db_con.commit()
             # 処理中にDBとの接続が切断される事象の対処として、定期的に「SELECT 1」を実施するために最後にクエリ発行したUNIX時刻を取得
             db_session_keepalive = int(os.getenv("DB_SESSION_KEEPALIVE", 60))
             last_sql_execute = int(time.time())
@@ -967,6 +971,8 @@ class SubValueAutoReg():
                                     g.applogger.debug(f"over DB_SESSION_KEEPALIVE {tmp_table_name=}")
                                     try:
                                         WS_DB.sql_execute("SELECT 1", [])
+                                        # 長時間のトランザクション対策として一度コミットする
+                                        WS_DB._db_con.commit()
                                     except Exception as e:
                                         # 「SELECT 1」で失敗してもループではエラーにしない(パラシ毎の処理でエラーにする)
                                         g.applogger.info("SELECT 1 Failed...exception_msg='{}'".format(e))
