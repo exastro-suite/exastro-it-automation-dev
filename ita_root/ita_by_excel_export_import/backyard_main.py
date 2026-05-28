@@ -52,6 +52,9 @@ def backyard_main(organization_id, workspace_id):
     debug_msg = g.appmsg.get_log_message("BKY-20001", [])
     g.applogger.debug(debug_msg)
 
+    # メンテナンス中にobjdbcaが未定義である旨が出力されるため、Noneで予め定義しておく
+    objdbca = None
+
     try:
         # インポート実行用のアップロードID
         upload_id = ""
@@ -396,6 +399,7 @@ def backyard_main(organization_id, workspace_id):
         # ステータスを完了(異常)に更新
         util.setStatus(task['EXECUTION_NO'], STATUS_FAILURE, objdbca)
     finally:
-        objdbca.db_disconnect()
+        if objdbca is not None:
+            objdbca.db_disconnect()
 
     return
