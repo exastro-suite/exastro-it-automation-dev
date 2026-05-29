@@ -142,6 +142,18 @@ INDEX_DEFINITIONS = [
         "index_name": "IND_T_ANSP_EXEC_STS_INST_02",
         "columns": "STATUS_ID, TIME_REGISTER",
         "requires_oase": False,
+    },
+    {
+        "table_name": "T_OASE_FILTER_JNL",
+        "index_name": "IND_T_OASE_FILTER_JNL_01",
+        "columns": "FILTER_ID, LAST_UPDATE_TIMESTAMP",
+        "requires_oase": True,
+    },
+    {
+        "table_name": "T_OASE_LABEL_KEY_INPUT_JNL",
+        "index_name": "IND_T_OASE_LABEL_KEY_INPUT_JNL_01",
+        "columns": "LABEL_KEY_ID, LAST_UPDATE_TIMESTAMP",
+        "requires_oase": True,
     }
 ]
 
