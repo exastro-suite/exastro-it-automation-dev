@@ -11,7 +11,7 @@
                         "JOURNAL_ACTION_CLASS": "UPDATE",
                         "NOTIFICATION_TEMPLATE_ID": "6",
                         "EVENT_TYPE": "0020",
-                        "TEMPLATE_FILE": "New(to_be_consolidated).j2",
+                        "TEMPLATE_FILE": "New(consolidate).j2",
                         "NOTIFICATION_DESTINATION":null,
                         "IS_DEFAULT": "●",
                         "NOTE": null,
@@ -19,7 +19,7 @@
                         "LAST_UPDATE_TIMESTAMP": "_____DATE_____",
                         "LAST_UPDATE_USER": "1"
                     },
-                    [["New(to_be_consolidated).j2", "/template_file/6/old/6-2/", "/template_file/6/"]]
+                    [["New(consolidate).j2", "/template_file/6/old/6-2/", "/template_file/6/"]]
                 ]
             }
         ]
