@@ -1,4 +1,5 @@
 [
     ["conductor.sql", ""],
-    ["terraform_cloud_ep.sql", "terraform_cloud_ep_master.sql"]
+    ["terraform_cloud_ep.sql", "terraform_cloud_ep_master.sql"],
+    ["", "oase_master.sql"]
 ]
