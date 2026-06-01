@@ -20,6 +20,10 @@ from flask import g
 from common_libs.common.dbconnect import *  # noqa: F403
 
 
+# - 同じ更新対象（columns）を持つテーブル群を 1ブロックとして定義する。
+# - 別テーブルの別のカラム型を更新したい場合は、TARGET配列に辞書を追加する。
+# - Define one block for a set of tables that share the same update targets.
+# - If you need different tables/columns/types, add another dict to TARGET list.
 TARGET = [
     {
         "tables": ["T_OASE_ACTION_LOG", "T_OASE_ACTION_LOG_JNL"],
