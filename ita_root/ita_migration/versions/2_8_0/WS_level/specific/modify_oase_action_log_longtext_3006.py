@@ -69,7 +69,6 @@ def alter_columns_to_longtext(ws_db, table_name, columns):
     Modify only the columns that need to be changed to LONGTEXT
     """
     modify_clauses = []
-    modified_columns = []
 
     # 対象カラムがLONGTEXT型かどうかを判定
     # Check whether the target column is of type LONGTEXT
@@ -79,7 +78,6 @@ def alter_columns_to_longtext(ws_db, table_name, columns):
             continue
 
         modify_clauses.append(f"MODIFY COLUMN {column_name} LONGTEXT")
-        modified_columns.append(column_name)
 
     # 既に全ての対象カラムがLONGTEXT型の場合はALTERをスキップ
     # Skip ALTER if all target columns are already of type LONGTEXT
@@ -89,7 +87,7 @@ def alter_columns_to_longtext(ws_db, table_name, columns):
 
     alter_sql = f"ALTER TABLE {table_name} " + ", ".join(modify_clauses)
     ws_db.sql_execute(alter_sql)
-    g.applogger.info(f"Updated LONGTEXT columns in {table_name}: {', '.join(modified_columns)}")
+    g.applogger.info(f"{alter_sql}")
 
 
 def main(work_dir_path, ws_db):
