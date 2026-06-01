@@ -2338,7 +2338,12 @@ setColumnType( configTable, id, classId, data ) {
         input.setAttribute('name', `${id}_${key}`);
 
         const value = data[ key ] ?? null;
-        if ( value === null ) return;
+        if ( value === null ) {
+            if ( this.editorMode === 'view' ) {
+                input.disabled = true;
+            }
+            return;
+        }
 
         if ( key === 'required' || key === 'uniqued') {
             // チェックボックス
@@ -2359,7 +2364,11 @@ setColumnType( configTable, id, classId, data ) {
                 const menuId = data.pulldown_selection_id ?? null;
                 if ( menuId === null ) return;
                 input.setAttribute('data-menuId', menuId );
-                name = this.pulldownSelectionDefaultValue[ menuId ][ value ]?? '';
+                if ( this.pulldownSelectionDefaultValue[ menuId ] ) {
+                    name = this.pulldownSelectionDefaultValue[ menuId ][ value ]?? '';
+                } else {
+                    name = '';
+                }
             } else {
                 name = data[ nameKey ] ?? null;
             }
@@ -2394,7 +2403,12 @@ setColumnType( configTable, id, classId, data ) {
             if ( key === 'pulldown_selection_default_value') {
                 const menuId = data.pulldown_selection_id ?? null;
                 if ( menuId === null ) return;
-                const setValue = this.pulldownSelectionDefaultValue[ menuId ][ value ]?? '';
+                let setValue;
+                if ( this.pulldownSelectionDefaultValue[ menuId ] ) {
+                    setValue = this.pulldownSelectionDefaultValue[ menuId ][ value ]?? '';
+                } else {
+                    setValue = '';
+                }                
                 input.value = setValue;
             } else {
                 if ( value !== '' && ( key === 'description' || key === 'remarks') ) {
@@ -4446,6 +4460,23 @@ async setMenu( setMode ) {
                     const selectionId = columnData.pulldown_selection_id ?? null;
                     if ( selectionId !== null ) {
                         await this.itemGetPulldownSelectionDefaultValueList( selectionId );
+                    }
+                }
+                // 整数・少数の最小値・最大値・初期値・桁数が数値で返ってくるので文字列に変換する
+                if ( columnData.column_class_id === '3' || columnData.column_class_id === '4') {
+                    const numToStringTargetKeys = [
+                        'integer_default_value',
+                        'integer_maximum_value',
+                        'integer_minimum_value',
+                        'decimal_default_value',
+                        'decimal_maximum_value',
+                        'decimal_minimum_value',
+                        'decimal_digit'
+                    ];
+                    for ( const targetKey of numToStringTargetKeys ) {
+                        if ( typeof columnData[ targetKey ] === 'number') {
+                            columnData[ targetKey ] = String( columnData[ targetKey ] );
+                        }
                     }
                 }
 
