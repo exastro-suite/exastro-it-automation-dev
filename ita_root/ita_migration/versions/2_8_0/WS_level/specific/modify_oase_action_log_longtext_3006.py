@@ -20,14 +20,14 @@ from flask import g
 from common_libs.common.dbconnect import *  # noqa: F403
 
 
-TARGET_TABLES = [
-    "T_OASE_ACTION_LOG",
-    "T_OASE_ACTION_LOG_JNL",
-]
-
-TARGET_COLUMNS = [
-    "CONCLUSION_EVENT_LABELS",
-    "ACTION_PARAMETERS"
+TARGET = [
+    {
+        "tables": ["T_OASE_ACTION_LOG", "T_OASE_ACTION_LOG_JNL"],
+        "columns": [
+            {"name": "CONCLUSION_EVENT_LABELS", "type": "LONGTEXT"},
+            {"name": "ACTION_PARAMETERS", "type": "LONGTEXT"},
+        ],
+    },
 ]
 
 
@@ -49,40 +49,46 @@ def check_oase_installed():
     return 'oase' not in org_no_install_driver
 
 
-def is_longtext_column(ws_db, table_name, column_name):
+def is_target_column_type(ws_db, table_name, column_name, target_column_type):
     """
-    対象カラムがLONGTEXT型かどうかを判定
-    Check whether the target column is of type LONGTEXT
+    対象カラムが指定した型かどうかを判定
+    Check whether the target column matches the specified type
     """
     rows = ws_db.sql_execute(f"SHOW COLUMNS FROM {table_name} LIKE %s", [column_name])
+    # rows には下記のような情報が含まれる
+    # rows contains information like below
+    # [{'Field': 'CONCLUSION_EVENT_LABELS', 'Type': 'text', 'Null': 'YES', 'Key': '', 'Default': None, 'Extra': ''}]
 
     if len(rows) == 0:
         raise RuntimeError(f"Column not found: {table_name}.{column_name}")
 
-    column_type = str(rows[0].get("Type", "")).lower()
-    return column_type == "longtext"
+    db_column_type = str(rows[0].get("Type", "")).lower()
+    return db_column_type == str(target_column_type).lower()
 
 
-def alter_columns_to_longtext(ws_db, table_name, columns):
+def alter_columns_to_types(ws_db, table_name, columns):
     """
-    LONGTEXTへの変更が必要なカラムのみALTERを実行
-    Modify only the columns that need to be changed to LONGTEXT
+    指定型への変更が必要なカラムのみALTERを実行
+    Modify only the columns that need to be changed to the specified type
     """
     modify_clauses = []
 
-    # 対象カラムがLONGTEXT型かどうかを判定
-    # Check whether the target column is of type LONGTEXT
-    for column_name in columns:
-        if is_longtext_column(ws_db, table_name, column_name):
-            g.applogger.info(f"Skipping {table_name}.{column_name}: already LONGTEXT")
+    # 対象カラムが指定型かどうかを判定
+    # Check whether the target column matches the specified type
+    for column in columns:
+        column_name = column["name"]
+        target_column_type = column["type"]
+
+        if is_target_column_type(ws_db, table_name, column_name, target_column_type):
+            g.applogger.info(f"Skipping {table_name}.{column_name}: already {target_column_type}")
             continue
 
-        modify_clauses.append(f"MODIFY COLUMN {column_name} LONGTEXT")
+        modify_clauses.append(f"MODIFY COLUMN {column_name} {target_column_type}")
 
-    # 既に全ての対象カラムがLONGTEXT型の場合はALTERをスキップ
-    # Skip ALTER if all target columns are already of type LONGTEXT
+    # 既に全ての対象カラムが指定型の場合はALTERをスキップ
+    # Skip ALTER if all target columns already match the specified type
     if len(modify_clauses) == 0:
-        g.applogger.info(f"Skipping {table_name}: all target columns are already LONGTEXT")
+        g.applogger.info(f"Skipping {table_name}: all target columns already match their target types")
         return
 
     alter_sql = f"ALTER TABLE {table_name} " + ", ".join(modify_clauses)
@@ -107,8 +113,13 @@ def main(work_dir_path, ws_db):
     try:
         ws_db.db_transaction_start()
 
-        for table_name in TARGET_TABLES:
-            alter_columns_to_longtext(ws_db, table_name, TARGET_COLUMNS)
+        for target in TARGET:
+            for table_name in target["tables"]:
+                alter_columns_to_types(
+                    ws_db,
+                    table_name,
+                    target["columns"]
+                )
 
         ws_db.db_transaction_end(True)
 
