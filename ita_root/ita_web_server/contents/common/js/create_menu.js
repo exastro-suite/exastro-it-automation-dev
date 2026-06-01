@@ -2403,7 +2403,12 @@ setColumnType( configTable, id, classId, data ) {
             if ( key === 'pulldown_selection_default_value') {
                 const menuId = data.pulldown_selection_id ?? null;
                 if ( menuId === null ) return;
-                const setValue = this.pulldownSelectionDefaultValue[ menuId ][ value ]?? '';
+                let setValue;
+                if ( this.pulldownSelectionDefaultValue[ menuId ] ) {
+                    setValue = this.pulldownSelectionDefaultValue[ menuId ][ value ]?? '';
+                } else {
+                    setValue = '';
+                }                
                 input.value = setValue;
             } else {
                 if ( value !== '' && ( key === 'description' || key === 'remarks') ) {
