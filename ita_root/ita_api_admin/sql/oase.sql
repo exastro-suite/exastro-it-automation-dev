@@ -758,8 +758,8 @@ CREATE TABLE IF NOT EXISTS T_OASE_ACTION_LOG
     EVENT_ID_LIST                   TEXT,                                       -- 利用イベントID
     ACTION_LABEL_INHERITANCE_FLAG   VARCHAR(2),                                 -- アクション
     EVENT_LABEL_INHERITANCE_FLAG    VARCHAR(2),                                 -- イベント
-    ACTION_PARAMETERS               TEXT,                                       -- アクションパラメータ
-    CONCLUSION_EVENT_LABELS         TEXT,                                       -- 結論ラベル
+    ACTION_PARAMETERS               LONGTEXT,                                   -- アクションパラメータ
+    CONCLUSION_EVENT_LABELS         LONGTEXT,                                   -- 結論ラベル
     TIME_REGISTER                   DATETIME(6),                                -- 登録日時
     NOTE                            TEXT,                                       -- 備考
     DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
@@ -792,8 +792,8 @@ CREATE TABLE IF NOT EXISTS T_OASE_ACTION_LOG_JNL
     EVENT_ID_LIST                   TEXT,                                       -- 利用イベントID
     ACTION_LABEL_INHERITANCE_FLAG   VARCHAR(2),                                 -- アクション
     EVENT_LABEL_INHERITANCE_FLAG    VARCHAR(2),                                 -- イベント
-    ACTION_PARAMETERS               TEXT,                                       -- アクションパラメータ
-    CONCLUSION_EVENT_LABELS         TEXT,                                       -- 結論ラベル
+    ACTION_PARAMETERS               LONGTEXT,                                   -- アクションパラメータ
+    CONCLUSION_EVENT_LABELS         LONGTEXT,                                   -- 結論ラベル
     TIME_REGISTER                   DATETIME(6),                                -- 登録日時
     NOTE                            TEXT,                                       -- 備考
     DISUSE_FLAG                     VARCHAR(1),                                 -- 廃止フラグ
