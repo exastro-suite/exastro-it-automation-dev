@@ -115,7 +115,7 @@ def main(work_dir_path, ws_db):
         ws_db.db_transaction_end(True)
 
     except Exception as e:
-        g.applogger.error(f"Migration failed: {str(e)}")
+        g.applogger.error(f"Alter table failed: {str(e)}")
         ws_db.db_transaction_end(False)
         raise
 
