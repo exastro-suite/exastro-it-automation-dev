@@ -33,6 +33,7 @@ ANSIBLE_SUPPORT=1
 NON_INTERACTIVE=0
 SOURCE_UPDATE_CONFIRM="y"
 SERVICE_START_CONFIRM="y"
+SUDO_PASSWORD=""
 
 SOURCE_REPOSITORY="https://github.com/exastro-suite/exastro-it-automation.git"
 SOURCE_REPOSITORY_NAME="exastro-it-automation"
@@ -306,6 +307,30 @@ error() {
     exit 1
 }
 
+run_sudo() {
+    if [ "${NON_INTERACTIVE}" = "1" ] && [ -n "${SUDO_PASSWORD}" ]; then
+        printf '%s\n' "${SUDO_PASSWORD}" | command sudo -S -p "" "$@"
+    else
+        command sudo "$@"
+    fi
+}
+
+init_non_interactive_sudo() {
+    if [ "${NON_INTERACTIVE}" != "1" ]; then
+        return 0
+    fi
+
+    if [ -n "${SUDO_PASSWORD}" ]; then
+        if ! printf '%s\n' "${SUDO_PASSWORD}" | command sudo -S -p "" -v >/dev/null 2>&1; then
+            error "non-interactive sudo authentication failed. Check --sudo-password."
+        fi
+    else
+        if ! command sudo -n true >/dev/null 2>&1; then
+            error "non-interactive mode requires passwordless sudo or --sudo-password."
+        fi
+    fi
+}
+
 ### Convert to lowercase
 to_lowercase() {
     echo "$1" | sed "y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/"
@@ -461,7 +486,7 @@ check_system() {
 ### Check system requirements
 check_security() {
     printf "$(date) [INFO]: Checking running security services.............\n" | tee -a "${LOG_FILE}"
-    SELINUX_STATUS=$(sudo getenforce 2>/dev/null || :)
+    SELINUX_STATUS=$(run_sudo getenforce 2>/dev/null || :)
     if [ "${SELINUX_STATUS}" = "Permissive" ]; then
         info "SELinux is now Permissive mode."
         if [ "${DEP_PATTERN}" != "RHEL8" ] && [ "${DEP_PATTERN}" != "RHEL9" ] && [ "${DEP_PATTERN}" != "RHEL10" ]; then
@@ -477,7 +502,7 @@ check_security() {
         fi
     fi
 
-    FIREWALLD_STATUS=$(sudo firewall-cmd --state 2>/dev/null || :)
+    FIREWALLD_STATUS=$(run_sudo firewall-cmd --state 2>/dev/null || :)
     if echo "${FIREWALLD_STATUS}" | grep -qi "running"; then
         printf "\r\033[2F\033[K$(date) [INFO]: Checking running security services.............check\n" | tee -a "${LOG_FILE}"
         printf "\r\033[2E\033[K" | tee -a "${LOG_FILE}"
@@ -488,7 +513,7 @@ check_security() {
         FIREWALLD_STATUS="inactive"
     fi
 
-    UFW_STATUS=$(sudo ufw status 2>/dev/null || :)
+    UFW_STATUS=$(run_sudo ufw status 2>/dev/null || :)
     if echo "${UFW_STATUS}" | grep -qi "status: active"; then
         printf "\r\033[3F\033[K$(date) [INFO]: Checking running security services.............check\n" | tee -a "${LOG_FILE}"
         printf "\r\033[3E\033[K" | tee -a "${LOG_FILE}"
@@ -597,24 +622,24 @@ installation_container_engine() {
 ### Installation Podman on RHEL8
 installation_podman_on_rhel8() {
     # info "Enable the extras repository"
-    # sudo subscription-manager repos --enable=rhel-8-for-x86_64-appstream-rpms --enable=rhel-8-for-x86_64-baseos-rpms
+    # run_sudo subscription-manager repos --enable=rhel-8-for-x86_64-appstream-rpms --enable=rhel-8-for-x86_64-baseos-rpms
 
     if [ "${DEP_PATTERN}" = "RHEL8" ]; then
         info "Enable container-tools module"
-        sudo dnf module enable -y container-tools:rhel8
+        run_sudo dnf module enable -y container-tools:rhel8
 
         info "Install container-tools module"
-        sudo dnf module install -y container-tools:rhel8
+        run_sudo dnf module install -y container-tools:rhel8
     fi
 
     # info "Update packages"
-    # sudo dnf update -y
+    # run_sudo dnf update -y
 
     info "Install fuse-overlayfs"
-    sudo dnf install -y fuse-overlayfs
+    run_sudo dnf install -y fuse-overlayfs
 
     info "Install Podman"
-    sudo dnf install -y podman podman-docker git
+    run_sudo dnf install -y podman podman-docker git
 
     info "Check if Podman is installed"
     if ! command -v podman >/dev/null 2>&1; then
@@ -624,11 +649,11 @@ installation_podman_on_rhel8() {
     info "Install docker-compose command"
     if [ ! -f "/usr/local/bin/docker-compose" ]; then
         if [ -z "${PROXY}" ]; then
-            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-${OS_TYPE}-${ARCH}" -o /usr/local/bin/docker-compose
+            run_sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-${OS_TYPE}-${ARCH}" -o /usr/local/bin/docker-compose
         else
-            sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-${OS_TYPE}-${ARCH}" -o /usr/local/bin/docker-compose -x ${https_proxy}
+            run_sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VER}/docker-compose-${OS_TYPE}-${ARCH}" -o /usr/local/bin/docker-compose -x ${https_proxy}
         fi
-        sudo chmod a+x /usr/local/bin/docker-compose
+        run_sudo chmod a+x /usr/local/bin/docker-compose
     fi
 
     info "Show Podman version"
@@ -669,7 +694,7 @@ installation_podman_on_rhel8() {
     # use rootless mode
     echo "export BUILDAH_ISOLATION=chroot" >> ${HOME}/.bashrc
 
-    sudo systemctl start user@${EXASTRO_UID}
+    run_sudo systemctl start user@${EXASTRO_UID}
 
     info "Start and enable Podman socket service"
     systemctl --user enable --now podman.socket
@@ -688,30 +713,30 @@ installation_podman_on_rhel8() {
 ### Installation Docker on AlmaLinux
 installation_docker_on_alamalinux8() {
     # info "Update packages"
-    # sudo dnf update -y
+    # run_sudo dnf update -y
 
     #
     CONTAINERS_CONF=${HOME}/.config/containers/containers.conf
     info "Change container containers.conf"
     mkdir -p ${HOME}/.config/containers/
-    sudo cp /usr/share/containers/containers.conf ${HOME}/.config/containers/
+    run_sudo cp /usr/share/containers/containers.conf ${HOME}/.config/containers/
     # sed -i.$(date +%Y%m%d-%H%M%S) -e 's|^network_backend = "cni"|network_backend = "netavark"|' ${CONTAINERS_CONF}
     if [ ! -z "${PROXY}" ]; then
         if ! (grep -q "^ *http_proxy *=" ${CONTAINERS_CONF}); then
-            sudo sed -i -e '/^#http_proxy = \[\]/a http_proxy = true' ${CONTAINERS_CONF}
+            run_sudo sed -i -e '/^#http_proxy = \[\]/a http_proxy = true' ${CONTAINERS_CONF}
         fi
         if ! (grep -q "^ *http_proxy *=" ${CONTAINERS_CONF}); then
-            sudo sed -i -e '/^#http_proxy *=.*/a http_proxy = true' ${CONTAINERS_CONF}
+            run_sudo sed -i -e '/^#http_proxy *=.*/a http_proxy = true' ${CONTAINERS_CONF}
         fi
         if grep -q "^ *env *=" ${CONTAINERS_CONF}; then
             if grep "^ *env *=" ${CONTAINERS_CONF} | grep -q -v "http_proxy"; then
-                sudo sed -i -e 's/\(^ *env *=.*\)\]/\1,"http_proxy='${http_proxy//\//\\/}'"]/' ${CONTAINERS_CONF}
+                run_sudo sed -i -e 's/\(^ *env *=.*\)\]/\1,"http_proxy='${http_proxy//\//\\/}'"]/' ${CONTAINERS_CONF}
             fi
             if grep "^ *env *=" ${CONTAINERS_CONF} | grep -q -v "https_proxy"; then
-                sudo sed -i -e 's/\(^ *env *=.*\)\]/\1,"https_proxy='${https_proxy//\//\\/}'"]/' ${CONTAINERS_CONF}
+                run_sudo sed -i -e 's/\(^ *env *=.*\)\]/\1,"https_proxy='${https_proxy//\//\\/}'"]/' ${CONTAINERS_CONF}
             fi
         else
-            sudo sed -i -e '/^#env = \[\]/a env = ["http_proxy='${http_proxy}'","https_proxy='${https_proxy}'"]' ${CONTAINERS_CONF}
+            run_sudo sed -i -e '/^#env = \[\]/a env = ["http_proxy='${http_proxy}'","https_proxy='${https_proxy}'"]' ${CONTAINERS_CONF}
         fi
     fi
 
@@ -739,6 +764,7 @@ Commands:
 
 Common options:
   --non-interactive, -y
+  --sudo-password <password>
   --source-update <y|n>
   --start-service <y|n>
 
@@ -790,6 +816,14 @@ parse_command_options() {
                 ;;
             --non-interactive|-y)
                 NON_INTERACTIVE=1
+                ;;
+            --sudo-password)
+                set_option_value "$1" "$2"
+                SUDO_PASSWORD="$2"
+                shift
+                ;;
+            --sudo-password=*)
+                SUDO_PASSWORD="${1#*=}"
                 ;;
             --source-update)
                 set_option_value "$1" "$2"
@@ -959,19 +993,19 @@ dnf_install(){
     # set +e
     # ANSIBLE_SUPPORT=${default_env_values["ANSIBLE_SUPPORT"]}
     # if [ "${ANSIBLE_SUPPORT}" = "2" ] && [ "${DEP_PATTERN}" = "RHEL8" ];then
-    #     info "sudo subscription-manager repos --enable=${rhel8_repos['base']}"
-    #     sudo subscription-manager repos --enable=${rhel8_repos['base']}
-    #     info "sudo subscription-manager repos --enable=${rhel8_repos['appstream']}"
-    #     sudo subscription-manager repos --enable=${rhel8_repos['appstream']}
-    #     info "sudo subscription-manager repos --enable=${rhel8_repos['aap']}"
-    #     sudo subscription-manager repos --enable=${rhel8_repos['aap']}
+    #     info "run_sudo subscription-manager repos --enable=${rhel8_repos['base']}"
+    #     run_sudo subscription-manager repos --enable=${rhel8_repos['base']}
+    #     info "run_sudo subscription-manager repos --enable=${rhel8_repos['appstream']}"
+    #     run_sudo subscription-manager repos --enable=${rhel8_repos['appstream']}
+    #     info "run_sudo subscription-manager repos --enable=${rhel8_repos['aap']}"
+    #     run_sudo subscription-manager repos --enable=${rhel8_repos['aap']}
     # elif [ "${ANSIBLE_SUPPORT}" = "2" ] && [ "${DEP_PATTERN}" = "RHEL9" ];then
-    #     info "sudo subscription-manager repos --enable=${rhel9_repos['base']}"
-    #     sudo subscription-manager repos --enable=${rhel9_repos['base']}
-    #     info "sudo subscription-manager repos --enable=${rhel9_repos['appstream']}"
-    #     sudo subscription-manager repos --enable=${rhel9_repos['appstream']}
-    #     info "sudo subscription-manager repos --enable=${rhel9_repos['aap']}"
-    #     sudo subscription-manager repos --enable=${rhel9_repos['aap']}
+    #     info "run_sudo subscription-manager repos --enable=${rhel9_repos['base']}"
+    #     run_sudo subscription-manager repos --enable=${rhel9_repos['base']}
+    #     info "run_sudo subscription-manager repos --enable=${rhel9_repos['appstream']}"
+    #     run_sudo subscription-manager repos --enable=${rhel9_repos['appstream']}
+    #     info "run_sudo subscription-manager repos --enable=${rhel9_repos['aap']}"
+    #     run_sudo subscription-manager repos --enable=${rhel9_repos['aap']}
     # fi
 
     # if [ $? -eq 0 ]; then
@@ -1011,8 +1045,8 @@ dnf_install(){
 
     for install_pkg in "${install_list[@]}" ; do
         info "${install_pkg} install start"
-        info "sudo dnf install -y ${install_pkg}"
-        sudo dnf install -y "${install_pkg}"
+        info "run_sudo dnf install -y ${install_pkg}"
+        run_sudo dnf install -y "${install_pkg}"
         info "${install_pkg} install end"
     done
 }
@@ -1025,7 +1059,7 @@ update_pip_rhel10(){
     # Ensure pip3 exists (order fix: install list processed before this)
     if ! command -v pip3 >/dev/null 2>&1; then
         info "pip3 not found. Installing python3-pip."
-        sudo dnf install -y python3-pip || warn "python3-pip install failed. Trying ensurepip."
+        run_sudo dnf install -y python3-pip || warn "python3-pip install failed. Trying ensurepip."
     fi
     if ! command -v pip3 >/dev/null 2>&1; then
         if python3 -m ensurepip --upgrade >/dev/null 2>&1; then
@@ -1070,12 +1104,12 @@ git_clone(){
     echo ""
     cd "${WORK_DIR}"
     # check git global
-    git_global_user_name=`sudo git config --global user.name | wc -c`
-    git_global_user_email=`sudo git config --global user.email | wc -c`
+    git_global_user_name=`run_sudo git config --global user.name | wc -c`
+    git_global_user_email=`run_sudo git config --global user.email | wc -c`
     if [ ${git_global_user_name} -le 1 ]; then
         echo "set git config --global user.name user.email"
-        sudo git config --global user.name dummyuser
-        sudo git config --global user.email dummy@dummy.com
+        run_sudo git config --global user.name dummyuser
+        run_sudo git config --global user.email dummy@dummy.com
     fi
 
     # check workdir
@@ -1321,7 +1355,7 @@ create_env(){
 poetry_install(){
     echo ""
 
-    sudo chmod 755 "${default_env_values['PYTHONPATH']}"
+    run_sudo chmod 755 "${default_env_values['PYTHONPATH']}"
     cd "${default_env_values['PYTHONPATH']}"
     # poetry
     pip3 install poetry==$POETRY_VERSION
@@ -1338,8 +1372,8 @@ ansible_additional_install(){
         if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ] || [ "${DEP_PATTERN}" = "RHEL10" ]; then
             info "uninstall ansible-builder ansible-runner"
             poetry run pip3 uninstall -y ansible-builder ansible-runner
-            info "sudo dnf install -y ansible-builder ansible-runner"
-            sudo dnf install -y ansible-builder ansible-runner
+            info "run_sudo dnf install -y ansible-builder ansible-runner"
+            run_sudo dnf install -y ansible-builder ansible-runner
         else
             info "Skip install ansible-builder ansible-runner. Is not RHEL."
         fi
@@ -1367,7 +1401,7 @@ install_agent_source(){
                 read -r -p  "${interactive_llist['SOURCE_UPDATE_E1']}" confirm
             fi
             if echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"; then
-                sudo rm -rfd $source_path
+                run_sudo rm -rfd $source_path
                 break
             elif echo $confirm | grep -q -e "[nN]" -e "[nN][oO]"; then
                 install_flg=2
@@ -1394,13 +1428,13 @@ install_agent_source(){
 
 
     for xadd_key in "${!xadd_source_paths[@]}"; do
-        info "sudo chmod 755 ${source_path}/${xadd_source_paths[${xadd_key}]}"
-        sudo chmod 755 ${source_path}/${xadd_source_paths[${xadd_key}]}
+        info "run_sudo chmod 755 ${source_path}/${xadd_source_paths[${xadd_key}]}"
+        run_sudo chmod 755 ${source_path}/${xadd_source_paths[${xadd_key}]}
     done
 
     if [ "${DEP_PATTERN}" = "AlmaLinux8" ] || [ "${DEP_PATTERN}" = "AlmaLinux9" ]; then
         echo "${source_path}/agent/entrypoint.sh"
-        sudo chcon -R -h -t bin_t "${source_path}/agent/entrypoint.sh"
+        run_sudo chcon -R -h -t bin_t "${source_path}/agent/entrypoint.sh"
     fi
 
     info "install_agent_source end"
@@ -1520,13 +1554,13 @@ _EOF_
 
     info "cp -p ${SERVICE_PATH}  ${HOME}/.config/systemd/user/"
     cat "${SERVICE_PATH}"
-    sudo cp -p ${SERVICE_PATH}  ${HOME}/.config/systemd/user/
+    run_sudo cp -p ${SERVICE_PATH}  ${HOME}/.config/systemd/user/
     info "systemctl --user daemon-reload"
     systemctl --user daemon-reload
     info "systemctl --user enable ${default_env_values['AGENT_NAME']}"
     systemctl --user enable "${default_env_values['AGENT_NAME']}"
-    info "sudo loginctl enable-linger ${EXASTRO_UNAME}"
-    sudo loginctl enable-linger ${EXASTRO_UNAME}
+    info "run_sudo loginctl enable-linger ${EXASTRO_UNAME}"
+    run_sudo loginctl enable-linger ${EXASTRO_UNAME}
 
     if [ "${NON_INTERACTIVE}" = "1" ]; then
         confirm=${SERVICE_START_CONFIRM}
@@ -1588,11 +1622,11 @@ _EOF_
 
     info "cp -p ${SERVICE_PATH} /usr/lib/systemd/system/"
     cat "${SERVICE_PATH}"
-    sudo cp -p ${SERVICE_PATH} /usr/lib/systemd/system/
-    info "sudo systemctl daemon-reload"
-    sudo systemctl daemon-reload
-    info "sudo systemctl enable ${default_env_values['AGENT_NAME']}"
-    sudo systemctl enable "${default_env_values['AGENT_NAME']}"
+    run_sudo cp -p ${SERVICE_PATH} /usr/lib/systemd/system/
+    info "run_sudo systemctl daemon-reload"
+    run_sudo systemctl daemon-reload
+    info "run_sudo systemctl enable ${default_env_values['AGENT_NAME']}"
+    run_sudo systemctl enable "${default_env_values['AGENT_NAME']}"
 
     if [ "${NON_INTERACTIVE}" = "1" ]; then
         confirm=${SERVICE_START_CONFIRM}
@@ -1604,8 +1638,8 @@ _EOF_
         info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
         info "Run manually!!! : systemctl start ${default_env_values['AGENT_NAME']}"
     else
-        info "sudo systemctl start ${default_env_values['AGENT_NAME']}"
-        sudo systemctl start "${default_env_values['AGENT_NAME']}"
+        info "run_sudo systemctl start ${default_env_values['AGENT_NAME']}"
+        run_sudo systemctl start "${default_env_values['AGENT_NAME']}"
     fi
 
 }
@@ -1955,14 +1989,14 @@ uninstall_service(){
         info "systemctl --user daemon-reload"
         systemctl --user daemon-reload
     else
-        info "sudo systemctl stop ${SERVICE_NAME}"
-        sudo systemctl stop ${SERVICE_NAME}
-        info "sudo systemctl disable ${SERVICE_NAME}"
-        sudo systemctl disable ${SERVICE_NAME}
-        info "sudo rm /usr/lib/systemd/system/${SERVICE_NAME}.service"
-        sudo rm /usr/lib/systemd/system/${SERVICE_NAME}.service
-        info "sudo systemctl daemon-reload"
-        sudo systemctl daemon-reload
+        info "run_sudo systemctl stop ${SERVICE_NAME}"
+        run_sudo systemctl stop ${SERVICE_NAME}
+        info "run_sudo systemctl disable ${SERVICE_NAME}"
+        run_sudo systemctl disable ${SERVICE_NAME}
+        info "run_sudo rm /usr/lib/systemd/system/${SERVICE_NAME}.service"
+        run_sudo rm /usr/lib/systemd/system/${SERVICE_NAME}.service
+        info "run_sudo systemctl daemon-reload"
+        run_sudo systemctl daemon-reload
     fi
 }
 
@@ -1983,7 +2017,7 @@ uninstall_data(){
         rm -rfd  ${STORAGE_PATH}
     else
         info "rm -rd ${STORAGE_PATH}"
-        sudo rm -rfd  ${STORAGE_PATH}
+        run_sudo rm -rfd  ${STORAGE_PATH}
     fi
 }
 #########################################
@@ -2002,6 +2036,7 @@ main() {
     fi
 
     parse_command_options "${SUB_COMMAND}" "$@"
+    init_non_interactive_sudo
 
     EXECUTE_PATH=${HOME}
     WORK_DIR="${EXECUTE_PATH}/_ag_install_work"

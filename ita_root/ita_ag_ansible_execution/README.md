@@ -94,8 +94,17 @@
 
         Common options:
             --non-interactive, -y
+            --sudo-password <password>
             --source-update <y|n>
             --start-service <y|n>
+
+        非対話実行時のsudoについて:
+            ・パスワードレスsudoが使える場合は、--sudo-password不要です。
+            ・sudoでパスワードが必要な場合は、--sudo-passwordを指定してください。
+            ・認証に失敗した場合は以下エラーになります。
+                non-interactive sudo authentication failed. Check --sudo-password.
+            ・パスワードレスsudoでも--sudo-password未指定でもない場合は以下エラーになります。
+                non-interactive mode requires passwordless sudo or --sudo-password.
 
         Install options:
             --install-type <1|2|3|4>
@@ -115,6 +124,10 @@
             --uninstall-type <1|2|3>
             --service-name <name>
             --storage-path <path>
+
+        実行例(非対話):
+            ./setup.sh install --non-interactive --sudo-password '<sudo_password>'  --source-update y --start-service y --install-type 1 --agent-version main --agent-service-id-yn n --agent-service-id agent-ws1 --install-path /home/cloud-user/exastro --data-path /home/cloud-user/exastro --ansible-support 1 --exastro-url http://exastro.example.com:30080 --organization-id <ORGANIZATION_ID> --workspace-id <WORKSPACE_ID> --refresh-token '<REFRESH_TOKEN>'
+
 
 ### エージェントインストーラでの対話事項
     エージェントのバージョン情報
