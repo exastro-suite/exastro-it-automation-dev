@@ -68,7 +68,10 @@ class HCL2JSONParse():
             # 対象ファイルの解析を実行
             file_read.open(self.file_path)
             try:
-                parse_result = hcl2.loads(file_read.read())
+                parse_result = hcl2.loads(
+                    file_read.read(),
+                    serialization_options=hcl2.utils.SerializationOptions(strip_string_quotes=True)
+                )
                 result_json = json.dumps(parse_result)
             except Exception as e:
                 t = traceback.format_exc()
