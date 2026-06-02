@@ -28,7 +28,11 @@ WORK_DIR=""
 ENV_TMP_PATH=""
 SERVICE_ID=`date +%Y%m%d%H%M%S%3N`
 INSTALL_TYPE=1
+UNINSTALL_TYPE=1
 ANSIBLE_SUPPORT=1
+NON_INTERACTIVE=0
+SOURCE_UPDATE_CONFIRM="y"
+SERVICE_START_CONFIRM="y"
 
 SOURCE_REPOSITORY="https://github.com/exastro-suite/exastro-it-automation.git"
 SOURCE_REPOSITORY_NAME="exastro-it-automation"
@@ -714,9 +718,8 @@ installation_docker_on_alamalinux8() {
 }
 
 ### Check args
-check_args() {
-    if [ "$1" = 0 ]; then
-        cat <<'_EOF_'
+print_usage() {
+    cat <<'_EOF_'
 
 Usage:
   sh <(curl -Ssf https://ita.exastro.org/setup) COMMAND [options]
@@ -727,13 +730,225 @@ Commands:
   install     Install Ansible Execution Agent
         1: Create .env & Install & Service Register, Start
         2: Create .env & Service Register, Start
-        3: Create .env & Service Register, Start
+        3: Register service
+        4: Create .env
   uninstall   Uninstall Ansible Execution Agent
         1: Uninstall Service & Delete Data
         2: Uninstall Service
         3: Delete Data
+
+Common options:
+  --non-interactive, -y
+  --source-update <y|n>
+  --start-service <y|n>
+
+Install options:
+  --install-type <1|2|3|4>
+  --agent-version <main|X.Y.Z|branch>
+  --agent-service-id-yn <y|n>
+  --agent-service-id <value>
+  --install-path <path>
+  --data-path <path>
+  --ansible-support <1|2>
+  --exastro-url <url>
+  --organization-id <id>
+  --workspace-id <id>
+  --refresh-token <token>
+  --reference-env-path <path>
+
+Uninstall options:
+  --uninstall-type <1|2|3>
+  --service-name <name>
+  --storage-path <path>
 _EOF_
+}
+
+check_args() {
+    if [ "$1" = 0 ]; then
+        print_usage
         exit 2
+    fi
+}
+
+set_option_value() {
+    option_name="$1"
+    option_value="$2"
+    if [ "${option_value}" = "" ]; then
+        error "Option ${option_name} requires a value."
+    fi
+}
+
+parse_command_options() {
+    sub_command="$1"
+    shift
+
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --help|-h)
+                print_usage
+                exit 0
+                ;;
+            --non-interactive|-y)
+                NON_INTERACTIVE=1
+                ;;
+            --source-update)
+                set_option_value "$1" "$2"
+                SOURCE_UPDATE_CONFIRM="$2"
+                shift
+                ;;
+            --source-update=*)
+                SOURCE_UPDATE_CONFIRM="${1#*=}"
+                ;;
+            --start-service)
+                set_option_value "$1" "$2"
+                SERVICE_START_CONFIRM="$2"
+                shift
+                ;;
+            --start-service=*)
+                SERVICE_START_CONFIRM="${1#*=}"
+                ;;
+            --install-type)
+                set_option_value "$1" "$2"
+                INSTALL_TYPE="$2"
+                shift
+                ;;
+            --install-type=*)
+                INSTALL_TYPE="${1#*=}"
+                ;;
+            --uninstall-type)
+                set_option_value "$1" "$2"
+                UNINSTALL_TYPE="$2"
+                shift
+                ;;
+            --uninstall-type=*)
+                UNINSTALL_TYPE="${1#*=}"
+                ;;
+            --agent-version)
+                set_option_value "$1" "$2"
+                default_env_values["AGENT_VERSION"]="$2"
+                shift
+                ;;
+            --agent-version=*)
+                default_env_values["AGENT_VERSION"]="${1#*=}"
+                ;;
+            --agent-service-id-yn)
+                set_option_value "$1" "$2"
+                default_env_values["AGENT_SERVICE_ID_YN"]="$2"
+                shift
+                ;;
+            --agent-service-id-yn=*)
+                default_env_values["AGENT_SERVICE_ID_YN"]="${1#*=}"
+                ;;
+            --agent-service-id)
+                set_option_value "$1" "$2"
+                default_env_values["AGENT_SERVICE_ID"]="$2"
+                shift
+                ;;
+            --agent-service-id=*)
+                default_env_values["AGENT_SERVICE_ID"]="${1#*=}"
+                ;;
+            --install-path)
+                set_option_value "$1" "$2"
+                default_env_values["INSTALLPATH"]="$2"
+                shift
+                ;;
+            --install-path=*)
+                default_env_values["INSTALLPATH"]="${1#*=}"
+                ;;
+            --data-path)
+                set_option_value "$1" "$2"
+                default_env_values["DATAPATH"]="$2"
+                shift
+                ;;
+            --data-path=*)
+                default_env_values["DATAPATH"]="${1#*=}"
+                ;;
+            --ansible-support)
+                set_option_value "$1" "$2"
+                default_env_values["ANSIBLE_SUPPORT"]="$2"
+                shift
+                ;;
+            --ansible-support=*)
+                default_env_values["ANSIBLE_SUPPORT"]="${1#*=}"
+                ;;
+            --exastro-url)
+                set_option_value "$1" "$2"
+                default_env_values["EXASTRO_URL"]="$2"
+                shift
+                ;;
+            --exastro-url=*)
+                default_env_values["EXASTRO_URL"]="${1#*=}"
+                ;;
+            --organization-id)
+                set_option_value "$1" "$2"
+                default_env_values["EXASTRO_ORGANIZATION_ID"]="$2"
+                shift
+                ;;
+            --organization-id=*)
+                default_env_values["EXASTRO_ORGANIZATION_ID"]="${1#*=}"
+                ;;
+            --workspace-id)
+                set_option_value "$1" "$2"
+                default_env_values["EXASTRO_WORKSPACE_ID"]="$2"
+                shift
+                ;;
+            --workspace-id=*)
+                default_env_values["EXASTRO_WORKSPACE_ID"]="${1#*=}"
+                ;;
+            --refresh-token)
+                set_option_value "$1" "$2"
+                default_env_values["EXASTRO_REFRESH_TOKEN"]="$2"
+                shift
+                ;;
+            --refresh-token=*)
+                default_env_values["EXASTRO_REFRESH_TOKEN"]="${1#*=}"
+                ;;
+            --reference-env-path)
+                set_option_value "$1" "$2"
+                default_env_values["REFERENCE_ENVPATH"]="$2"
+                shift
+                ;;
+            --reference-env-path=*)
+                default_env_values["REFERENCE_ENVPATH"]="${1#*=}"
+                ;;
+            --service-name)
+                set_option_value "$1" "$2"
+                default_env_values["SERVICE_NAME"]="$2"
+                shift
+                ;;
+            --service-name=*)
+                default_env_values["SERVICE_NAME"]="${1#*=}"
+                ;;
+            --storage-path)
+                set_option_value "$1" "$2"
+                default_env_values["STORAGE_PATH"]="$2"
+                shift
+                ;;
+            --storage-path=*)
+                default_env_values["STORAGE_PATH"]="${1#*=}"
+                ;;
+            *)
+                error "Unknown option: $1"
+                ;;
+        esac
+        shift
+    done
+
+    if [ "${sub_command}" = "install" ]; then
+        if ! echo "${INSTALL_TYPE}" | grep -q -e "^[1234]$"; then
+            error "Invalid install type: ${INSTALL_TYPE}. Use 1,2,3,4."
+        fi
+    elif [ "${sub_command}" = "uninstall" ]; then
+        if ! echo "${UNINSTALL_TYPE}" | grep -q -e "^[123]$"; then
+            error "Invalid uninstall type: ${UNINSTALL_TYPE}. Use 1,2,3."
+        fi
+    fi
+
+    if ! echo "${SOURCE_UPDATE_CONFIRM}" | grep -qi -e "^[yn]$"; then
+        error "Invalid --source-update value: ${SOURCE_UPDATE_CONFIRM}. Use y or n."
+    fi
+    if ! echo "${SERVICE_START_CONFIRM}" | grep -qi -e "^[yn]$"; then
+        error "Invalid --start-service value: ${SERVICE_START_CONFIRM}. Use y or n."
     fi
 }
 
@@ -915,10 +1130,76 @@ clean_workdir(){
     info "clean_workdir ${WORK_DIR} end"
 }
 
-inquiry_env(){
-    echo ""
-    info "inquiry_env :${DEP_PATTERN} start"
+validate_env_value(){
+    env_key="$1"
+    tmp_value="$2"
 
+    if [ "${env_key}" = "ANSIBLE_SUPPORT" ]; then
+        if ! echo "$tmp_value" | grep -q -e "^[12]$"; then
+            echo "${interactive_llist['INVALID_VALUE_AS']}"
+            return 1
+        fi
+    elif [ "${env_key}" = "EXASTRO_URL" ]; then
+        if ! echo "${tmp_value}" | grep -q -e "^http://" -e "^https://" ; then
+            echo "${interactive_llist['INVALID_VALUE_URL']}"
+            return 1
+        fi
+    elif [ "${env_key}" = "AGENT_SERVICE_ID" ]; then
+        if ! echo "$tmp_value" | grep -q -e "^[0-9a-zA-Z_-]*$"; then
+            echo "${interactive_llist['INVALID_VALUE_E1']}"
+            return 1
+        fi
+    elif [ "${env_key}" = "AGENT_SERVICE_ID_YN" ]; then
+        if ! echo "$tmp_value" | grep -q -e "^[yYnN]$"; then
+            echo "${interactive_llist['INVALID_VALUE_YN']}"
+            return 1
+        fi
+    elif [ "${env_key}" = "REFERENCE_ENVPATH" ]; then
+        if [ ! -f "$tmp_value" ]; then
+            echo "${interactive_llist['INVALID_VALUE_F_ENV']}"
+            return 1
+        fi
+    elif [ "${env_key}" = "AGENT_VERSION" ]; then
+        if [ "$tmp_value" != "main" ] && echo "${tmp_value}" | grep -q -E "^[0-9]+\.[0-9]+\.[0-9]+$"; then
+            INPUT_VERSION=$(echo ${tmp_value} | awk -F. '{printf "%2d%02d%02d", $1,$2,$3}')
+            if [ "$INPUT_VERSION" -gt $((AGENT_INSTALLER_VNC)) ]; then
+                echo "${interactive_llist['INVALID_SETUP_VERSION']} main or <= ${AGENT_INSTALLER_VERSION}"
+                return 1
+            fi
+        fi
+    elif [ "${env_key}" = "INSTALLPATH" ]; then
+        if [ "${INSTALL_TYPE}" = "2" ] && [ ! -d "$tmp_value" ]; then
+            echo "${interactive_llist['INVALID_VALUE_IS_DIR']} ${tmp_value}"
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+collect_env_non_interactive(){
+    for env_key in "${additional_env_keys[@]}"; do
+        if [ "${env_key}" = "AGENT_SERVICE_ID" ] && [ "${default_env_values['AGENT_SERVICE_ID_YN']}" = "y" ]; then
+            continue
+        fi
+
+        tmp_value="${default_env_values[${env_key}]}"
+        if [ "${tmp_value}" = "" ]; then
+            if [ "${env_key}" = "EXASTRO_REFRESH_TOKEN" ]; then
+                echo ""
+                echo "${interactive_llist_adv[EXASTRO_REFRESH_TOKEN_1]}"
+                continue
+            fi
+            error "Missing required option value for ${env_key}."
+        fi
+
+        if ! validate_env_value "${env_key}" "${tmp_value}"; then
+            error "Invalid option value for ${env_key}."
+        fi
+    done
+}
+
+collect_env_interactive(){
     echo "${interactive_llist['_TOP_MSG']}"
     read -r -p "->  Enter" tmp_value
     echo ""
@@ -943,78 +1224,34 @@ inquiry_env(){
             fi
 
             if [ "$tmp_value" = "" ]; then
-                if [ -n "${default_env_values[${env_key}]}" ]; then
-                    if [ "${default_env_values[${env_key}]}" != "" ]; then
-                        break
-                    fi
-                else
-                    if [ "${env_key}" = "EXASTRO_REFRESH_TOKEN" ]; then
-                        echo ""
-                        echo "${interactive_llist_adv[EXASTRO_REFRESH_TOKEN_1]}"
-                        break
-                    fi
+                if [ -n "${default_env_values[${env_key}]}" ] && [ "${default_env_values[${env_key}]}" != "" ]; then
+                    break
                 fi
-            else
-                # tmp_value valid
-                if [ "${env_key}" = "ANSIBLE_SUPPORT" ]; then
-                    if echo $tmp_value | grep -q -e "[12]"; then
-                        default_env_values[$env_key]=$tmp_value
-                        break
-                    else
-                        echo "${interactive_llist['INVALID_VALUE_AS']}"
-                        continue
-                    fi
-                elif [ ${env_key} = "EXASTRO_URL" ]; then
-                    if ! $(echo "${tmp_value}" | grep -q "http://.*") && ! $(echo "${tmp_value}" | grep -q "https://.*") ; then
-                        echo "${interactive_llist['INVALID_VALUE_URL']}"
-                        continue
-                    fi
-                elif [ ${env_key} = "AGENT_SERVICE_ID" ]; then
-                    if echo $tmp_value | grep -q -e "^[0-9a-zA-Z_-]*$"; then
-                        default_env_values[$env_key]=$tmp_value
-                        break
-                    else
-                        echo "${interactive_llist['INVALID_VALUE_E1']}"
-                        continue
-                    fi
-                elif [ ${env_key} = "AGENT_SERVICE_ID_YN" ]; then
-                    if echo $tmp_value | grep -q -e "[yYnN]"; then
-                        default_env_values[$env_key]=$tmp_value
-                        break
-                    else
-                        echo "${interactive_llist['INVALID_VALUE_YN']}"
-                        continue
-                    fi
-                elif [ ${env_key} = "REFERENCE_ENVPATH" ]; then
-                    if [ -f $tmp_value ]; then
-                        default_env_values[$env_key]=$tmp_value
-                        break
-                    else
-                        echo "${interactive_llist['INVALID_VALUE_F_ENV']}"
-                        continue
-                    fi
-                elif [ ${env_key} = "AGENT_VERSION" ]; then
-                    INPUT_VERSION=$(echo ${tmp_value} | awk -F. '{printf "%2d%02d%02d", $1,$2,$3}')
-                    if [ "$INPUT_VERSION" -gt $((AGENT_INSTALLER_VNC)) ]; then
-                        info "${interactive_llist['INVALID_SETUP_VERSION']} main or <= ${AGENT_INSTALLER_VERSION}"
-                        continue
-                    fi
-                elif [ ${env_key} = "INSTALLPATH" ]; then
-                    if [ "${INSTALL_TYPE}" = "2" ]; then
-                        if [ -d $tmp_value ]; then
-                            default_env_values[$env_key]=$tmp_value
-                            break
-                        else
-                            echo "${interactive_llist['INVALID_VALUE_IS_DIR']} ${tmp_value}"
-                            continue
-                        fi
-                    fi
+                if [ "${env_key}" = "EXASTRO_REFRESH_TOKEN" ]; then
+                    echo ""
+                    echo "${interactive_llist_adv[EXASTRO_REFRESH_TOKEN_1]}"
+                    break
                 fi
+                continue
+            fi
+
+            if validate_env_value "${env_key}" "${tmp_value}"; then
                 default_env_values[$env_key]=$tmp_value
                 break
             fi
         done
     done
+}
+
+inquiry_env(){
+    echo ""
+    info "inquiry_env :${DEP_PATTERN} start"
+
+    if [ "${NON_INTERACTIVE}" = "1" ]; then
+        collect_env_non_interactive
+    else
+        collect_env_interactive
+    fi
 
     if [ "${default_env_values['AGENT_SERVICE_ID']}" = "" ];then
         default_env_values['AGENT_SERVICE_ID']="${SERVICE_ID}"
@@ -1121,9 +1358,14 @@ install_agent_source(){
     echo $source_path
     install_flg=1
     if [ -e $source_path ]; then
+        if [ "${NON_INTERACTIVE}" = "1" ]; then
+            confirm=${SOURCE_UPDATE_CONFIRM}
+        fi
         while true; do
-            echo "${interactive_llist['SOURCE_UPDATE']}"
-            read -r -p  "${interactive_llist['SOURCE_UPDATE_E1']}" confirm
+            if [ "${NON_INTERACTIVE}" != "1" ]; then
+                echo "${interactive_llist['SOURCE_UPDATE']}"
+                read -r -p  "${interactive_llist['SOURCE_UPDATE_E1']}" confirm
+            fi
             if echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"; then
                 sudo rm -rfd $source_path
                 break
@@ -1286,7 +1528,11 @@ _EOF_
     info "sudo loginctl enable-linger ${EXASTRO_UNAME}"
     sudo loginctl enable-linger ${EXASTRO_UNAME}
 
-    read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
+    if [ "${NON_INTERACTIVE}" = "1" ]; then
+        confirm=${SERVICE_START_CONFIRM}
+    else
+        read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
+    fi
     echo ""
     if ! (echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"); then
         info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
@@ -1348,7 +1594,11 @@ _EOF_
     info "sudo systemctl enable ${default_env_values['AGENT_NAME']}"
     sudo systemctl enable "${default_env_values['AGENT_NAME']}"
 
-    read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
+    if [ "${NON_INTERACTIVE}" = "1" ]; then
+        confirm=${SERVICE_START_CONFIRM}
+    else
+        read -r -p  "${interactive_llist['SERVICE_MSG_START']}" confirm
+    fi
     echo ""
     if ! (echo $confirm | grep -q -e "[yY]" -e "[yY][eE][sS]"); then
         info "systemctl daemon-reload & enable ${default_env_values['AGENT_NAME']}"
@@ -1381,6 +1631,13 @@ set_vars_for_env(){
 }
 
 install_type(){
+    if [ "${NON_INTERACTIVE}" = "1" ]; then
+        if ! echo "${INSTALL_TYPE}" | grep -q -e "^[1234]$"; then
+            error "Invalid install type: ${INSTALL_TYPE}"
+        fi
+        return
+    fi
+
     while true; do
         echo "${interactive_llist['INSTALL_TYPE_MSG0']}"
         echo "${interactive_llist['INSTALL_TYPE_MSG1']}"
@@ -1570,24 +1827,28 @@ create_envfile(){
 }
 
 uninstall_type(){
-    while true; do
-        echo "${interactive_llist['UNINSTALL_TYPE_MSG0']}"
-        echo "${interactive_llist['UNINSTALL_TYPE_MSG1']}"
-        echo "${interactive_llist['UNINSTALL_TYPE_MSG2']}"
-        echo "${interactive_llist['UNINSTALL_TYPE_MSG3']}"
-        echo "${interactive_llist['UNINSTALL_TYPE_MSGq']}"
-        read -r -p  "${interactive_llist['UNINSTALL_TYPE_MSGr']}" confirm
+    if [ "${NON_INTERACTIVE}" = "1" ]; then
+        confirm=${UNINSTALL_TYPE}
+    else
+        while true; do
+            echo "${interactive_llist['UNINSTALL_TYPE_MSG0']}"
+            echo "${interactive_llist['UNINSTALL_TYPE_MSG1']}"
+            echo "${interactive_llist['UNINSTALL_TYPE_MSG2']}"
+            echo "${interactive_llist['UNINSTALL_TYPE_MSG3']}"
+            echo "${interactive_llist['UNINSTALL_TYPE_MSGq']}"
+            read -r -p  "${interactive_llist['UNINSTALL_TYPE_MSGr']}" confirm
 
-        if echo $confirm | grep -q -e "[123]"; then
-            INSTALL_TYPE=$confirm
-            break
-        elif echo $confirm | grep -q -e "[q]"; then
-            exit 0
-        else
-            echo "${interactive_llist['INVALID_VALUE_IT']}"
-            continue
-        fi
-    done
+            if echo $confirm | grep -q -e "[123]"; then
+                INSTALL_TYPE=$confirm
+                break
+            elif echo $confirm | grep -q -e "[q]"; then
+                exit 0
+            else
+                echo "${interactive_llist['INVALID_VALUE_IT']}"
+                continue
+            fi
+        done
+    fi
 
     UNINSTALL_TYPE=$confirm
     SERVICE_ID=""
@@ -1616,14 +1877,25 @@ uninstall_type(){
 
     for env_key in "${additional_uninstall_keys[@]}"; do
         while true; do
-            read -r -p "${interactive_llist[${env_key}]}: " tmp_value
-            echo ""
+            if [ "${NON_INTERACTIVE}" = "1" ]; then
+                tmp_value="${default_env_values[${env_key}]}"
+            else
+                read -r -p "${interactive_llist[${env_key}]}: " tmp_value
+                echo ""
+            fi
+
             if [ "$tmp_value" = "" ]; then
+                if [ "${NON_INTERACTIVE}" = "1" ]; then
+                    error "Missing required option value for ${env_key}."
+                fi
                 echo "Invalid value!!"
                 continue
             else
                 if [ ${env_key} = "STORAGE_PATH" ]; then
-                    if [ ! -d $tmp_value ]; then
+                    if [ ! -d "$tmp_value" ]; then
+                        if [ "${NON_INTERACTIVE}" = "1" ]; then
+                            error "not found storage path: ${tmp_value}"
+                        fi
                         echo "not found storage path: ${tmp_value}"
                         continue
                     fi
@@ -1634,6 +1906,9 @@ uninstall_type(){
                         chk_service=`ls /usr/lib/systemd/system/ | grep "ita-ag-ansible-execution-" | grep ${tmp_value} | wc -l`
                     fi
                     if [ ${chk_service} -eq 0 ]; then
+                        if [ "${NON_INTERACTIVE}" = "1" ]; then
+                            error "not found service id: ${tmp_value}"
+                        fi
                         echo "not found service id: ${tmp_value}"
                         continue
                     fi
@@ -1719,47 +1994,35 @@ main() {
     check_args "$#"
 
     SUB_COMMAND=$1
+    shift
+
+    if [ "${SUB_COMMAND}" = "--help" ] || [ "${SUB_COMMAND}" = "-h" ]; then
+        print_usage
+        exit 0
+    fi
+
+    parse_command_options "${SUB_COMMAND}" "$@"
+
     EXECUTE_PATH=${HOME}
     WORK_DIR="${EXECUTE_PATH}/_ag_install_work"
     ENV_TMP_PATH="${WORK_DIR}/.env"
-    if [ "$#" -ge 2 ]; then
-        SETUP_VERSION=$2
-    fi
 
     get_system_info
     # check install/uninstall
     case "$SUB_COMMAND" in
         install)
-            shift
             check_requirement
             install_type
-            install "$@"
+            install
             break
             ;;
         uninstall)
-            shift
             uninstall_type
-            uninstall "$@"
+            uninstall
             break
             ;;
         *)
-            cat <<'_EOF_'
-
-Usage:
-  sh <(curl -Ssf https://ita.exastro.org/setup) COMMAND [options]
-     or
-  setup.sh COMMAND [options]
-
-Commands:
-  install     Install Ansible Execution Agent
-        1: Create .env & Install & Service Register, Start
-        2: Create .env & Service Register, Start
-        3: Create .env & Service Register, Start
-  uninstall   Uninstall Ansible Execution Agent
-        1: Uninstall Service & Delete Data
-        2: Uninstall Service
-        3: Delete Data
-_EOF_
+            print_usage
             exit 2
             ;;
     esac

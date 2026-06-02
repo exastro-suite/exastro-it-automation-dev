@@ -83,8 +83,38 @@
     インストーラを実行するユーザーが実行できる権限に変更してください。
         chmod 755 setup.sh
 
-    インストーラを実行
-    ./setup.sh <install / uninstall>
+        インストーラを実行
+        ./setup.sh <install / uninstall> [options]
+
+        ヘルプ表示
+        ./setup.sh --help
+
+### コマンドライン実行オプション(非対話)
+        対話入力をスキップして実行する場合は、以下を指定してください。
+
+        Common options:
+            --non-interactive, -y
+            --source-update <y|n>
+            --start-service <y|n>
+
+        Install options:
+            --install-type <1|2|3|4>
+            --agent-version <main|X.Y.Z|branch>
+            --agent-service-id-yn <y|n>
+            --agent-service-id <value>
+            --install-path <path>
+            --data-path <path>
+            --ansible-support <1|2>
+            --exastro-url <url>
+            --organization-id <id>
+            --workspace-id <id>
+            --refresh-token <token>
+            --reference-env-path <path>
+
+        Uninstall options:
+            --uninstall-type <1|2|3>
+            --service-name <name>
+            --storage-path <path>
 
 ### エージェントインストーラでの対話事項
     エージェントのバージョン情報
@@ -102,7 +132,9 @@
         1: 必要なモジュールのインストール、サービスのソースコードのインストール、サービスの登録・起動を行います。
         2: 追加でサービスの登録・起動を行います。
         3: envファイルを指定して、サービスの登録・起動を行います。
-        ※ 2.3については、1が実行されている前提になります。
+        4: .envファイルのみ作成します。
+        ※ 2, 3については、1が実行されている前提になります。
+        ※ 対話メニューは 1, 2, 3 の表示ですが、オプション指定では --install-type 4 も利用可能です。
 
     Please select which process to execute.
         1: Create ENV, Install, Register service
@@ -113,7 +145,7 @@
 
     以下、「default: xxxxxx」がある項目については、Enterを押下すると、defaultの値が適用されます。
 
-    以下①で、1, 2を指定した場合です。
+    以下①で、1を指定した場合です。
 
         ②以下、Enterを押下すると、必要な設定値を対話形式での入力が開始されます。
         'No value + Enter' is input while default value exists, the default value will be used.
@@ -175,6 +207,15 @@
             Env Path:           /home/cloud-user/exastro/<サービスの一意な識別子:yyyyMMddHHmmssfff or 対話で指定した文字列>/.env
 
 
+    以下①で、2を指定した場合です。
+        ②以下、Enterを押下すると、必要な設定値を対話形式での入力が開始されます。
+        'No value + Enter' is input while default value exists, the default value will be used.
+        ->  Enter
+
+        ③以降は、基本的に「1」を指定した場合と同様ですが、以下は入力対象外です。
+        ・エージェントバージョン
+        ・使用するAnsible-builder / Ansible-runner(ANSIBLE_SUPPORT)
+
     以下①で、3を指定した場合です。
         ③使用する.envのパスを指定してください。envの情報をもとに、サービスの登録・起動を行います。
         Input the full path for the .env file.:
@@ -189,6 +230,10 @@
             Agent Service Name: ita-ag-ansible-execution-<サービスの一意な識別子:yyyyMMddHHmmssfff or 対話で指定した文字列>
             Storage Path:       /home/cloud-user/exastro/<サービスの一意な識別子:yyyyMMddHHmmssfff or 対話で指定した文字列>/storage
             Env Path:           /home/cloud-user/exastro/<サービスの一意な識別子:yyyyMMddHHmmssfff or 対話で指定した文字列>/.env
+
+    以下①で、4を指定した場合です。
+        .envファイルのみを作成します。サービス登録・起動、ソースコード配置は実施しません。
+        生成先は実行ディレクトリ配下の ./<AGENT_SERVICE_ID>.env です。
 
 
 ### エージェントサービスの各種操作
