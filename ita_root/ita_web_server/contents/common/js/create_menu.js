@@ -2386,7 +2386,7 @@ setColumnType( configTable, id, classId, data ) {
             }
         } else if ( key === 'reference_item') {
             // プルダウン選択：参照項目
-            const setValue = value.join(',');
+            const setValue = fn.typeof( value ) === 'array'? value.join(','): '';
             if ( this.editorMode !== 'view') {
                 input.innerText = setValue;
                 input.setAttribute('data-reference-item-id', setValue );
