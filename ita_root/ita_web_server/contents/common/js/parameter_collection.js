@@ -220,7 +220,7 @@ targetListHtml( type, select, inputFlag = false ) {
             const name = fn.cv( item[nameKey], '', true );
             if ( inputFlag ) {
                const checked = {};
-               if ( ( !idFlag && i === 0 ) || ( pc.select.mainHost === '' && i === 0 && type === 'Host') ) {
+               if ( ( !idFlag && i === 0 && pc.select.mainHost !== '__nohost__') || ( pc.select.mainHost === '' && i === 0 && type === 'Host') ) {
                   checked.checked = 'checked';
                   pc.select.mainHost = id;
                } else if ( id === pc.select.mainHost ) {
