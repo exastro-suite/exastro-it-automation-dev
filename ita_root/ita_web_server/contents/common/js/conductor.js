@@ -5835,8 +5835,8 @@ panelEvents() {
 
         switch ( type ) {
             case 'operation':
-                const currentOpereationId = ( cd.data[ nodeId ] && cd.data[ nodeId ].operation_id )? cd.data[ nodeId ].operation_id: null;
-                cd.selectModalOpen('operation', currentOpereationId ).then(function( selectId ){
+                const currentOperationId = ( cd.data[ nodeId ] && cd.data[ nodeId ].operation_id )? cd.data[ nodeId ].operation_id: null;
+                cd.selectModalOpen('operation', currentOperationId ).then(function( selectId ){
                     if ( selectId ) {
                         if ( fn.typeof( selectId ) === 'array') {
                             selectId = selectId[0].id;
