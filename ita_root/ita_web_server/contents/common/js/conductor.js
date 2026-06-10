@@ -5835,7 +5835,8 @@ panelEvents() {
 
         switch ( type ) {
             case 'operation':
-                cd.selectModalOpen('operation').then(function( selectId ){
+                const currentOpereationId = ( cd.data[ nodeId ] && cd.data[ nodeId ].operation_id )? cd.data[ nodeId ].operation_id: null;
+                cd.selectModalOpen('operation', currentOpereationId ).then(function( selectId ){
                     if ( selectId ) {
                         if ( fn.typeof( selectId ) === 'array') {
                             selectId = selectId[0].id;
@@ -5851,7 +5852,8 @@ panelEvents() {
                 cd.operationUpdate( nodeId, null, null );
             break;
             case 'conductor':
-                cd.selectModalOpen('condcutor').then(function( selectId ){
+                const currentConductorId = ( cd.data[ nodeId ] && cd.data[ nodeId ].call_conductor_id )? cd.data[ nodeId ].call_conductor_id: null;
+                cd.selectModalOpen('condcutor', currentConductorId ).then(function( selectId ){
                     if ( selectId ) {
                         if ( fn.typeof( selectId ) === 'array') {
                             selectId = selectId[0].id;
@@ -6316,7 +6318,7 @@ conductorHistory() {
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-selectModalOpen( type ) {
+selectModalOpen( type, currentSelectId ) {
     const cd = this;
 
     return new Promise(function( resolve ){
@@ -6336,6 +6338,13 @@ selectModalOpen( type ) {
             selectConfig.filter = `/menu/${cd.menu}/conductor/execute/filter/conductor_class_list/`;
             selectConfig.filterPulldown = `/menu/${cd.menu}/conductor/execute/filter/conductor_class_list/search/candidates/`;
             selectConfig.sub = 'conductor_class_list';
+        }
+
+        // 選択状態
+        if ( currentSelectId ) {
+            selectConfig.select = [ currentSelectId ];
+        } else {
+            selectConfig.select = [];
         }
 
         fn.selectModalOpen( type, title, cd.menu, selectConfig ).then(function( selectResut ){
