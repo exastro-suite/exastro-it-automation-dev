@@ -171,7 +171,8 @@ services:
       - exastro
 
   ita-mariadb:
-    image: mariadb:10.4.8
+    image: docker.io/mariadb:${DB_VERSION:-10.11.4}
+    hostname: ${DB_HOST:-ita-mariadb}
     healthcheck:
       test: (mysqladmin ping --silent -u root -p$${MYSQL_ROOT_PASSWORD} && mysql -u root -p$${MYSQL_ROOT_PASSWORD} -e 'select 1;') || exit 1
       interval: 3s
@@ -188,7 +189,7 @@ services:
     ports:
       - "0.0.0.0:3306:3306"
     volumes:
-      - ../.volumes/ita-mariadb/data:/var/lib/mysql
+      - ../.volumes/${DB_HOST:-ita-mariadb}/data:/var/lib/mysql
       - ../ita_root/ita_mariadb/conf/custom.cnf:/etc/mysql/conf.d/custom.cnf
     networks:
       - exastro

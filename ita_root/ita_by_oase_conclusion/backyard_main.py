@@ -26,7 +26,7 @@ from common_libs.oase.const import oaseConst
 from common_libs.oase.manage_events import ManageEvents
 from common_libs.notification.sub_classes.oase import OASENotificationType
 
-from libs.common_functions import addline_msg, InsertConclusionEvent, getLabelGroup, getRuleList, getFilterIDMap, deduplication_timeout_filter
+from libs.common_functions import addline_msg, InsertConclusionEvent, getLabelGroup, getRuleList, getFilterIDMap
 from libs.judgement import Judgement
 from libs.action import Action
 from libs.action_status_monitor import ActionStatusMonitor
@@ -79,7 +79,7 @@ def backyard_main(organization_id, workspace_id):
 
         # ルール判定
         tmp_msg = g.appmsg.get_log_message("BKY-90001", ['Started'])
-        g.applogger.debug(tmp_msg)  # noqa: F405
+        g.applogger.info(tmp_msg)  # noqa: F405
         ret = JudgeMain(wsDb, judgeTime, EventObj, actionObj)
         if ret is False:
             tmp_msg = g.appmsg.get_log_message("BKY-90001", ['Ended without evaluating events'])
@@ -97,25 +97,18 @@ def backyard_main(organization_id, workspace_id):
 
         # アクションの実行
         tmp_msg = g.appmsg.get_log_message("BKY-90072", ['Started'])
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
         action_status_monitor.checkRuleMatch(actionObj)
         tmp_msg = g.appmsg.get_log_message("BKY-90072", ['Ended'])
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # アクション実行後の通知と結論イベント登録
         tmp_msg = g.appmsg.get_log_message("BKY-90002", ['Started'])
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
         action_status_monitor.checkExecuting()
         tmp_msg = g.appmsg.get_log_message("BKY-90002", ['Ended'])
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
-        # 「新規(統合時) TTL切れ」通知処理
-        dudup_eventrow_list = EventObj.get_dudup_eventrow(wsDb, judgeTime)
-        if len(dudup_eventrow_list) > 0:
-            # 通知処理（新規(統合時) TTL切れ）：通知キューに入れる
-            tmp_msg = g.appmsg.get_log_message("BKY-90008", ['New(consolidated)'])
-            g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-            NotificationProcessManager.send_notification(dudup_eventrow_list, {"notification_type": OASENotificationType.DUPLICATE})
 
     except Exception:
         t = traceback.format_exc()

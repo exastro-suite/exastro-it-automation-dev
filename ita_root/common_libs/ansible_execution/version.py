@@ -12,8 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from common_libs.common import storage_access
 from common_libs.common.dbconnect import DBConnectCommon
+
 
 class AnsibleExexutionVersion:
     """
@@ -21,16 +21,18 @@ class AnsibleExexutionVersion:
     """
 
     # バージョンリスト ※新しいバージョンを後ろに記載
+    # エージェントのバージョン: [ITAのバージョンをリスト形式]
     VERSION_MATRIX = {
-        "2.5.1": ["2.5.1", "2.5.2", "2.5.3", "2.5.4", "2.6.0", "2.6.1", "2.6.2", "2.7.0", "2.7.1"],
-        "2.6.0": ["2.5.1", "2.5.2", "2.5.3", "2.5.4", "2.6.0", "2.6.1", "2.6.2", "2.7.0", "2.7.1"],
-        "2.7.0": ["2.5.1", "2.5.2", "2.5.3", "2.5.4", "2.6.0", "2.6.1", "2.6.2", "2.7.0", "2.7.1"]
+        "2.5.1": ["2.5.1", "2.5.2", "2.5.3", "2.5.4", "2.6.0", "2.6.1", "2.6.2", "2.7.0", "2.7.1", "2.8.0"],
+        "2.6.0": ["2.5.1", "2.5.2", "2.5.3", "2.5.4", "2.6.0", "2.6.1", "2.6.2", "2.7.0", "2.7.1", "2.8.0"],
+        "2.7.0": ["2.5.1", "2.5.2", "2.5.3", "2.5.4", "2.6.0", "2.6.1", "2.6.2", "2.7.0", "2.7.1", "2.8.0"],
+        "2.8.0": ["2.5.1", "2.5.2", "2.5.3", "2.5.4", "2.6.0", "2.6.1", "2.6.2", "2.7.0", "2.7.1", "2.8.0"]
     }
 
     # ステータス
-    NOT_COMPATIBLE_OLD = '1' # 古い
-    COMPATIBLE_NEWEST = '2' # 最新
-    COMPATIBLE = '3' # 最新ではない
+    NOT_COMPATIBLE_OLD = '1'    # 古い
+    COMPATIBLE_NEWEST = '2'     # 最新
+    COMPATIBLE = '3'            # 最新ではない
 
     def check_diff_version(self, agent_version):
         """

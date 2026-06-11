@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Exastro IT Automation API
   description: Exastro IT Automation API
-  version: "2.7.0"
+  version: "2.8.0"
 
 servers:
   - url: "https://{host}"
@@ -5635,8 +5635,11 @@ paths:
         content:
           application/json:
             schema:
-              description: Workspace名およびVersionを指定(Versionがnullの場合、自動的に最新のVersionが適用されます。)
+              description: Project名・Workspace名・Versionを指定(Versionがnullの場合、自動的に最新のVersionが適用されます。)
               properties:
+                tf_project_name:
+                  type: string
+                  example: "example_project"
                 tf_workspace_name:
                   type: string
                   example: "example_workspace"
@@ -5707,8 +5710,11 @@ paths:
         content:
           application/json:
             schema:
-              description: Versionを指定
+              description: Project名・Versionを指定
               properties:
+                tf_project_name:
+                  type: string
+                  example: "example_project"
                 terraform_version:
                   type: string
                   example: "1.0.0"

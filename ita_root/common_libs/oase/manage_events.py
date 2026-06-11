@@ -28,7 +28,7 @@ from common_libs.oase.const import oaseConst
 from common_libs.common.mongoconnect.const import Const as mongoConst
 from common_libs.common.mongoconnect.mongoconnect import MONGOConnectWs
 from common_libs.notification.sub_classes.oase import OASENotificationType, OASE
-from libs.common_functions import getIDtoLabelName, deduplication_timeout_filter
+from libs.common_functions import getIDtoLabelName
 from libs.writer_process import WriterProcessManager
 
 AttributeKey = NewType("AttributeKey", frozenset[tuple[str, Any]])
@@ -44,6 +44,9 @@ class GroupingInformation(TypedDict):
 
     is_first_event: Literal["0", "1"]
     """先頭イベントフラグ"""
+
+    end_time: int | None
+    """グループ終了時間"""
 
 
 class Event(TypedDict, total=False):
@@ -64,12 +67,6 @@ class Event(TypedDict, total=False):
 
 class TtlGroup(TypedDict):
     """時間集約グループ"""
-
-    fetched_time: int
-    """グループの先頭イベントのイベント取得日時"""
-
-    end_time: int
-    """グループの最大イベント有効日時"""
 
     first_event: Event
     """グループの先頭イベント"""
@@ -400,9 +397,13 @@ class ManageEvents:
             filter_map (dict[str, dict[str, str]]): フィルターIDをキー、フィルター情報を値とする辞書
         """
 
-        # フィルターに検索条件がグルーピングのものが含まれていない場合は処理しない
+        # フィルターに検索条件が「グルーピング」または「グルーピング（期間延長なし）」のものが含まれていない場合は処理しない
         if not any(
-            filter_row["SEARCH_CONDITION_ID"] == oaseConst.DF_SEARCH_CONDITION_GROUPING
+            filter_row["SEARCH_CONDITION_ID"]
+            in (
+                oaseConst.DF_SEARCH_CONDITION_GROUPING,
+                oaseConst.DF_SEARCH_CONDITION_GROUPING_NO_PERIOD_EXTENSION,
+            )
             for filter_row in filter_map.values()
         ):
             return
@@ -459,6 +460,7 @@ class ManageEvents:
             filter_row = filter_map[
                 evaluated_first_event["exastro_filter_group"]["filter_id"]
             ]
+            ManageEvents._set_group_end_time(evaluated_first_event, filter_row)
             ttl_groups = self._get_ttl_groups(evaluated_first_event, filter_row)
 
             # 有効な判定済み先頭イベントなので必ず新規グループになる
@@ -495,15 +497,20 @@ class ManageEvents:
         ):
             return event["exastro_filter_group"]["is_first_event"]
 
+        fetched_time = event["labels"]["_exastro_fetched_time"]
+
         match ttl_groups:
-            case [*_, _ as latest_group] if (
-                event["labels"]["_exastro_fetched_time"] <= latest_group["end_time"]
+            case [
+                *_,
+                {"first_event": _ as first_event} as latest_group,
+            ] if fetched_time <= ManageEvents._get_group_end_time(
+                first_event, filter_row
             ):
-                # 最新グループが取得でき、イベントがTTL内の場合は、後続イベントとして最新グループにイベントを追加
-                self._append_ttl_group(latest_group, event)
+                # 最新グループが取得でき、イベントがグループ終了時間内の場合は、後続イベントとして最新グループにイベントを追加
+                self._append_ttl_group(latest_group, event, filter_row)
                 is_first_event = False
             case _:
-                # グループが空の場合、またはイベントがTTL外の場合は新規グループを作成
+                # グループが空の場合、またはイベントがグループ終了時間外の場合は新規グループを作成
                 latest_group = ManageEvents._create_new_ttl_group(event)
                 ttl_groups.append(latest_group)
                 is_first_event = True
@@ -511,19 +518,25 @@ class ManageEvents:
         # イベントのグループ情報を追加
         group_info = event.setdefault("exastro_filter_group", GroupingInformation({}))
         group_info["filter_id"] = filter_row["FILTER_ID"]
+        first_event = latest_group["first_event"]
         group_info["group_id"] = repr(
-            latest_group["first_event"]["_id"]
+            first_event["_id"]
         )  # exastro_eventsに合わせてシリアライズ
         group_info["is_first_event"] = "1" if is_first_event else "0"
-        group_info["original_ttl"] = (
-            event["labels"]["_exastro_end_time"]
-            - event["labels"]["_exastro_fetched_time"]
+        group_info["original_ttl"] = event["labels"]["_exastro_end_time"] - fetched_time
+        group_end_time_updated = ManageEvents._set_group_end_time(
+            first_event, filter_row
         )
         # MongoDB更新
         WriterProcessManager.update_labeled_event_collection(
             {"_id": event["_id"]}, {"$set": {"exastro_filter_group": group_info}}
         )
-
+        if not is_first_event and group_end_time_updated:
+            # 先頭イベント以外を処理していて、グループ終了時間を更新した場合は先頭イベントのMongoDB更新
+            WriterProcessManager.update_labeled_event_collection(
+                {"_id": first_event["_id"]},
+                {"$set": {"exastro_filter_group": first_event["exastro_filter_group"]}},
+            )
         return is_first_event
 
     def set_timeout(self, events: Event | ObjectId | list[Event | ObjectId]) -> None:
@@ -557,6 +570,58 @@ class ManageEvents:
                     {f"_exastro_{disable_type}": "1"},
                 )
                 self._disable_event(event, disable_type)
+
+    @staticmethod
+    def _set_group_end_time(
+        event: Event,
+        filter_row: dict[str, Any],
+        updating_group: GroupingInformation | None = None,
+    ) -> bool:
+        """グループ終了時間を設定する
+
+        Args:
+            event (Event): イベント
+            filter_row (dict[str, Any]): フィルター情報
+            updating_group (GroupingInformation | None, optional): 追加先のグルーピング情報。Noneの場合はイベントのグルーピング情報を使用する。デフォルトはNone。
+        Returns:
+            bool: グループ終了時間を更新した場合True
+        """
+        group_info = updating_group or event["exastro_filter_group"]
+        current_group_end_time = group_info.get("end_time")
+        group_end_time = ManageEvents._get_group_end_time(
+            event, filter_row, no_cache=True
+        )
+        group_info["end_time"] = group_end_time
+        return current_group_end_time != group_end_time
+
+    @staticmethod
+    def _get_group_end_time(
+        event: Event, filter_row: dict[str, Any], no_cache: bool = False
+    ) -> int:
+        """グループ終了時間を取得する
+
+        Args:
+            event (Event): イベント
+            filter_row (dict[str, Any]): フィルター情報
+            no_cache (bool, optional): グルーピング情報キャッシュを使用せずに取得する場合True。デフォルトはFalse。
+
+        Returns:
+            int: グループ終了時間
+        """
+        match event, filter_row, no_cache:
+            case {"exastro_filter_group": {"end_time": int() as end_time}}, _, False:
+                # キャッシュが存在する場合はキャッシュを返す
+                return end_time
+            case (
+                {"labels": {"_exastro_fetched_time": int() as fetched_time}},
+                {"GROUP_PERIOD": int() as period},
+                _,
+            ):
+                # グルーピング対象期間を使用して終了時間を計算する
+                return fetched_time + period
+            case {"labels": {"_exastro_end_time": int() as end_time}}, _, _:
+                # グルーピング対象期間が存在しない場合はイベントの有効期間を返す
+                return end_time
 
     def _disable_event(
         self,
@@ -641,13 +706,13 @@ class ManageEvents:
             Group: 新しいグループ
         """
         return {
-            "fetched_time": event["labels"]["_exastro_fetched_time"],
-            "end_time": event["labels"]["_exastro_end_time"],
             "first_event": event,
             "remaining_events": [],
         }
 
-    def _append_ttl_group(self, ttl_group: TtlGroup, event: Event) -> None:
+    def _append_ttl_group(
+        self, ttl_group: TtlGroup, event: Event, filter_row: dict[str]
+    ) -> None:
         """グループにイベントを追加する
 
         Args:
@@ -656,14 +721,20 @@ class ManageEvents:
         """
         ttl_group["remaining_events"].append(event)
 
+        # 「グルーピング（期間延長なし）」の場合は終了時間の更新を行わない
+        if (
+            filter_row["SEARCH_CONDITION_ID"]
+            == oaseConst.DF_SEARCH_CONDITION_GROUPING_NO_PERIOD_EXTENSION
+        ):
+            return
+
         # グループの終了時間の変更を確認
         new_end_time = event["labels"]["_exastro_end_time"]
-        if new_end_time > ttl_group["end_time"]:
-            # グループの終了時間を更新
-            ttl_group["end_time"] = new_end_time
+        first_event = ttl_group["first_event"]
+        if new_end_time > ManageEvents._get_group_end_time(first_event, filter_row):
             # 先頭イベントの終了時間を更新(イベントキャッシュに存在しないケースも強制更新)
             self._update_label_force(
-                [ttl_group["first_event"]["_id"]], {"_exastro_end_time": new_end_time}
+                [first_event["_id"]], {"_exastro_end_time": new_end_time}
             )
 
     def _get_attribute_key(self, event: Event, filter_row: dict[str]) -> AttributeKey:
@@ -743,10 +814,16 @@ class ManageEvents:
         ):
             return event["exastro_filter_group"]["is_first_event"] == "1"
 
+        fetched_time = event["labels"]["_exastro_fetched_time"]
+
         match ttl_groups:
-            case [*_, _ as latest_group] if (
-                event["labels"]["_exastro_fetched_time"] <= latest_group["end_time"]
+            case [
+                *_,
+                {"first_event": _ as first_event},
+            ] if fetched_time <= ManageEvents._get_group_end_time(
+                first_event, filter_row
             ):
+                # 最新グループが取得でき、イベントがグループ終了時間内の場合は、後続イベントになる
                 return False
             case _:
                 return True
@@ -810,131 +887,3 @@ class ManageEvents:
         )
         return msg_line
 
-    def get_dudup_eventrow(self, wsDb, judge_time: int) -> list[dict]:
-        """新規(統合時) TTL切れの通知対象となるイベントをフィルタする
-
-        Args:
-            wsDb (DBConnectWs): MariaDBのコネクション
-            judge_time (int): 判定日時のタイムスタンプ
-
-        Returns:
-            List: 新規(統合時) TTL切れの通知対象となるイベントを要素に持つリスト
-        """
-        # 新規(統合時)の通知が必要かどうかを確認する
-        organization_id = g.get('ORGANIZATION_ID')
-        workspace_id = g.get('WORKSPACE_ID')
-        host_name = os.environ.get('PLATFORM_API_HOST')
-        port = os.environ.get('PLATFORM_API_PORT')
-        user_id = g.get('USER_ID')
-        language = g.get('LANGUAGE')
-
-        header_para = {
-            "User-Id": user_id,
-            "Language": language
-        }
-        # 新規(統合時)が有効な通知先のみ取得するようにクエリ指定
-        query_params = {}
-        query_params["event_type_true"] = OASE.DESTINATION_ID_FETCH_CONDITION[OASENotificationType.DUPLICATE]
-        # API呼出
-        api_url = f"http://{host_name}:{port}/internal-api/{organization_id}/platform/workspaces/{workspace_id}/settings/notifications"
-        s = requests.Session()
-        retries = Retry(total=5,
-                        backoff_factor=0.5)
-        s.mount('http://', HTTPAdapter(max_retries=retries))
-        s.mount('https://', HTTPAdapter(max_retries=retries))
-        # 後続処理遅延につながるためタイムアウトは1秒と短めに設定
-        request_response = s.request(method='GET', url=api_url, timeout=1, headers=header_para, params=query_params)
-        response_data = request_response.json()
-        if request_response.status_code != 200:
-            # 200応答が来なかったら処理スキップ(次回処理で実行することを期待)
-            g.applogger.info(g.appmsg.get_log_message('999-00005', [api_url, response_data]))
-            return []
-        else:
-            # 該当する通知先が無ければ処理スキップ
-            if 'data' in response_data and len(response_data['data']) == 0:
-                g.applogger.debug("No Notification settings for new_consolidated events. Skipping.")
-                return []
-        # 冗長グループを確認するため重複排除設定を確認
-        deduplication_settings = wsDb.table_select(
-            oaseConst.T_OASE_DEDUPLICATION_SETTINGS,
-            "WHERE DISUSE_FLAG='0' ORDER BY SETTING_PRIORITY, DEDUPLICATION_SETTING_NAME"
-        )
-        # 重複排除設定が無いなら処理自体をスキップ
-        if len(deduplication_settings) == 0:
-            g.applogger.debug("No records for deduplication settings. Skipping.")
-            return []
-
-        # イベント検索処理
-        eventrow = []
-        # TTLを確認するためにイベント収集設定を取得
-        collection_settings = wsDb.table_select(
-            oaseConst.T_OASE_EVENT_COLLECTION_SETTINGS,
-            "WHERE DISUSE_FLAG='0'"
-        )
-        # collection_settings_ttlはイベント収集設定のUUIDをキー、TTLを値とする辞書
-        collection_settings_ttl = {}
-        for collection_setting in collection_settings:
-            collection_settings_ttl[collection_setting["EVENT_COLLECTION_SETTINGS_ID"]] = collection_setting["TTL"]
-        # Mongoクエリに使用する辞書準備：TTL値をキーとし、該当のイベント収集設定UUIDリストを値とする
-        ttl_unique_dict = {}
-        for deduplication_setting in deduplication_settings:
-            # redundancy_idsは重複排除設定の同一冗長グループの、イベント収集設定のUUIDのリスト
-            redundancy_ids = json.loads(deduplication_setting["EVENT_SOURCE_REDUNDANCY_GROUP"])["id"]
-            # 重複排除設定の冗長グループに2つ以上のイベント収集設定が登録されている場合のみ、通知対象となるため処理
-            if len(redundancy_ids) > 1:
-                for uuid in redundancy_ids:
-                    # イベント収集設定のUUIDからTTL取得
-                    # 不正なUUID(ID連携失敗)の場合は取得しない
-                    if uuid in collection_settings_ttl:
-                        ttl_unique_dict.setdefault(int(collection_settings_ttl[uuid]), []).append(uuid)
-        # TTL値で昇順ソート
-        ttl_unique_dict_asc = {key: ttl_unique_dict[key] for key in sorted(ttl_unique_dict.keys())}
-        # TTL値で昇順ソートにした後、20秒以上TTLが空いてないなら間引きする(収集設定は前の要素に詰める)
-        ttl_unique_dict_keys = list(ttl_unique_dict_asc.keys())
-        ttl_merged_dict = {}
-        if len(ttl_unique_dict_keys) > 0:
-            # 最初の要素は基準点として登録
-            first_key = ttl_unique_dict_keys[0]
-            ttl_merged_dict[first_key] = ttl_unique_dict_asc[first_key]
-            last_merged_key = first_key
-            for i in range(1, len(ttl_unique_dict_keys)):
-                current_key = ttl_unique_dict_keys[i]
-                # 前回登録したTTLキーから20秒以上空いている場合のみ登録
-                if (current_key - last_merged_key) >= 20:
-                    ttl_merged_dict[current_key] = ttl_unique_dict_asc[current_key]
-                    last_merged_key = current_key
-                else:
-                    # 20秒未満の場合は前回登録したTTLキーにマージする
-                    ttl_merged_dict[last_merged_key].extend(ttl_unique_dict_asc[current_key])
-        # TTL値毎にMongoで検索→更新を実施する
-        for ttl, collection_settings_IdList in ttl_merged_dict.items():
-            event_ids = []
-            # 以下の条件のイベントを取得
-            deduplication_search_value = {
-                "exastro_duplicate_collection_settings_ids": {"$exists": True, "$not": {"$size": 0}},
-                "labels._exastro_end_time": {"$gte": (int(judge_time) - int(ttl) * 2), "$lte": int(judge_time)},
-                "exastro_dup_notification_queue": {"$exists": False},
-                "labels._exastro_event_collection_settings_id": {"$in": collection_settings_IdList}
-            }
-            # 最低限、重複排除に関係あるイベントを取得
-            # 遅延書き込みが終了してから取得
-            WriterProcessManager.flush_buffer()
-            target_events = self.labeled_event_collection.find(
-                deduplication_search_value
-            ).sort("labels._exastro_fetched_time", 1)  # 取得日時昇順
-
-            for event in target_events:
-                if deduplication_timeout_filter(deduplication_settings, event) is True:
-                    # MongoDBの更新対象にする
-                    event_ids.append(event["_id"])
-                    # 通知用に返却するイベントデータも labels._exastro_dup_notification_queue: 1 に変更する
-                    event["exastro_dup_notification_queue"] = "1"
-                    eventrow.append(event)
-            # TTL設定値毎にupdateManyしてMongo側も更新かける
-            if len(event_ids) > 0:
-                # WriterProcess経由で更新
-                WriterProcessManager.update_many_labeled_event_collection(
-                    {"_id": {"$in": event_ids}},
-                    {"$set": {"exastro_dup_notification_queue": "1"}},
-                )
-        return eventrow

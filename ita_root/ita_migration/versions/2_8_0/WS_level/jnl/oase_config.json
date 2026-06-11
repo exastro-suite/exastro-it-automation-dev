@@ -1,0 +1,27 @@
+{
+    "110102":
+    {
+        "6": [
+            {
+                "6-2": [
+                    "6",
+                    {
+                        "JOURNAL_SEQ_NO": "6-2",
+                        "JOURNAL_REG_DATETIME": "_____DATE_____",
+                        "JOURNAL_ACTION_CLASS": "UPDATE",
+                        "NOTIFICATION_TEMPLATE_ID": "6",
+                        "EVENT_TYPE": "0020",
+                        "TEMPLATE_FILE": "New(consolidate).j2",
+                        "NOTIFICATION_DESTINATION":null,
+                        "IS_DEFAULT": "●",
+                        "NOTE": null,
+                        "DISUSE_FLAG": "0",
+                        "LAST_UPDATE_TIMESTAMP": "_____DATE_____",
+                        "LAST_UPDATE_USER": "1"
+                    },
+                    [["New(consolidate).j2", "/template_file/6/old/6-2/", "/template_file/6/"]]
+                ]
+            }
+        ]
+    }
+}

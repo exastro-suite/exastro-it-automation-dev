@@ -6915,6 +6915,9 @@ components:
       description: emailを指定
     workspace_tf_organization_name_body:
       properties:
+        tf_project_name:
+          type: string
+          example: example_project
         tf_workspace_name:
           type: string
           example: example_workspace
@@ -6924,6 +6927,9 @@ components:
       description: Workspace名およびVersionを指定(Versionがnullの場合、自動的に最新のVersionが適用されます。)
     tf_organization_name_tf_workspace_name_body:
       properties:
+        tf_project_name:
+          type: string
+          example: example_project
         terraform_version:
           type: string
           example: 1.0.0
