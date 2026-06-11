@@ -94,7 +94,7 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
 
     # mongoにbulkで発行できるものはここにためておく
     bulkwrite_event_list = []
-    # key: dupulicate_check_key, value: list of event data (find_one_updateを実行するためのデータ)
+    # key: duplicate_check_key, value: list of event data (find_one_updateを実行するためのデータ)
     findoneupdate_event_group = defaultdict(list)
 
     # イベント単位でループ
@@ -124,9 +124,13 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
         for label_key_name, label_key_id in event["exastro_label_key_inputs"].items():
             user_labels["labels.{}".format(label_key_name)] = event["labels"][label_key_name]
 
+        # スレッド分けするときに利用するイベントの属性
+        attribute_list = {"deduplication_settings_id": []}
+
         # 含まれている重複排除設定でループ
         conditions_list = []
         for deduplication_settings_id in DEDUPLICATION_SETTINGS_ECS_MAP[event_collection_settings_id]:
+            attribute_list["deduplication_settings_id"].append(deduplication_settings_id)
             deduplication_setting = DEDUPLICATION_SETTINGS_MAP[deduplication_settings_id]  # 重複排除設定
             event_source_redundancy_group = deduplication_setting["EVENT_SOURCE_REDUNDANCY_GROUP"]
             if len(event_source_redundancy_group) == 0:
@@ -179,12 +183,15 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
                 "labels._exastro_event_collection_settings_id": {"$in": event_source_redundancy_group},  # 重複排除設定のイベント収集範囲
                 "exastro_duplicate_check": {"$nin": [duplicate_check_key]}  # これから重複する以外のケース（先着イベントor先着イベントに刻まれている）を省くため
             }
-            if tmp_user_labels:
-                conditions.update(tmp_user_labels)  # ラベルのkey&valueの一致
+            conditions.update(tmp_user_labels)  # ラベルのkey&valueの一致
             # g.applogger.debug(f"{conditions=}")
 
             # 検索条件を追加（重複排除ごとに検索するのではなく、まとめる）
             conditions_list.append((deduplication_settings_id, conditions))
+
+            attribute_list["deduplication_settings_id"] = str(attribute_list["deduplication_settings_id"])
+            # ラベルのkey&valueの組み合わせを不変集合にして、重複チェックキーと合わせて保持しておく
+            attribute_list.update({key.removeprefix("labels."): value for key, value in tmp_user_labels.items()})
 
         # g.applogger.debug(f"{conditions_list=}")
         if len(conditions_list) == 0:
@@ -201,8 +208,11 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
             continue
 
         # upsertする場合は、その場でmongoにクエリを発行する（find_one_and_updateがbulk_writeできないから）
-        # タスクをduplicate_check_keyごとにまとめる
-        findoneupdate_event_group[duplicate_check_key].append({
+        # タスクをattribute_list(duplicate_check_keyとイベントの属性の集合)ごとにまとめる
+        findoneupdate_event_group[frozenset(
+            (key, value)
+            for (key, value) in attribute_list.items()
+        )].append({
             "event": event,
             "conditions_list": conditions_list,
             "duplicate_check_key": duplicate_check_key
@@ -222,7 +232,7 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
             # 各グループを処理するタスクを投入
             future_to_group = []
-            for duplicate_check_key, event_group in findoneupdate_event_group.items():
+            for attribute_key, event_group in findoneupdate_event_group.items():
                 future_to_group.append(executor.submit(_process_event_group, labeled_event_collection, event_group, q_findoneupdate_num, DEDUPLICATION_SETTINGS_MAP, DEDUPLICATION_SETTINGS_ECS_MAP))
             findoneupdate_event_group = None
             # 全てのタスクの完了を待ち、例外が発生した場合はログに出力
@@ -314,14 +324,8 @@ def _process_event_group(labeled_event_collection, event_group, q_findoneupdate_
                 _exastro_event_collection_settings_id,
             )
 
-            # 更新時、重複排除通知対象か判定
-            duplicate_notification_flag = is_duplicate_notification_needed(
-                _deduplication_setting_ids,
-                _deduplication_setting_list,
-                extract_collection_settings_counts(res),
-                extract_agents_counts(res),
-                _exastro_event_collection_settings_id,
-            ) if is_event_inserted is False else False
+            # 「新規（統合予定）」通知対象か判定（重複排除設定の対象であれば、収集先設定数に関わらず新規イベントを対象とする）
+            duplicate_notification_flag = is_new_event(res)
 
             # 処理件数のカウント
             if is_event_inserted:
@@ -406,10 +410,6 @@ def should_notify_event(deduplication_setting_ids: list, deduplication_setting_l
     if is_event_inserted:
         return True
 
-    # 収集設定、エージェントの件数が不正な場合は通知対象外
-    if not isinstance(collection_settings_counts, dict) or not isinstance(agents_counts, dict):
-        return False
-
     # 今回のイベントでカウントアップしたものを除外して計算
     collection_settings_counts_noself = {}
     for _k, _v in collection_settings_counts.items():
@@ -434,46 +434,4 @@ def should_notify_event(deduplication_setting_ids: list, deduplication_setting_l
         else:
             # 重複排除設定のイベントソースが空の場合は通知対象外
             return False
-    return False
-
-
-def is_duplicate_notification_needed(deduplication_setting_ids: list, deduplication_setting_list: dict, collection_settings_counts: dict, agents_counts: dict, _exastro_event_collection_settings_id: str) -> bool:
-    """
-    重複排除通知が必要かどうかを判定する。
-    すべてのイベントソース冗長化グループIDで1回以上イベントが発生していれば通知対象とする。
-    Args:
-        deduplication_setting_ids (list):重複排除設定ID
-        deduplication_setting_list (dict):  重複排除設定ID, value: 重複排除設定
-        collection_settings_counts (dict): イベント収集設定ID, value: カウント
-        agents_counts (dict): エージェント名, value: カウント
-    Returns:
-        bool: True: 通知対象, False: 通知対象外
-    """
-
-    # 重複排除設定のイベントソースで1回以上イベントが発生しているか
-    for dsid in deduplication_setting_ids:
-        redundancy_group = deduplication_setting_list[dsid].get('EVENT_SOURCE_REDUNDANCY_GROUP', [])
-        # 重複排除設定でイベントソース冗長化グループが1つなら通知対象外
-        if len(redundancy_group) == 1:
-            return False
-        elif len(redundancy_group) > 1:
-            _csv_max = max(collection_settings_counts.values())
-            _csv_min = min(collection_settings_counts.values())
-            _csv_sum = sum(collection_settings_counts.values())
-
-            # 今回のイベントでカウントアップしたものを除外して計算
-            collection_settings_counts_noself = {}
-            for _k, _v in collection_settings_counts.items():
-                collection_settings_counts_noself[_k] = _v - 1 if _k == _exastro_event_collection_settings_id and _v > 0 else _v
-            collection_setting_count_notime = collection_settings_counts_noself[_exastro_event_collection_settings_id] if _exastro_event_collection_settings_id in collection_settings_counts_noself else None
-
-            # 冗長化グループ内でのイベント発生状況を確認
-            redundancy_check = [True for redundancy_group_id in redundancy_group if redundancy_group_id in collection_settings_counts]
-
-            # 重複排除の全収集設定の全て1回ずつイベントが発生している場合は通知対象
-            if _csv_sum == len(redundancy_group) and _csv_max == 1 and _csv_min == 1 and all(redundancy_check):
-                return True
-            # 重複排除のある収集設定Aに1以上で、収集設定Bに1の場合は通知対象(既に全収集設定の全て1回ずつイベントが発生している場合は対象外)
-            if len(collection_settings_counts_noself) >= len(redundancy_group) and collection_setting_count_notime == 0 and all(redundancy_check):
-                return True
     return False

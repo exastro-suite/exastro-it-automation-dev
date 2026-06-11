@@ -83,6 +83,10 @@ class WriterProcessManager():
         # プロセスが終了していないケースもあるのでkillする
         cls._process.kill()
 
+        # プロセスが異常終了した場合はキューが残り続けてしまうためクリアする
+        cls._queue.cancel_join_thread()
+        cls._complite.cancel_join_thread()
+
         # cls変数をクリアする
         cls._queue = None
         cls._complite = None
@@ -104,7 +108,8 @@ class WriterProcessManager():
         cls._queue.put({
             "action": "start_workspace_processing",
             "oraganization_id": oraganization_id,
-            "workspace_id": workspace_id
+            "workspace_id": workspace_id,
+            "log_level": g.applogger.getEffectiveLevel()
         })
 
     @classmethod
@@ -171,7 +176,7 @@ class WriterProcessManager():
             "dict": copy.deepcopy(dict)
         })
         return dict["_id"]
-        
+
     @classmethod
     def update_labeled_event_collection(cls, filter, update):
         """labeled_event_collectionにupdateを依頼する
@@ -188,7 +193,7 @@ class WriterProcessManager():
             "filter": filter,
             "update": update
         })
-        
+
     @classmethod
     def update_many_labeled_event_collection(cls, filter, update):
         """labeled_event_collectionにupdate_manyを依頼する
@@ -331,8 +336,8 @@ class WriterProcess():
                     cls._t_oase_action_log.update(data["data"])
 
                 elif data["action"] == "start_workspace_processing":
-                    cls._start_workspace_processing(data["oraganization_id"], data["workspace_id"])
-                
+                    cls._start_workspace_processing(data["oraganization_id"], data["workspace_id"], data["log_level"])
+
                 elif data["action"] == "flush_buffer":
                     cls._flush_buffer(complite)
 
@@ -349,7 +354,7 @@ class WriterProcess():
                 raise
 
     @classmethod
-    def _start_workspace_processing(cls, oraganization_id: str, workspace_id: str):
+    def _start_workspace_processing(cls, oraganization_id: str, workspace_id: str, log_level: int):
         """ワークスペースの処理開始
 
         Args:
@@ -367,6 +372,10 @@ class WriterProcess():
             g.applogger.debug("Execute Garbage Collection")
             gc.collect()
 
+        # ログレベルをそろえる(現状はDEBUG反映のみ)
+        if log_level:
+            g.applogger.setLevel(log_level)
+
         # ワークスペースの処理開始
         cls._objdbca = DBConnectWs(workspace_id=workspace_id, organization_id=oraganization_id)
         g.ORGANIZATION_ID = oraganization_id
@@ -381,6 +390,7 @@ class WriterProcess():
     @classmethod
     def _flush_buffer(cls, complite: multiprocessing.Queue):
         """バッファの内容を強制的にDBに書き込む
+            t_oase_action_logに関する暫定対応: Clearing & wsdbを切断する
 
         Args:
             complite (multiprocessing.Queue): 完了応答メッセージ送信用
@@ -390,6 +400,20 @@ class WriterProcess():
 
         if cls._t_oase_action_log is not None:
             cls._t_oase_action_log.flush()
+
+            # t_oase_action_logに関する暫定対応: Clearing & wsdb切断する
+            cls._t_oase_action_log = None
+            try:
+                if cls._objdbca._db_con:
+                    # DBコネクションを切断する
+                    cls._objdbca.db_disconnect()
+                    g.applogger.info(f"SubProcess({cls._process_name}) flush buffer db disconnect success.")
+                else:
+                    # DBコネクション切断済みの場合、ログ出力のみ行う。
+                    g.applogger.info(f"SubProcess({cls._process_name}) flush buffer Skip disconnect. (already disconnected)")
+            except Exception as e:
+                # DBコネクション切断でExceptionしても処理継続のためraiseしないで、、ログ出力のみ行う。
+                g.applogger.info(f"SubProcess({cls._process_name}) flush buffer db disconnect failed. exception: {e}")
 
         # バッファの書き込み完了
         g.applogger.debug(f"SubProcess({cls._process_name}) flush buffer completed")
@@ -413,7 +437,7 @@ class WriterProcess():
         if cls._t_oase_action_log is not None:
             cls._t_oase_action_log.flush()
             cls._t_oase_action_log = None
-                    
+
         # DBコネクションを切断
         if cls._objdbca is not None:
             cls._objdbca.db_disconnect()
@@ -575,6 +599,6 @@ class DBBufferedWriter():
             self._objdbca.table_insert(self._table_name, self._row_buffer, self._key_name)
         else:
             self._objdbca.table_update(self._table_name, self._row_buffer, self._key_name)
-        
+
         self._row_buffer = None
         self._objdbca.db_commit()

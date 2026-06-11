@@ -517,14 +517,9 @@ def split_host_grp(hgsp_config, hgsp_data):
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # 対象ホスト、ホストグループ-オペレーション
-        tmp_msg = "target hostgroup-operation"
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = "target hostgroup-operation id->name"
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = [[hgsp_config['alllist'][_t['HOST_ID']], _t['OPERATION_NAME']] for _t in input_data_array if _t['HOST_ID'] in hgsp_config['alllist']]
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+        for _t in input_data_array:
+            tmp_msg = 'target hostgroup-operation: {}[{}]'.format(_t.get('HOST_ID'), _t.get('OPERATION_NAME'))
+            g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # オペレーションID毎にホストデータ作成(基準日時->オペレーション名:昇順)
         for input_data in input_data_array:
@@ -586,23 +581,19 @@ def split_host_grp(hgsp_config, hgsp_data):
         tmp_msg = hold_host_id
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
-        tmp_msg = 'hold_host_id id->name'
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = id_conv(hold_host_id, hgsp_config['alllist'])
-        g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         for output_data in output_data_array:
             # 分割データにある場合は廃止しない
             hold_key = create_hold_key(vertical_flg, output_data.get('HOST_ID'), output_data.get('OPERATION_ID'), output_data.get('INPUT_ORDER'))
             if hold_key in hold_host_id and output_data.get('HOST_ID') not in host_group_id_all_list:
-                tmp_msg = 'not discard in split data:({}[{}])'.format(id_conv(hold_key, hgsp_config['alllist']), hold_key)
-                g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+                # tmp_msg = 'not discard in split data:({}[{}])'.format(id_conv(hold_key, hgsp_config['alllist']), hold_key)
+                # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
                 continue
 
             # すでに廃止の場合は廃止しない
             if output_data['DISUSE_FLAG'] == "1":
-                tmp_msg = 'already discard in split data:({}[{}])'.format(id_conv(hold_key, hgsp_config['alllist']), hold_key)
-                g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+                # tmp_msg = 'already discard in split data:({}[{}])'.format(id_conv(hold_key, hgsp_config['alllist']), hold_key)
+                # g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
                 continue
 
             #  廃止する
@@ -657,7 +648,7 @@ def split_host_grp(hgsp_config, hgsp_data):
         # ホストグループ分割対象テーブルを検索:SQL実行
         split_target_table = SplitTargetTable(objdbca)  # noqa: F405
         sql = split_target_table.create_sselect(
-            "WHERE DISUSE_FLAG = '0' AND ROW_ID = '{}'".format(hgsp_config['target_row_id'])
+            "WHERE DISUSE_FLAG = '0' AND ROW_ID = '{}' FOR UPDATE".format(hgsp_config['target_row_id'])
         )
         result = split_target_table.select_table(sql)
         if result is False:
@@ -669,14 +660,16 @@ def split_host_grp(hgsp_config, hgsp_data):
         target_timestamp = hgsp_config['target_timestamp'].strftime('%Y-%m-%d %H:%M:%S.%f')
         target_timestamp_now = split_target_array[0]['LAST_UPDATE_TIMESTAMP'].strftime('%Y-%m-%d %H:%M:%S.%f')
 
+        g.applogger.debug(f"{target_row_id} {target_timestamp == target_timestamp_now} target_timestamp: {target_timestamp}, target_timestamp_now: {target_timestamp_now}")  # noqa: F405
+
         # 分割処理の開始時、終了時の最終更新日時が一致した場合、ホストグループ分割対象の分割済みフラグをONにする
         if target_timestamp == target_timestamp_now:
             tmp_msg = 'update_split_target_flg 0 -> 1'
-            g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+            g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
             result = update_split_target_flg(objdbca, target_row_id, "1")
         else:
             tmp_msg = 'updated split_target: split_target_flg no update and next cycle'
-            g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+            g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # コミット
         result = objdbca.db_transaction_end(True)  # True / False
@@ -764,9 +757,8 @@ def make_host_data(hgsp_config, hgsp_data):
         alone_data_array = []
 
         # 処理対象オペレーション
-        target_op_name = list(set(id_conv([x['OPERATION_ID'] for x in sameid_array], hgsp_config['alllist'])))[0]
         target_opid = list(set([x['OPERATION_ID'] for x in sameid_array]))[0]
-        tmp_msg = 'operation: {}({})'.format(target_op_name, target_opid)
+        tmp_msg = 'operation: {}'.format(target_opid)
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         # ツリー配列にデータを設定する
@@ -799,22 +791,13 @@ def make_host_data(hgsp_config, hgsp_data):
         tmp_msg = 'set data tree/alone'
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
         tmp_msg = tree_array
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-
-        tmp_msg = 'set data tree_array id->name'
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = id_conv([v for v in tree_array if v['HOST_ID'] not in host_group_id_list], hgsp_config['alllist'], 'dict')
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
 
         tmp_msg = 'set alone_data_array'
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
         tmp_msg = alone_data_array
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-
-        tmp_msg = 'set alone_data_array id->name'
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = id_conv([v for v in alone_data_array if v['HOST_ID'] not in host_group_id_list], hgsp_config['alllist'], 'dict')
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+
 
         # ツリー上にいなかったデータを単独で登録する
         for alone_data in alone_data_array:
@@ -1139,12 +1122,8 @@ def make_host_data(hgsp_config, hgsp_data):
         tmp_msg = 'set parent->child copy data tree_array'
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
         tmp_msg = tree_array
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-
-        tmp_msg = 'set parent->child copy data tree_array id->name'
         g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-        tmp_msg = id_conv([v for v in tree_array if v['HOST_ID'] not in host_group_id_list], hgsp_config['alllist'], 'dict')
-        # ### g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
+
 
         kykey_array = [tmp_tree.get('HOST_ID') for tmp_tree in tree_array]
 
@@ -1500,23 +1479,23 @@ def copy_upload_file(copy_file_array):
                 # コピー先のディレクトリ作成
                 tmp_msg = 'makedir: {}'.format(copy_file['dest_dir'])
                 g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                os.makedirs(copy_file['dest_dir'], exist_ok=True)  # noqa: F405
+                retry_makedirs(copy_file['dest_dir'])  # noqa: F405
 
                 # ファイルコピー
                 tmp_msg = 'copy src:{} dest:{}'.format(copy_file['src'], copy_file['dest'])
                 g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                shutil.copy2(copy_file['src'], copy_file['dest'])
+                retry_copy2(copy_file['src'], copy_file['dest'])  # noqa: F405
 
                 # シンボリックリンク解除
                 if os.path.islink(copy_file['link']):
                     tmp_msg = 'unlink: {}'.format(copy_file['link'])
                     g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                    os.unlink(copy_file['link'])
+                    retry_unlink(copy_file['link'])  # noqa: F405
 
                 # シンボリックリンク作成
                 tmp_msg = 'symlink src:{} link:{}'.format(copy_file['dest'], copy_file['link'])
                 g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                os.symlink(copy_file['dest'], copy_file['link'])  # noqa: F405
+                retry_symlink(copy_file['dest'], copy_file['link'])  # noqa: F405
 
         except Exception as e:
             tmp_msg = e
@@ -1527,12 +1506,12 @@ def copy_upload_file(copy_file_array):
                 if os.path.islink(copy_file['link']):
                     tmp_msg = g.appmsg.get_log_message("BKY-70010", [copy_file['link']])
                     g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                    os.unlink(copy_file['link'])
+                    retry_unlink(copy_file['link'])   # noqa:F405
 
                 # シンボリックリンク作成
                 tmp_msg = g.appmsg.get_log_message("BKY-70011", [copy_file['dest'], copy_file['link']])
                 g.applogger.debug(addline_msg('{}'.format(tmp_msg)))  # noqa: F405
-                os.symlink(copy_file['old_dest'], copy_file['link'])  # noqa: F405
+                retry_symlink(copy_file['old_dest'], copy_file['link'])  # noqa: F405
             except Exception as e:
                 tmp_msg = e
                 g.applogger.info(addline_msg('{}'.format(tmp_msg)))  # noqa: F405

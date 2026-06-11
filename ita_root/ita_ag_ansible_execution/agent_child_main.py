@@ -72,11 +72,11 @@ def agent_child_main():
             g.applogger.info(g.appmsg.get_log_message(error_code, error_arg))
     finally:
         # ステータスファイルの削除
-        delete_status_file(organization_id, workspace_id, driver_id, execution_no)
+        delete_status_file(organization_id, workspace_id, driver_id, execution_no)  # noqa: F405
         # /tmpのゴミ掃除
-        clear_execution_tmpdir(organization_id, workspace_id, driver_id, execution_no)
+        clear_execution_tmpdir(organization_id, workspace_id, driver_id, execution_no)  # noqa: F405
         # 作業ディレクトリ削除
-        clear_execution_dir(organization_id, workspace_id, driver_id, execution_no, runtime_data_del)
+        clear_execution_dir(organization_id, workspace_id, driver_id, execution_no, runtime_data_del)  # noqa: F405
     return 0
 
 def agent_child():
@@ -125,8 +125,8 @@ def agent_child():
 
     # tarファイル解凍
     dir_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/{execution_no}/"
-    shutil.rmtree(dir_path) if os.path.isdir(dir_path) else None
-    os.makedirs(dir_path)
+    retry_rmtree(dir_path)  # noqa: F405
+    retry_makedirs(dir_path)  # noqa: F405
     file_name = f"{execution_no}.tar.gz"
     with open(dir_path + file_name, 'wb') as f:
         for chunk in response.iter_content(chunk_size=_chunk_size):
@@ -140,21 +140,13 @@ def agent_child():
     response.close()
 
     # ログファイルの作成
-    if not os.path.isfile(exec_log_pass):
-        p = pathlib.Path(exec_log_pass)
-        p.touch()
+    pathlib.Path(exec_log_pass).touch(exist_ok=True)
 
-    if not os.path.isfile(error_log_pass):
-        p = pathlib.Path(error_log_pass)
-        p.touch()
+    pathlib.Path(error_log_pass).touch(exist_ok=True)
 
-    if not os.path.isfile(child_exec_log_pass):
-        p = pathlib.Path(child_exec_log_pass)
-        p.touch()
+    pathlib.Path(child_exec_log_pass).touch(exist_ok=True)
 
-    if not os.path.isfile(child_error_log_pass):
-        p = pathlib.Path(child_error_log_pass)
-        p.touch()
+    pathlib.Path(child_error_log_pass).touch(exist_ok=True)
 
     # 実行環境構築方法がITAの場合builder.sh実行
     if build_type == "2":
@@ -505,6 +497,9 @@ def decompress_tar_file(organization_id, workspace_id, driver_id, dir_path, file
     storagepath = os.environ.get('STORAGEPATH')
     root_dir_path = f"{storagepath}/{organization_id}/{workspace_id}/driver/ag_ansible_execution/{driver_id}/{execution_no}"
 
+    # 移動前に作業用ディレクトリを作成しておく
+    retry_makedirs(root_dir_path)  # noqa: F405
+
     # 展開したファイルを移動する
     move_dir = ""
     for dir_name in lst:
@@ -517,45 +512,25 @@ def decompress_tar_file(organization_id, workspace_id, driver_id, dir_path, file
                     for in_dir_name in in_lst:
                         if in_dir_name in ["inventory", "env", "builder_executable_files", "runner_executable_files"]:
                             # 1つ上の階層へ移動
-                            shutil.move(f"{tar_path}/{execution_no}/{dir_name}/{in_dir_name}", f"{tar_path}/{execution_no}")
+                            retry_move(f"{tar_path}/{execution_no}/{dir_name}/{in_dir_name}", f"{tar_path}/{execution_no}")  # noqa: F405
                             # inventory,.env.,builder_executable_files,runner_executable_filesディレクトリの移動
                             join_path = f"{tar_path}/{execution_no}/{in_dir_name}"
-                            shutil.move(join_path, root_dir_path)
+                            retry_move(join_path, root_dir_path)  # noqa: F405
                     # inディレクトリの移動先
                     move_dir = root_dir_path + "/project"
                     join_path = f"{tar_path}/{execution_no}/{dir_name}"
-                    shutil.move(join_path, move_dir)
+                    retry_move(join_path, move_dir)  # noqa: F405
                 elif dir_name in ["out", ".tmp", "tmp"]:
                     # out,.tmp.,tmpディレクトリの移動
                     join_path = f"{tar_path}/{execution_no}/{dir_name}"
-                    shutil.move(join_path, root_dir_path)
+                    retry_move(join_path, root_dir_path)  # noqa: F405
         elif dir_name == "conductor":
             # conductorディレクトリの移動先
             join_path = f"{tar_path}/{dir_name}"
-            shutil.move(join_path, root_dir_path)
+            retry_move(join_path, root_dir_path)  # noqa: F405
 
     # 作業ディレクトリ削除
-    clear_execution_tmpdir(organization_id, workspace_id, driver_id, execution_no)
-
-
-def clear_execution_tmpdir(organization_id, workspace_id, driver_id, execution_no):
-    _path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}"
-    if os.path.isdir(_path):
-        shutil.rmtree(_path)
-        g.applogger.debug(f"remove execution tmp dirs. (path:{_path})")
-
-def clear_execution_dir(organization_id, workspace_id, driver_id, execution_no, runtime_data_del):
-    # インターフェース情報の実行時削除がTrueの場合
-    if runtime_data_del == "1":
-        storagepath = os.environ.get('STORAGEPATH')
-        _path = f"{storagepath}/{organization_id}/{workspace_id}/driver/ag_ansible_execution/{driver_id}/{execution_no}"
-        if os.path.isdir(_path):
-            shutil.rmtree(_path)
-            g.applogger.debug(f"remove execution dirs. (path:{_path})")
-        _path = f"{storagepath}/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}"
-        if os.path.isdir(_path):
-            shutil.rmtree(_path)
-            g.applogger.debug(f"remove execution dirs. (path:{_path})")
+    clear_execution_tmpdir(organization_id, workspace_id, driver_id, execution_no)  # noqa: F405
 
 
 def post_upload_file_and_status(exastro_api, organization_id, workspace_id, execution_no, status, driver_id):
