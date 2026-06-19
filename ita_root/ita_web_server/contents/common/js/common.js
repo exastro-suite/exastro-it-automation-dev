@@ -4802,6 +4802,14 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                         file: cmn.textToFile( value, fileName )
                     });
                 };
+
+                // 開発サポート
+                if ( typeof DevelopmentSupport === 'function' && mode === 'edit') {
+                    const support = new DevelopmentSupport();
+                    support.setup( modal, aceEditor );
+                } else {
+                    console.warn('DevelopmentSupport is not defined.');
+                }
             });
         } else if ( fileType === 'image') {
             if ( fileData === null ) fileData = '';
