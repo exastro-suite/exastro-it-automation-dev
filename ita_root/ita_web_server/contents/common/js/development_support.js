@@ -60,8 +60,6 @@ setup( modal, aceEditor ) {
             if ( this.setting.assistant ) await this.getModule( this.setting.assistant );
         }
 
-        console.log(  this.setting );
-
         // markdown-it
         this.md = markdownit({
             highlight: function (str, lang) {
