@@ -46,7 +46,7 @@ setup( modal, aceEditor ) {
         const userData = fn.storage.get('restUser', 'session');
         this.id = userData.user_id ?? null; 
         if ( this.id === null ) {
-            alert('ユーザIDの読み込みに失敗しました。');
+            alert(getMessage.FTE14001);
             return resolve();
         }
 
@@ -102,8 +102,8 @@ getEditorData() {
 setButton() {
     // ボタン追加
     const className = 'dialogButton itaButton popup';
-    const settingButton = fn.html.button( fn.html.icon('gear'), className, { kind: 'llmSetting', action: 'default', title: '開発支援設定'});
-    const openButton = fn.html.button( fn.html.icon('stick'), className, { kind: 'llmOpen', action: 'default', title: '開発支援を開く', disabled: 'disabled'});
+    const settingButton = fn.html.button( fn.html.icon('gear'), className, { kind: 'llmSetting', action: 'default', title: getMessage.FTE14002});
+    const openButton = fn.html.button( fn.html.icon('stick'), className, { kind: 'llmOpen', action: 'default', title: getMessage.FTE14003, disabled: 'disabled'});
     const button = `
     <li class="dialogFooterMenuItem" style="margin-left: auto;">${settingButton}</li>
     <li class="dialogFooterMenuItem">${openButton}</li>`;
@@ -182,13 +182,13 @@ openSupportSettingModalConfig = {
     position: 'center',
     width: '640px',
     header: {
-        title: '開発支援設定',
+        title: getMessage.FTE14002,
     },
     footer: {
         button: {
-            save: { text: '設定更新', action: 'positive', className: 'dialogPositive'},
-            close: { text: '閉じる', action: 'normal'},
-            delete: { text: '設定削除', action: 'danger', className: 'dialogPositive'}
+            save: { text: getMessage.FTE14004, action: 'positive', className: 'dialogPositive'},
+            close: { text: getMessage.FTE14005, action: 'normal'},
+            delete: { text: getMessage.FTE14006, action: 'danger', className: 'dialogPositive'}
         }
     }
 }
@@ -236,7 +236,7 @@ async openSupportSettingModal() {
             modalClose();
         },
         delete: async () => {
-            if ( confirm('開発支援設定を削除しますか？') ) {
+            if ( confirm(getMessage.FTE14007) ) {
                 await this.db.delete();
                 this.setting = {
                     assistant: ''
@@ -260,13 +260,13 @@ async openSupportSettingModal() {
     const html = `
     <div class="dialogBody">
         <div class="commonSection">
-            <div class="commonTitle">AIアシスタント</div>
+            <div class="commonTitle">${getMessage.FTE14008}</div>
             <div class="commonBody">
                 <div class="commonInputGroup">
                     <table class="commonInputTable">
                         <tbody class="commonInputTbody">
                             <tr class="commonInputTr">
-                                <th class="commonInputTh"><div class="commonInputTitle">AI選択</div></th>
+                                <th class="commonInputTh"><div class="commonInputTitle">${getMessage.FTE14009}</div></th>
                                 <td class="commonInputTd">
                                     <select class="input select aiSelect" name="aiSelect">
                                         <option value=""></option>
@@ -308,7 +308,7 @@ async openSupportSettingModal() {
 
     // モデルリスト読込
     settingModal.$.dialog.on('click', '.modelSelectButton', async ( e ) => {
-        let process = fn.processingModal('モデルリスト読込');
+        let process = fn.processingModal(getMessage.FTE14010);
         const assistant = settingModal.$.dialog.find('.aiSelect').val();
         const apiKey = settingModal.$.dialog.find('[name="apiKey"]').val();
         await this.getModelList( apiKey, assistant );
@@ -362,7 +362,7 @@ aiAssistantSettingHtml( assistant ) {
         }
     }
     return `
-    <div class="commonTitle">${this.aiAssistantList[assistant]} 設定</div>
+    <div class="commonTitle">${this.aiAssistantList[assistant]} ${getMessage.FTE14011}</div>
     <div class="commonBody">
         <div class="commonInputGroup">
             <table class="commonInputTable">
@@ -390,7 +390,7 @@ createModelListHtml( assistant ) {
             ${selectHtml}
         </div>
         <div class="inputListButton">
-            ${fn.html.button( fn.html.icon('update01'), 'itaButton button popup modelSelectButton', { action: 'default', title: 'モデルリスト読込'})}
+            ${fn.html.button( fn.html.icon('update01'), 'itaButton button popup modelSelectButton', { action: 'default', title: getMessage.FTE14010})}
         </div>
     </div>`;
 }
@@ -441,7 +441,7 @@ async getModelList( apiKey, assistant ) {
         if ( error.message ) {
             alert( error.message );
         } else {
-            alert('モデル情報が取得できませんでした。')
+            alert(getMessage.FTE14012)
         }
         this.modelList[ assistant ] = [];
     }
@@ -457,7 +457,7 @@ async getModelList( apiKey, assistant ) {
 ##################################################
 */
 async openSupport() {
-    let process = fn.processingModal('開発支援読込中');
+    let process = fn.processingModal(getMessage.FTE14013);
 
     // Setup
     this.operation = false;
@@ -470,7 +470,7 @@ async openSupport() {
         if ( error.message) {
             alert( error.message );
         } else {
-            alert('AIアシスタントの初期化に失敗しました。');
+            alert(getMessage.FTE14014);
         }
     }
 
@@ -496,8 +496,8 @@ setSupportArea() {
     const assistant = this.setting.assistant;
     const title = this.aiAssistantList[ assistant ];
     const className = 'dialogButton itaButton popup';
-    const closeButton = fn.html.iconButton('cross', '閉じる', className, { kind: 'llmClose', action: 'normal', title: '開発支援を閉じる'});
-    const historyDownloadButton = fn.html.button( fn.html.icon('download'), className, { kind: 'historyDownload', action: 'restore', title: '会話履歴ダウンロード'});
+    const closeButton = fn.html.iconButton('cross', getMessage.FTE14005, className, { kind: 'llmClose', action: 'normal', title: getMessage.FTE14015});
+    const historyDownloadButton = fn.html.button( fn.html.icon('download'), className, { kind: 'historyDownload', action: 'restore', title: getMessage.FTE14016});
     const html = `
     <div class="subDialogMain dialogMain dialogAnimation">
         <div class="dialogHeader subDialogHeader">
@@ -568,10 +568,10 @@ mainHtml() {
         </div>
         <div class="developmentSupportInputBlock">
             <div class="developmentSupportInputTextBlock">
-                ${fn.html.textarea('developmentSupportInput', '', 'developmentSupportInput', {'placeholder': 'Enterでメッセージを送信します。Shift+Enterで改行できます。'}, true )}
+                ${fn.html.textarea('developmentSupportInput', '', 'developmentSupportInput', {'placeholder': getMessage.FTE14017}, true )}
             </div>
             <div class="developmentSupportInputFileBlock">
-                ${fn.html.button( fn.html.icon('plus'), 'developmentSupportInputFile itaButton button popup', { action: 'positive', title: 'コード添付'})}
+                ${fn.html.button( fn.html.icon('plus'), 'developmentSupportInputFile itaButton button popup', { action: 'positive', title: getMessage.FTE14018})}
             </div>
             <div class="developmentSupportInputSubmitBlock">
                 ${fn.html.button( fn.html.icon('send'), 'developmentSupportInputSubmit itaButton button', { action: 'positive'})}
@@ -587,7 +587,7 @@ mainHtml() {
 initialMessageHtml() {
     return ``
     + `<div class="developmentSupportInitialMessage">`
-        + `ご用件をお伺いしてもよろしいでしょうか？`
+        + `${getMessage.FTE14019}`
     + `</div>`;
 }
 /*
