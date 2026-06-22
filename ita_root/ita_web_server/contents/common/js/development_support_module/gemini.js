@@ -88,7 +88,7 @@ getModelList( apiKey ) {
                 } else if ( data.error ) {
                     reject( data.error );
                 } else {
-                    reject({ message: 'モデル情報が取得できませんでした。'});
+                    reject({ message: getMessage.FTE14012});
                 }
             })
             // 例外処理
@@ -111,10 +111,7 @@ getChatHistory() {
 ##################################################
 */
 setModel( modelName = '') {
-    const systemInstruction = [
-        "あなたは日本語で回答するAIアシスタントです。",
-        //"あなたは回答の冒頭に「Geminiからの回答は」とつけます。"
-    ];
+    const systemInstruction = getMessage.FTE14104;
     // const systemInstruction = [
     //     'あなたは親切なインフラエンジニアです。',
     //     'Ansible Playbookの記述方法を教えるのがあなたの仕事です。',
@@ -142,15 +139,15 @@ setModel( modelName = '') {
 */
 setting = {
     apiKey: {
-        title: 'API KEY',
+        title: getMessage.FTE14101,
         type: 'password'
     },
     modelSelect: {
-        title: 'モデル選択',
+        title: getMessage.FTE14102,
         type: 'modelSelect'
     },
     modelDefault: {
-        title: 'モデル初期値',
+        title: getMessage.FTE14103,
         type: 'modelDefault'
     }
 }
