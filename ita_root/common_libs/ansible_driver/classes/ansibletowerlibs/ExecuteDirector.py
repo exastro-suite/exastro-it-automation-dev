@@ -307,12 +307,21 @@ class ExecuteDirector():
             #     self.errorLogOut(errorMessage)
             #     return -1, TowerHostList
 
+            # SCM用認証情報生成
+            scm_credentialid = self.create_scm_credential(execution_no, GitObj, OrganizationId)
+            if scm_credentialid == -1:
+                return -1, TowerHostList
+
+            key_id = "SCMCredentialId"
+            self.addAACCreateObjectID(key_id, scm_credentialid)
+
             # project生成  scmタイプ:git
             addParam = {}
             addParam["scm_type"] = AnsibleTowerRestApiProjects.SCMTYPE_GIT
-            addParam["scm_url"] = GitObj.get_http_repo_url(proj_name)
+            addParam["scm_url"] = GitObj.get_http_repo_url_scm(proj_name)
             addParam['organization'] = OrganizationId
             addParam['execution_no'] = execution_no
+            addParam['credential'] = scm_credentialid
 
             projectId = self.create_project(addParam)
             if projectId == -1:
@@ -474,6 +483,11 @@ class ExecuteDirector():
 
         # /api/v2/credentials/(vault credential id)/
         ret = self.cleanUpVaultCredential()
+        if not ret:
+            allResult = False
+
+        # /api/v2/credentials/(scm credential id)/
+        ret = self.cleanUpSCMCredential()
         if not ret:
             allResult = False
 
@@ -1480,6 +1494,35 @@ class ExecuteDirector():
 
         return credentialId
 
+    def create_scm_credential(self, execution_no, gitlabobj, organizationid):
+
+        param = {}
+        param['organization'] = organizationid
+        param['execution_no'] = execution_no
+        param['username'] = gitlabobj._GitLabAgent__user
+        param['token'] = gitlabobj._GitLabAgent__token
+
+        response_array = AnsibleTowerRestApiCredentials.git_post_basic(self.restApiCaller, param)
+        if not response_array['success']:
+            self.errorLogOut("Faild to post scm credential.")
+            errormessage = g.appmsg.get_api_message("MSG-10678")
+            self.errorLogOut(errormessage)
+            # HTTPの情報をUIに表示
+            self.RestResultLog(self.restApiCaller.getRestResultList())
+            return -1
+
+        if "id" not in response_array['responseContents']:
+            self.errorLogOut("No scm credential id.")
+            errormessage = g.appmsg.get_api_message("MSG-10678")
+            self.errorLogOut(errormessage)
+            # HTTPの情報をUIに表示
+            self.RestResultLog(self.restApiCaller.getRestResultList())
+            return -1
+
+        vault_credentialid = response_array['responseContents']['id']
+
+        return vault_credentialid
+
     def createVaultCredential(self, execution_no, vault_password, OrganizationId):
 
         param = {}
@@ -1773,6 +1816,15 @@ class ExecuteDirector():
 
         AACCreateObjectID = self.getAACCreateObjectID()
         response_array = AnsibleTowerRestApiCredentials.deleteVault(self.restApiCaller, AACCreateObjectID)
+        if not response_array['success']:
+            return False
+
+        return True
+
+    def cleanUpSCMCredential(self):
+
+        AACCreateObjectID = self.getAACCreateObjectID()
+        response_array = AnsibleTowerRestApiCredentials.deleteSCM(self.restApiCaller, AACCreateObjectID)
         if not response_array['success']:
             return False
 
