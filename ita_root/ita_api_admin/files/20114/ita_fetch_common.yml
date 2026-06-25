@@ -1,0 +1,30 @@
+---
+# ============================================================================
+# 認証処理: リフレッシュトークンからアクセストークンを取得
+# ============================================================================
+# リフレッシュトークンを使用してアクセストークンを取得します。
+# アクセストークンは後続のAPI呼び出しで使用されます。
+- name: Get Access Token from Refresh Token
+  uri:
+    url: "{{ __external_url__ }}/auth/realms/master/protocol/openid-connect/token"
+    headers:
+      Content-Type: "application/x-www-form-urlencoded"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      client_id: "_platform-api"
+      grant_type: "refresh_token"
+      refresh_token: "{{ GBL_ITA_REFRESH_TOKEN }}"  # _service_account_refresh_token__　-> GBL_ITA_REFRESH_TOKEN(仮)
+    status_code: 200
+    return_content: yes
+  register: token_result
+  until: token_result.status == 200
+  retries: 3
+  delay: 5
+  delegate_to: localhost
+  failed_when: token_result.status is not defined or token_result.status != 200
+
+- name: Set access token
+  set_fact:
+    ita_access_token: "{{ token_result.json.access_token }}"
+  delegate_to: localhost
