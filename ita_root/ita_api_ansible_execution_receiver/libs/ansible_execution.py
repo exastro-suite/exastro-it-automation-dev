@@ -934,16 +934,17 @@ def get_populated_data_path_aap(objdbca, organization_id, workspace_id, executio
     conductor_instance_no = None
 
     # 作業インスタンス取得
-    where = 'WHERE  DISUSE_FLAG = %s AND EXECUTION_NO = %s'
+    where = 'WHERE DISUSE_FLAG = %s AND EXECUTION_NO = %s'
     parameter = ['0', execution_no]
     ret = objdbca.table_select(t_exec_sts_inst, where, parameter)
     if ret and len(ret) == 1:
         conductor_instance_no = ret[0].get("CONDUCTOR_INSTANCE_NO", None)
 
     # パス定義
-    tmp_base_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/"
+    # 並列で実行される可能性があるため、/tmp配下の使用は重複しないようにsecrets.token_hex(4)使用
+    tmp_base_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}_{secrets.token_hex(4)}/"  # noqa: F405
     conductor_dir_path = os.path.join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, "driver", "conductor", conductor_instance_no) if conductor_instance_no else None
-    tmp_conductor_dir_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/conductor/"
+    tmp_conductor_dir_path = f"{tmp_base_path}/conductor/"
     gztar_path = f"{tmp_base_path}/{execution_no}.tar.gz"
 
     try:
@@ -982,6 +983,7 @@ def get_populated_data_path_aap(objdbca, organization_id, workspace_id, executio
         raise
     finally:
         # tmp_conductor_dir_path の初期化
+        # tmp_pathは @api_filter_download_temporary_file で削除する
         retry_rmtree(tmp_conductor_dir_path)  # noqa: F405
 
         # tar.gz 作成エラー確認用（実行エージェントのものを引継ぎ）
@@ -1015,9 +1017,11 @@ def update_result_aap(objdbca, organization_id, workspace_id, execution_no, file
     if ret and len(ret) == 1:
         conductor_instance_no = ret[0].get("CONDUCTOR_INSTANCE_NO", None)
 
+    # パス定義
+    # 並列で実行される可能性があるため、/tmp配下の使用は重複しないようにsecrets.token_hex(4)使用
     out_directory_path = os.path.join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, "driver", "ansible", driver_id, execution_no, "out")
     in_directory_path = os.path.join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, "driver", "ansible", driver_id, execution_no, "in")
-    tmp_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}/"
+    tmp_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}_{secrets.token_hex(4)}/"  # noqa: F405
 
     if conductor_instance_no:
         conductor_directory_path = os.path.join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, "driver", "conductor", conductor_instance_no)
@@ -1028,7 +1032,6 @@ def update_result_aap(objdbca, organization_id, workspace_id, execution_no, file
         #  'out_tar_data': '/tmp/org1/ws2/driver/ansible/legacy/2ed69707-d211-4bb4-9c65-ec0165efddac/out.tar.gz',
         #  'parameters_file_tar_data': '/tmp/org1/ws2/driver/ansible/legacy/2ed69707-d211-4bb4-9c65-ec0165efddac/parameters_file.tar.gz',
         #  'parameters_tar_data': '/tmp/org1/ws2/driver/ansible/legacy/2ed69707-d211-4bb4-9c65-ec0165efddac/parameter.tar.gz'}
-        g.applogger.debug("update_result file_path:" + str(file_path))
         for file_key, record_file_paths in file_path.items():
 
             retry_makedirs(tmp_path + file_key)  # noqa: F405
