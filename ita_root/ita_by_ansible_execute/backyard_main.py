@@ -57,12 +57,6 @@ def main_logic(common_db):
     """
     main logic
     """
-    container_base = os.getenv('CONTAINER_BASE')
-    if container_base == 'docker':
-        ansibleAg = DockerMode()
-    else:
-        ansibleAg = KubernetesMode()
-
     # メンテナンスモードのチェック
     try:
         maintenance_mode = get_maintenance_mode_setting()
@@ -75,6 +69,12 @@ def main_logic(common_db):
         g.applogger.error("[timestamp={}] {}".format(str(get_iso_datetime()), arrange_stacktrace_format(t)))
         g.applogger.error(g.appmsg.get_log_message("BKY-00008", []))
         return False
+
+    container_base = os.getenv('CONTAINER_BASE')
+    if container_base == 'docker':
+        ansibleAg = DockerMode()
+    else:
+        ansibleAg = KubernetesMode()
 
     # システム全体の同時実行数取得
     all_execution_limit = get_all_execution_limit("ita.system.ansible.execution_limit")
