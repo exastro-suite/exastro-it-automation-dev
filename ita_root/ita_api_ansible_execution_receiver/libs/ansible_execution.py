@@ -762,13 +762,15 @@ def create_file_path(connexion_request, tmp_path, execution_no):
     return True, parameters, file_paths
 
 
-def create_file_path_aap(connexion_request, tmp_path, execution_no, driver_id):
+def create_file_path_aap(connexion_request, tmp_path, execution_no, driver_id, para_id):
     """
         base64をtarファイルに変換する
         ARGS:
             connexion_request: connexion.request
             tmp_path: ファイル格納先
             execution_no: 作業番号
+            driver_id: DriverID(legacy,pioneer,legacy_role)
+            para_id: secrets.token_hex(4)→1接続で共通利用
         RETRUN:
             bool, parameters, file_paths
     """
@@ -776,12 +778,8 @@ def create_file_path_aap(connexion_request, tmp_path, execution_no, driver_id):
     parameters = []
     file_paths = {}
 
-    if driver_id == "legacy":
-        tmp_path = tmp_path + "/driver/ansible/legacy/" + execution_no
-    elif driver_id == "pioneer":
-        tmp_path = tmp_path + "/driver/ansible/pioneer/" + execution_no
-    elif driver_id == "legacy_role":
-        tmp_path = tmp_path + "/driver/ansible/legacy_role/" + execution_no
+    # 並列で実行される可能性があるため、/tmp配下の使用は重複しないようにsecrets.token_hex(4)使用
+    tmp_path = f"{tmp_path}/driver/ansible/{driver_id}/{execution_no}_{para_id}"  # noqa: F405
 
     if connexion_request.files:
         # ファイルが保存できる容量があるか確認
@@ -925,8 +923,11 @@ def get_populated_data_path_aap(objdbca, organization_id, workspace_id, executio
     """
         投入データ取得(AAPonCloud用)
         ARGS:
-            organization_id:OrganizationID
+            organization_id: OrganizationID
             workspace_id: WorkspaceID
+            execution_no: ExecutionNo
+            t_exec_sts_inst: 各Driverの作業一覧テーブル
+            driver_id: DriverID(legacy,pioneer,legacy_role)
         RETRUN:
             statusCode, {}, msg
     """
@@ -997,13 +998,17 @@ def get_populated_data_path_aap(objdbca, organization_id, workspace_id, executio
     return gztar_path
 
 
-def update_result_aap(objdbca, organization_id, workspace_id, execution_no, file_path, t_exec_sts_inst, driver_id):
+def update_result_aap(objdbca, organization_id, workspace_id, execution_no, file_path, t_exec_sts_inst, driver_id, para_id):
     """
         通知されたファイルの更新(AAPonCloud用)
         ARGS:
             organization_id:OrganizationID
             workspace_id: WorkspaceID
-            execution_no: 作業番号
+            execution_no: ExecutionNo
+            file_path: file_key, record_file_paths(/tmp/{org}/{ws}/driver/ansible/{driver_id}/{execution_no}/XX.tar.fz)
+            t_exec_sts_inst: 各Driverの作業一覧テーブル
+            driver_id: DriverID(legacy,pioneer,legacy_role)
+            para_id: secrets.token_hex(4)→1接続で共通利用
         RETRUN:
             statusCode, {}, msg
     """
@@ -1021,12 +1026,13 @@ def update_result_aap(objdbca, organization_id, workspace_id, execution_no, file
     # 並列で実行される可能性があるため、/tmp配下の使用は重複しないようにsecrets.token_hex(4)使用
     out_directory_path = os.path.join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, "driver", "ansible", driver_id, execution_no, "out")
     in_directory_path = os.path.join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, "driver", "ansible", driver_id, execution_no, "in")
-    tmp_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}_{secrets.token_hex(4)}/"  # noqa: F405
+    tmp_path = f"/tmp/{organization_id}/{workspace_id}/driver/ansible/{driver_id}/{execution_no}_{para_id}/"  # noqa: F405
 
     if conductor_instance_no:
         conductor_directory_path = os.path.join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, "driver", "conductor", conductor_instance_no)
 
     try:
+        g.applogger.info(f"{tmp_path=}")
         # file_pathの例
         # {'conductor_tar_data': '/tmp/org1/ws2/driver/ansible/legacy/2ed69707-d211-4bb4-9c65-ec0165efddac/conductor.tar.gz',
         #  'out_tar_data': '/tmp/org1/ws2/driver/ansible/legacy/2ed69707-d211-4bb4-9c65-ec0165efddac/out.tar.gz',

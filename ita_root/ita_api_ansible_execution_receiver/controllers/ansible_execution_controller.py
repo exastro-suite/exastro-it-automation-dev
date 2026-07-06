@@ -477,11 +477,13 @@ def update_result_data_aap(organization_id, workspace_id, execution_no, **kwargs
 
         # 各Driverパス
         tmp_path = "/tmp/" + organization_id + "/" + workspace_id
+        # 並列で実行される可能性があるため、/tmp配下の使用は重複しないようにsecrets.token_hex(4)を使用する
+        para_id = secrets.token_hex(4)  # noqa: F405
 
-        retBool, parameters, file_paths = create_file_path_aap(connexion.request, tmp_path, execution_no, driver_id)  # noqa: F405
+        retBool, parameters, file_paths = create_file_path_aap(connexion.request, tmp_path, execution_no, driver_id, para_id)  # noqa: F405
 
         # 作業実行関連のメニューの基本情報および項目情報の取得
-        result_data = update_result_aap(objdbca, organization_id, workspace_id, execution_no, file_paths, t_exec_sts_inst, driver_id)  # noqa: F405
+        result_data = update_result_aap(objdbca, organization_id, workspace_id, execution_no, file_paths, t_exec_sts_inst, driver_id, para_id)  # noqa: F405
     except Exception as e:
         raise e
     finally:
