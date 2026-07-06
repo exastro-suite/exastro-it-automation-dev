@@ -160,7 +160,7 @@ def backyard_main(organization_id, workspace_id):
             raise Exception("More than one record in if_info.")
 
         # Ansible Tower以外は処理中止
-        if ifInfoRows[0]['ANSIBLE_EXEC_MODE'] != AnscConst.DF_EXEC_MODE_AAC:
+        if ifInfoRows[0]['ANSIBLE_EXEC_MODE'] != AnscConst.DF_EXEC_MODE_AAC and ifInfoRows[0]['ANSIBLE_EXEC_MODE'] != AnscConst.DF_EXEC_MODE_AAP_CLOUD:
             return 0
 
         if ('ANSTWR_AUTH_TOKEN' not in ifInfoRows[0] or ifInfoRows[0]['ANSTWR_AUTH_TOKEN'] is None or len(ifInfoRows[0]['ANSTWR_AUTH_TOKEN'].strip()) <= 0) \
