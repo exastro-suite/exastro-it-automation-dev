@@ -90,7 +90,7 @@ def AnsibleTowerExecution(
             process_has_error = True
             error_flag = 1
 
-            g.applogger.info(f"Faild to check api to Controller / Platform Gateway .")
+            g.applogger.info("Failed to check api to Controller / Platform Gateway .")
 
         workflowTplId = -1
         director = None
