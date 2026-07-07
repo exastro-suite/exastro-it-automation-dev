@@ -4299,7 +4299,12 @@ editCellHtml( item, columnKey ) {
             case 'IDColumn': case 'LinkIDColumn': case 'RoleIDColumn': case 'UserIDColumn':
             case 'EnvironmentIDColumn': case 'JsonIDColumn': case 'NotificationIDColumn':
             case 'ExecutionEnvironmentDefinitionIDColumn': case 'MultiSelectIDColumn':
-                return fn.cv( v, '');
+                if ( inputItem === '3') {
+                    // 非表示カラムなら値をvalueに入れるためエスケープする
+                    return fn.cv( v, '', true );
+                } else {
+                    return fn.cv( v, '');
+                }
             case 'FilterConditionSettingColumn': case 'ConclusionEventSettingColumn':
                 if ( !tb.partsFlag ) {
                     return fn.cv( v, '', true );

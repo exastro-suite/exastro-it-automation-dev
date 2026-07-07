@@ -29,7 +29,7 @@ const fn = ( function() {
     'use strict';
 
     // バージョン
-    const version = '2.8.0';
+    const version = '2.9.0';
 
     // AbortController
     const controller = new AbortController();
@@ -2056,12 +2056,17 @@ html: {
                     + `<div class="inputTextWidthAdjustmentText">${value}</div>`
                 + `</div>`;
             }
-        } else {
+        } else if ( option.textarea === true ) {
             input += `<div class="textareaAdjustmentWrap inputPasswordTextareaAdjustmentWrap">`
                 + `<textarea spellcheck="false" wrap="soft" ${attr.join(' ')}>${value}</textarea>`
                 + `<div class="mask textareaAdjustmentText textareaWidthAdjustmentText">${value}</div>`
                 + `<div class="mask textareaAdjustmentText textareaHeightAdjustmentText">${value}</div>`
             + `</div>`
+        } else {
+            input = ``
+                + `<div class="inputTextareaSizingWrap">`
+                    + `<textarea spellcheck="false" wrap="soft" ${attr.join(' ')}>${value}</textarea>`
+                + `</div>`;
         }
 
 
@@ -2170,22 +2175,27 @@ html: {
             + `<div class="inputButtonButtonWrap">${cmn.html.iconButton( button.icon, button.element, button.className, button.attr, button.toggle )}</div>`
         + `</div>`;
     },
-    textarea: function( className, value, name, attrs = {}, widthAdjustmentFlag ) {
+    textarea: function( className, value, name, attrs = {}, adjustmentFlag ) {
         const attr = inputCommon( null, name, attrs );
 
         className = classNameCheck( className, 'textarea input');
-        if ( widthAdjustmentFlag ) className.push('textareaAdjustment')
+        if ( adjustmentFlag && adjustmentFlag !== 'sizing') className.push('textareaAdjustment')
         attr.push(`class="${className.join(' ')}"` );
 
-        if ( widthAdjustmentFlag ) {
+        if ( adjustmentFlag === 'sizing') {
+            return ``
+            + `<div class="inputTextareaSizingWrap">`
+                + `<textarea spellcheck="false" wrap="soft" ${attr.join(' ')}>${value}</textarea>`
+            + `</div>`;
+        } else if ( adjustmentFlag ) {
             return ``
             + `<div class="textareaAdjustmentWrap">`
-                + `<textarea wrap="soft" ${attr.join(' ')}>${value}</textarea>`
+                + `<textarea spellcheck="false" wrap="soft" ${attr.join(' ')}>${value}</textarea>`
                 + `<div class="textareaAdjustmentText textareaWidthAdjustmentText">${value}</div>`
                 + `<div class="textareaAdjustmentText textareaHeightAdjustmentText">${value}</div>`
             + `</div>`
         } else {
-            return `<textarea wrap="off" ${attr.join(' ')}>${value}</textarea>`;
+            return `<textarea spellcheck="false" wrap="off" ${attr.join(' ')}>${value}</textarea>`;
         }
     },
     check: function( className, value, name, id, attrs = {}) {
@@ -3018,6 +3028,9 @@ setCommonEvents: function() {
                 $input.attr('type', 'password');
             }
         }
+        if ( this.classList.contains('inputPasswordTextarea') ) {
+            $input.input();
+        }
     });
 
     // パスワードテキストエリアの入力をinputに反映
@@ -3039,13 +3052,23 @@ setCommonEvents: function() {
     });
 
     // パスワード候補を初回クリックで出さないようにする
-    $body.on('pointerdown', '.inputPassword', function( e ){
+    $body.on('pointerdown.inputPassword', '.inputPassword', function( e ){
+        // inputPasswordTextarea、すでにアクティブ、typeをパスワードからテキスト変更時はスルー
+        if (
+            this.classList.contains('inputPasswordTextarea') ||
+            document.activeElement === this ||
+            this.type === 'text'
+        ) return;
         e.preventDefault();
-        const $input = $( this );
-
-        setTimeout( function(){
-            $input.focus();
+        setTimeout( () => {
+            this.focus();
         }, 1 );
+    });
+    // フォーカスが外れたら選択状態を解除
+    $body.on('blur.inputPassword', '.inputPassword', function(){
+        if ( this.setSelectionRange ) {
+            this.setSelectionRange(0, 0);
+        }
     });
 
     // 切替ボタン
@@ -3198,6 +3221,9 @@ textareaAdjustment: function() {
           $parent = $text.parent('.textareaAdjustmentWrap'),
           $width = $parent.find('.textareaWidthAdjustmentText'),
           $height = $parent.find('.textareaHeightAdjustmentText');
+
+    // textareaAdjustmentWrapが無ければ停止
+    if ( $parent.length === 0 ) return;
 
     // 空の場合、高さを求めるためダミー文字を入れる
     let value = fn.escape( $text.val() ).replace(/\n/g, '<br>').replace(/<br>$/g, '<br>!');
@@ -3483,6 +3509,16 @@ executeModalOpen: function( modalId, menu, executeConfig ) {
 
             // オペレーション選択
             modalInstance[ modalId ].$.dbody.find('.executeOperetionSelectButton').on('click', function(){
+                const operationId = modalInstance[ modalId ].$.dbody.find('.executeOperetionId').text();
+                const operationName = modalInstance[ modalId ].$.dbody.find('.executeOperetionName').text();
+                if ( operationId && operationName ) {
+                    executeConfig.operation.select = [{
+                        id: operationId,
+                        name: operationName
+                    }];
+                } else {
+                    executeConfig.operation.select = null;
+                }
                 cmn.selectModalOpen( 'operation', getMessage.FTE10050, menu, executeConfig.operation ).then(function( selectResult ){
                     if ( selectResult && selectResult[0] ) {
                         modalInstance[ modalId ].$.dbody.find('.executeOperetionId').text( selectResult[0].id );
