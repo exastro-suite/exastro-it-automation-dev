@@ -139,6 +139,10 @@ def wrapper_job(main_logic, organization_id=None, workspace_id=None, loop_count=
             count = count + 1
             time.sleep(interval)
 
+            # ハングアップ監視用に時刻を出力する
+            with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
+                f.write(str(int(time.time())))
+
 
 def organization_job(main_logic, organization_id=None, workspace_id=None):
     '''
@@ -191,10 +195,6 @@ def organization_job(main_logic, organization_id=None, workspace_id=None):
 
         # job for workspace
         try:
-            # ハングアップ監視用に時刻を出力する
-            with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
-                f.write(str(int(time.time())))
-
             is_not_maintenance_mode = True # メンテナンスモードでない場合はTrue
             if g.SERVICE_NAME not in ["ita-by-ansible-execute", "ita-by-terraform-cloud-ep-execute", "ita-by-terraform-cli-execute", "ita-by-menu-create", "ita-by-menu-export-import", "ita-by-excel-export-import"]:
                 try:
@@ -216,6 +216,10 @@ def organization_job(main_logic, organization_id=None, workspace_id=None):
                 main_logic_exec(organization_id, workspace_id)
 
                 del main_logic_exec
+
+                # ハングアップ監視用に時刻を出力する
+                with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
+                    f.write(str(int(time.time())))
         except AppException as e:
             # catch - raise AppException("xxx-xxxxx", log_format)
             print_exception_msg(e)
@@ -265,21 +269,19 @@ def wrapper_job_all_org(main_logic, loop_count=500):
             # set applogger.set_level: default:INFO / Use ITA_DB config value
             set_service_loglevel(common_db)
 
-            # ハングアップ監視用に時刻を出力する
-            with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
-                f.write(str(int(time.time())))
-
             main_logic_exec = main_logic
             main_logic_exec(common_db)
 
             common_db.db_disconnect()
+
+            # ハングアップ監視用に時刻を出力する
+            with open(os.environ.get('FILE_PATH_LIVENESS'), 'w') as f:
+                f.write(str(int(time.time())))
         except AppException as e:
             # catch - raise AppException("xxx-xxxxx", log_format)
-            print_exception_msg(e)
             app_exception(e)
         except Exception as e:
             # catch - other all error
-            print_exception_msg(e)
             exception(e)
 
         del main_logic_exec
