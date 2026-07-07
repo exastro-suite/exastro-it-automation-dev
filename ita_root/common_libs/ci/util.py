@@ -126,11 +126,9 @@ def wrapper_job(main_logic, organization_id=None, workspace_id=None, loop_count=
                     organization_job(main_logic, organization_id, workspace_id)
                 except AppException as e:
                     # catch - raise AppException("xxx-xxxxx", log_format)
-                    print_exception_msg(e)
                     app_exception(e)
                 except Exception as e:
                     # catch - other all error
-                    print_exception_msg(e)
                     exception(e)
 
         if count >= max:
@@ -222,11 +220,9 @@ def organization_job(main_logic, organization_id=None, workspace_id=None):
                     f.write(str(int(time.time())))
         except AppException as e:
             # catch - raise AppException("xxx-xxxxx", log_format)
-            print_exception_msg(e)
             app_exception(e)
         except Exception as e:
             # catch - other all error
-            print_exception_msg(e)
             exception(e)
 
         # delete environment of workspace
