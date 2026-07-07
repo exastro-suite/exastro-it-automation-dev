@@ -1,7 +1,7 @@
 __pycache__/
 common_libs/
+!tests/common_libs/
 messages/
-backyard/
 .env
 pytest.ini
 /tests/temp/*

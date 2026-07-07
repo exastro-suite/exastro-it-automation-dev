@@ -1509,7 +1509,16 @@ class ExecuteDirector():
         return credentialId
 
     def create_scm_credential(self, execution_no, gitlabobj, organizationid):
+        """Create SCM (Source Control Management) credential for GitLab integration.
 
+        Args:
+            execution_no (str): Execution number for the Ansible job.
+            gitlabobj: GitLab agent object containing authentication information.
+            organizationid (int): Organization ID in Ansible Automation Controller.
+
+        Returns:
+            int: SCM credential ID if successful, -1 if failed.
+        """
         param = {}
         param['organization'] = organizationid
         param['execution_no'] = execution_no
@@ -1836,7 +1845,14 @@ class ExecuteDirector():
         return True
 
     def cleanUpSCMCredential(self):
+        """Clean up SCM credential created for the current execution.
 
+        Deletes the SCM credential from Ansible Automation Controller
+        that was created for GitLab integration during the execution.
+
+        Returns:
+            bool: True if deletion successful, False otherwise.
+        """
         AACCreateObjectID = self.getAACCreateObjectID()
         response_array = AnsibleTowerRestApiCredentials.deleteSCM(self.restApiCaller, AACCreateObjectID)
         if not response_array['success']:
@@ -3149,19 +3165,20 @@ class ExecuteDirector():
         return ReturnMsg
 
     def split_exec_log(self, log_content):
-        """
-        ログ内容を3つのカテゴリに分類
-        各セクションの範囲を特定し分類する
+        """Split log content into three categories.
+
+        Identifies and classifies the range of each section in the execution log.
 
         Args:
-            log_content: exec.logファイルの内容（文字列）
+            log_content (str): Content of the exec.log file.
 
         Returns:
-            dict: {
-                'receiver': 文字列（receiver の include_tasks から次の include_tasks の直前まで）,
-                'sender': 文字列（sender の include_tasks からログの最後まで）,
-                'other': 文字列（その他全て、child_playbooks 等も含む）
-            }
+            dict: Dictionary containing three categories:
+                - 'receiver': String from receiver's include_tasks to just before
+                             the next include_tasks.
+                - 'sender': String from sender's include_tasks to the end of log.
+                - 'other': String containing everything else, including
+                          child_playbooks, etc.
         """
         lines = log_content.split('\n')
 
