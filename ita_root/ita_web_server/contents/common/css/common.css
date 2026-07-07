@@ -254,6 +254,10 @@ visibility: hidden;
 .textareaOverWrap > .textareaHeightAdjustmentText {
 white-space: normal!important;
 }
+.inputTextareaSizingWrap > .textarea {
+field-sizing: content;
+resize: none;
+}
 .inputColor {
 width: 80px;
 margin: 0; padding: 2px;
@@ -5180,6 +5184,7 @@ line-height: 1.5;
 word-break: break-all;
 }
 .commonInputGroup {
+overflow: auto;
 padding: 8px 16px;
 background-color: rgba( 255,255,255,.2 );
 border: 1px solid rgba( 0,0,0,.15 );
