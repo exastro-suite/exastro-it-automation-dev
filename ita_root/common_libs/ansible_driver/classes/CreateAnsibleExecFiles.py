@@ -10810,7 +10810,7 @@ class CreateAnsibleExecFiles():
 
         Returns:
             tuple: One of the following combinations:
-                - (True, None): On success.
+                - (True, uid): On success. uid is the Service Account user ID.
                 - (False, msg): On failure. msg is an error message string.
         """
         api_url = f"http://{os.environ.get('PLATFORM_API_HOST')}:{os.environ.get('PLATFORM_API_PORT')}/internal-api/{g.ORGANIZATION_ID}/platform/workspaces/{g.WORKSPACE_ID}/service-account-users"
@@ -10825,7 +10825,11 @@ class CreateAnsibleExecFiles():
         elif data.status_code != 200:
             msg = f"Internal API returned non-200 status: {data.status_code}, URL: {api_url}"
             return False, msg
-        return True, None
+        # ServiceAccount作成APIではUIDが返ってこないため、一覧APIから探す
+        result, uid_data = self.sa_exists_check(un)
+        if result is True:
+            return True, uid_data
+        return result, uid_data
 
     def refresh_tokens_check(self, un, id):
         """Check if a refresh token ID exists for a Service Account.
@@ -10925,6 +10929,8 @@ class CreateAnsibleExecFiles():
             result, sa_data = self.sa_create(un)
             if result is False:
                 return result, sa_data
+            # この時点でuid_dataは「f"{un} is not in ServiceAccountList"」である上、sa_dataにはSAのuidしか入らないので上書き
+            uid_data = sa_data
             result, token_data = self.refresh_tokens_new(uid_data)
             if result is False:
                 return result, token_data
