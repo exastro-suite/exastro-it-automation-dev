@@ -32,7 +32,6 @@
       Authorization: "Bearer {{ (__sa_accesstoken__.json | default({'access_token': ''})).access_token }}"
     method: GET
     dest: "{{ __conductor_workflowdir__ | dirname }}/__tmp_material.tar.gz"
-    return_content: yes
   delegate_to: localhost
   register: __populated_data__
   when: __conductor_id__ != "__undefinesymbol__"
