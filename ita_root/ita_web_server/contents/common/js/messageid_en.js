@@ -1050,6 +1050,8 @@ export function messageid_en() {
         'FTE14017': 'Press Enter to send the message. Press Shift+Enter to create a line break.',
         'FTE14018': 'Code attached',
         'FTE14019': 'How may I help you?',
+        'FTE14020': 'Copied to clipboard.',
+        'FTE14021': 'Failed to copy to the clipboard.',
         //gemini
         'FTE14101': 'API KEY',
         'FTE14102': 'Model Selection',

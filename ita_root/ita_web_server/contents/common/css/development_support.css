@@ -162,8 +162,20 @@ code {
     padding: 0 8px;
     background-color: var(--accentColor30);
     border-radius: 4px;
+    transition-duration: .2s;
 }
-
+.codeBlock  {
+    display: block;
+    overflow-x: auto;
+    padding: 1em;
+    background-color: rgba(0,0,0,.1);
+}
+.copyStart {
+    opacity: 0.5;
+}
+.codeClipboardCopyOk code {
+    cursor: copy;
+}
 
 .developmentSupportItemFile {
     margin-bottom: 8px !important;

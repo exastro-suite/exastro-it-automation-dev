@@ -156,7 +156,7 @@ openButtonCheck() {
 ##################################################
 */
 async getModule( assistant ) {
-    if ( assistant && ( this.module[ assistant ] === undefined || this.llm[ assistant ] === undefined )) {
+    if ( assistant && this.aiAssistantList[ assistant ] && ( this.module[ assistant ] === undefined || this.llm[ assistant ] === undefined )) {
         try {
             this.v = fn.getUiVersion();
             this.module[ assistant ]  = await import(`/_/ita/js/development_support_module/${assistant}.js?v=${this.v}`);
@@ -351,7 +351,7 @@ aiAssistantSettingHtml( assistant ) {
         const value = ( this.setting[ assistant ] )? this.setting[ assistant ][ key ] ?? '': '';
         switch ( item.type ) {
             case 'password':
-                html.push( this.createSettingRowHtml( key, title, fn.html.inputPassword('', value, key, {}, { textarea: true} )));
+                html.push( this.createSettingRowHtml( key, title, fn.html.inputPassword('', value, key, {}, { textarea: 'sizing'} )));
                 break;
             case 'modelSelect':
                 html.push( this.createSettingRowHtml( key, title, this.createModelListHtml( assistant ) ) );
@@ -659,6 +659,7 @@ loadingHtml() {
 */
 setEvents() {
     this.setSendMessageEvent();
+    this.setCodeCopyEvent();
 };
 /*
 ##################################################
@@ -706,6 +707,45 @@ setSendMessageEvent() {
 sendButtonDisabled( flag ) {
     this.$.send.prop('disabled', flag );
     this.$.file.prop('disabled', flag );
+}
+/*
+##################################################
+    コードコピー
+##################################################
+*/
+setCodeCopyEvent() {
+    // navigator.clipboardが使える場合のみ（https or localhost）
+    if ( navigator && navigator.clipboard ) {
+        this.$.chat.addClass('codeClipboardCopyOk');
+        const message = new Message();
+        this.$.chat.on('click', 'code', async ( e ) => {
+            const $code = $( e.currentTarget );
+            if ( $code.is('.copyStart') ) return;
+
+            const text = e.currentTarget.textContent || '';
+            if ( !text ) {
+                console.warn('copy text is empty', e.currentTarget );
+                return;
+            }
+
+            const previewLength = 50;
+            const preview = Array.from(text).length > previewLength
+                ? Array.from(text).slice(0, previewLength).join('') + '...'
+                : text;
+
+            $code.addClass('copyStart');
+            try {
+                await navigator.clipboard.writeText( text );
+                message.add('success', getMessage.FTE14020, preview, null, 1000 );
+            } catch ( err ) {
+                console.error( err );
+                message.add('danger', getMessage.FTE14021, preview, null, 1000 );
+            } finally {
+                await this.sleep( 1000 );
+                $code.removeClass('copyStart');
+            }
+        });
+    }
 }
 /*
 ##################################################
@@ -773,7 +813,15 @@ sendMessage( e ) {
 
             await this.sleep( 100 );
 
-            $supportMessage.find('.developmentSupportItemInner').html( this.md.render( supportMessage.text ) );
+            const $message = $supportMessage.find('.developmentSupportItemInner');
+            $message.html( this.md.render( supportMessage.text ) );
+            // classのついていないpre > codeに.codeBlockを付与
+            $message.find('pre > code').each( ( i, el ) => {
+                const $code = $( el );
+                if ( !$code.is('.hljs') )  {
+                    $code.addClass('codeBlock');
+                }
+            });
             this.scrollChatArea( $supportMessage );
 
             this.message.push( userMessage );
