@@ -919,7 +919,6 @@ def create_member_data_for_regist(objdbca, TFConst, temp_member_data_list):  # n
                         type_nest_data_json = json.dumps(type_nest_data)
                         if parent_member_data_json == type_nest_data_json:
                             target_key = parent_index
-                        if target_key is not None:
                             break
 
                     if target_key is None:
@@ -1056,7 +1055,6 @@ def part_member_data_for_regist(objdbca, TFConst, member_data_list):  # noqa: C9
                         type_nest_data_json = json.dumps(type_nest_data)
                         if parent_member_data_json == type_nest_data_json:
                             target_key = parent_index
-                        if target_key is not None:
                             break
 
                     if target_key is None:
