@@ -616,6 +616,11 @@ export function messageid_en() {
         'FTE05038' : "Terraform dedicated information",
         'FTE05039' : "Ansible Execution Agent information",
         'FTE05040' : "Execution environment",
+        'FTE05041' : "Status",
+        'FTE05042' : "Collection log",
+        'FTE05043' : "Collection status",
+        'FTE05044' : "Confirmation of execution list",
+        'FTE05045' : 'Execution list',
 
         // Compare
         'FTE06001' : "Compare setting selection",
