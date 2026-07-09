@@ -30,6 +30,7 @@
 // DashBoard           08001～09000
 // Terraform          09001～10000
 // Ui common           10001～11000
+// AI                  14001～15000
 
 
 export function messageid_en() {
@@ -1028,6 +1029,34 @@ export function messageid_en() {
         'FTE13045': 'Widen Range',
         'FTE13046': 'Set Range specification',
         'FTE13047': 'Clear',
+
+        //AI
+        'FTE14001': 'Failed to load user ID.',
+        'FTE14002': 'Development support settings',
+        'FTE14003': 'Open development support',
+        'FTE14004': 'Settings Update',
+        'FTE14005': 'Close',
+        'FTE14006': 'Delete settings',
+        'FTE14007': 'Do you want to remove the developer support settings?',
+        'FTE14008': 'AI Assistant',
+        'FTE14009': 'AI Selection',
+        'FTE14010': 'Load model list',
+        'FTE14011': 'setting',
+        'FTE14012': 'Model information could not be retrieved.',
+        'FTE14013': 'Loading development support',
+        'FTE14014': 'AI assistant initialization failed.',
+        'FTE14015': 'Close development support',
+        'FTE14016': 'Download conversation history',
+        'FTE14017': 'Press Enter to send the message. Press Shift+Enter to create a line break.',
+        'FTE14018': 'Code attached',
+        'FTE14019': 'How may I help you?',
+        'FTE14020': 'Copied to clipboard.',
+        'FTE14021': 'Failed to copy to the clipboard.',
+        //gemini
+        'FTE14101': 'API KEY',
+        'FTE14102': 'Model Selection',
+        'FTE14103': 'Model initial values',
+        'FTE14104': ['You are an AI assistant that will respond in English.','Questions other than translation will be answered in English, even if they are not in English.'],
     };
 
     return message;
