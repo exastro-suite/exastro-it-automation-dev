@@ -621,6 +621,11 @@ export function messageid_ja() {
         'FTE05038' : "Terraform利用情報",
         'FTE05039' : "Ansible Execution Agent利用情報",
         'FTE05040' : "実行環境",
+        'FTE05041' : "ステータス",
+        'FTE05042' : "収集ログ",
+        'FTE05043' : "収集状況",
+        'FTE05044' : "作業管理確認",
+        'FTE05045' : '作業管理',
 
         // 比較実行
         'FTE06001' : "比較設定選択",
