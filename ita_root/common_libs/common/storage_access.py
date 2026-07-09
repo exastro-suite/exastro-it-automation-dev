@@ -323,7 +323,7 @@ def file_read_retry(func):
                 else:
                     # retry分は、メッセージのみを出力
                     # For retry minutes, only the message is output
-                    g.applogger.info(print_exception_msg(e))
+                    print_exception_msg(e)
 
             if i == max:
                 break
