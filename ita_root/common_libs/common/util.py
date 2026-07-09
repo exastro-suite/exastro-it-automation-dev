@@ -1294,10 +1294,9 @@ def put_uploadfiles_jnl(ws_db, config_file_path, src_dir, dest_dir):
 
     return True
 
-
 lasttime_get_maintenance_mode = None
 last_maintenance_mode_setting = None
-interval_get_maintenance_mode = int(os.environ.get('INTERVAL_GET_MAINTENANCE_MODE', 5))
+interval_get_maintenance_mode = int(os.environ.get('INTERVAL_GET_MAINTENANCE_MODE', 30))
 
 def get_maintenance_mode_setting():
     """
