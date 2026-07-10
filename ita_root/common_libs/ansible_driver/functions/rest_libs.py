@@ -334,8 +334,7 @@ def execution_scram(objdbca, driver_id, execution_no):
                                      inforow["ANSTWR_AUTH_TOKEN"],
                                      proxySetting,
                                      driver_id)
-            objTower.authorize()
-            objTower.check_api_info()
+
             response_array = AnsibleTowerRestApiWorkflowJobs().cancelRelatedCurrnetExecution(objTower, execution_no)
             if response_array['success'] is False:
                 # エラー詳細が付加されているか判定
