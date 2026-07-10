@@ -26,7 +26,7 @@ from common_libs.loadtable import *  # noqa: F403
 from common_libs.column import *  # noqa: F403
 
 
-def collect_menu_info(objdbca, menu, menu_record={}, menu_table_link_record={}, privilege='1'):  # noqa: C901
+def collect_menu_info(objdbca, menu, menu_record={}, menu_table_link_record={}, privilege='1', objdborg=None):  # noqa: C901
     """
         メニュー情報の取得
         ARGS:
@@ -35,6 +35,7 @@ def collect_menu_info(objdbca, menu, menu_record={}, menu_table_link_record={}, 
             menu_record: メニュー管理のレコード
             menu_table_link_record: メニュー-テーブル紐付管理のレコード
             privilege: メニューに対する権限
+            objdborg: DB接クラス  DBConnectOrg()
         RETRUN:
             info_data
     """
@@ -325,17 +326,28 @@ def collect_menu_info(objdbca, menu, menu_record={}, menu_table_link_record={}, 
         menu_info_data['columns_input'] = columns_input
         menu_info_data['columns_view'] = columns_view
 
+    # オーガナイゼーションからai_assistantドライバの情報取得
+    # objdborgの中身がない場合はFalseを返す
+    ai_assistant_info_data = {}
+    if objdborg:
+        org_noinstall_driver = objdborg.get_no_install_driver()
+        ai_assistant_enabled = org_noinstall_driver is not None and 'ai_assistant' not in org_noinstall_driver
+        ai_assistant_info_data["enabled"] = ai_assistant_enabled
+    else:
+        ai_assistant_info_data["enabled"] = False
+
     info_data = {
         'menu_info': menu_info_data,
         'column_info': column_info_data,
         'column_group_info': column_group_info_data,
         'custom_menu': {},
+        "ai_assistant": ai_assistant_info_data
     }
 
     return info_data
 
 
-def collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_list):
+def collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_list, objdborg=None):
     """
         メニュー情報の取得(独自メニュー用)
         ARGS:
@@ -344,6 +356,7 @@ def collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_
             menu_record: メニュー管理のレコード
             privilege: メニューに対する権限
             custom_file_list: 独自メニュー用素材
+            objdborg: DB接クラス  DBConnectOrg()
         RETRUN:
             info_data
     """
@@ -422,11 +435,22 @@ def collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_
         if custom_file_list['item'] is None:
             custom_file_list = {}
 
+    # オーガナイゼーションからai_assistantドライバの情報取得
+    # objdborgの中身がない場合はFalseを返す
+    ai_assistant_info_data = {}
+    if objdborg:
+        org_noinstall_driver = objdborg.get_no_install_driver()
+        ai_assistant_enabled = org_noinstall_driver is not None and 'ai_assistant' not in org_noinstall_driver
+        ai_assistant_info_data["enabled"] = ai_assistant_enabled
+    else:
+        ai_assistant_info_data["enabled"] = False
+    
     info_data = {
         'menu_info': menu_info_data,
         'column_info': {},
         'column_group_info': {},
-        'custom_menu': custom_file_list
+        'custom_menu': custom_file_list,
+        "ai_assistant": ai_assistant_info_data
     }
 
     return info_data

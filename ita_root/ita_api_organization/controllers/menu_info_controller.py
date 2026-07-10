@@ -13,7 +13,7 @@
 #   limitations under the License.
 
 from common_libs.common import *  # noqa: F403
-from common_libs.common.dbconnect import DBConnectWs
+from common_libs.common.dbconnect import DBConnectWs, DBConnectOrg
 from common_libs.common import menu_info
 from common_libs.common.mongoconnect.mongoconnect import MONGOConnectWs
 from common_libs.api import api_filter
@@ -77,7 +77,8 @@ def get_menu_info(organization_id, workspace_id, menu):  # noqa: E501
     """
     # DB接続
     objdbca = DBConnectWs(workspace_id)  # noqa: F405
-
+    objdborg = DBConnectOrg(organization_id)  # noqa: F405
+    
     try:
         # メニューの存在確認
         menu_record = check_menu_info(menu, objdbca)
@@ -91,14 +92,15 @@ def get_menu_info(organization_id, workspace_id, menu):  # noqa: E501
 
         # メニューの基本情報および項目情報の取得
         if len(custom_file_list) == 0:
-            data = menu_info.collect_menu_info(objdbca, menu, menu_record, menu_table_link_record, privilege)
+            data = menu_info.collect_menu_info(objdbca, menu, menu_record, menu_table_link_record, privilege, objdborg)
         else:
             # 独自メニュー用の基本情報および項目情報の取得
-            data = menu_info.collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_list)
+            data = menu_info.collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_list, objdborg)
     except Exception as e:
         raise e
     finally:
         objdbca.db_disconnect()
+        objdborg.db_disconnect()
     return data,
 
 
