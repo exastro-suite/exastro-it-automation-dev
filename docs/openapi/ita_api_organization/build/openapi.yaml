@@ -110,6 +110,13 @@ paths:
                             $ref: '#/components/schemas/COLUMN_INFO'
                           menu_info:
                             $ref: '#/components/schemas/MENU_INFO'
+                          ai_assistant:
+                            additionalProperties:
+                              type: object
+                              properties:
+                                enabled:
+                                  description: Exastro AI Assistant 有効
+                                  type: boolean
         '401':
           description: Unauthorized
           content:

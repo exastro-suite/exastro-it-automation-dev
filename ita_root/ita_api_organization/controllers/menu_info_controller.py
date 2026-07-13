@@ -99,7 +99,7 @@ def get_menu_info(organization_id, workspace_id, menu):  # noqa: E501
         
         # オーガナイゼーションからai_assistantドライバの情報取得
         org_noinstall_driver = objdborg.get_no_install_driver()
-        ai_assistant_enabled = org_noinstall_driver is not None and 'ai_assistant' not in org_noinstall_driver
+        ai_assistant_enabled = org_noinstall_driver is None or 'ai_assistant' not in org_noinstall_driver
         data['ai_assistant'] = {
             'enabled': ai_assistant_enabled
         }
