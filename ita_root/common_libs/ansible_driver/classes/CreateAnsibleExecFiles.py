@@ -10656,7 +10656,7 @@ class CreateAnsibleExecFiles():
                 - (False, msg): On failure. msg is an error message string.
         """
         try:
-            SERVICE_ACCOUNT_USER = "aap_service_account_user"
+            SERVICE_ACCOUNT_USER = f"aap_service_account_user_{g.ORGANIZATION_ID}_{g.WORKSPACE_ID}"
             sa_data = json.loads(self.lv_ans_if_info["SERVICE_ACCOUNT_INFO"]) if self.lv_ans_if_info["SERVICE_ACCOUNT_INFO"] else {}
             sa_refresh_id = sa_data["id"]
             expiresdate_str = sa_data["expiresdate"]
