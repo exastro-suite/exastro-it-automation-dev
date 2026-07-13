@@ -795,7 +795,9 @@ _EOF_
 
 check_args() {
     if [ "$1" = 0 ]; then
-        print_usage
+        echo "Error: missing command"
+        echo "Usage: setup.sh <install|uninstall> [options]"
+        echo "Try 'setup.sh --help' for more information."
         exit 2
     fi
 }
@@ -2061,7 +2063,9 @@ main() {
             break
             ;;
         *)
-            print_usage
+            echo "Error: unknown command '${SUB_COMMAND}'"
+            echo "Usage: setup.sh <install|uninstall> [options]"
+            echo "Try 'setup.sh --help' for more information."
             exit 2
             ;;
     esac
