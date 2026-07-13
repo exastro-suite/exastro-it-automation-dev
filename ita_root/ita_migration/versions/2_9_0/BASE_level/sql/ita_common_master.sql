@@ -4,7 +4,7 @@ SET ADDITIONAL_DRIVER = JSON_ARRAY_APPEND(
     '$', 
     JSON_OBJECT(
         'id', 'ai_assistant',
-        'name', 'Genarate AI Service',
+        'name', 'Exastro AI Assistant',
         'description_ja', '',
         'description_en', ''
     )

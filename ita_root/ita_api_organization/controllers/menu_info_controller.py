@@ -92,10 +92,18 @@ def get_menu_info(organization_id, workspace_id, menu):  # noqa: E501
 
         # メニューの基本情報および項目情報の取得
         if len(custom_file_list) == 0:
-            data = menu_info.collect_menu_info(objdbca, menu, menu_record, menu_table_link_record, privilege, objdborg)
+            data = menu_info.collect_menu_info(objdbca, menu, menu_record, menu_table_link_record, privilege)
         else:
             # 独自メニュー用の基本情報および項目情報の取得
-            data = menu_info.collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_list, objdborg)
+            data = menu_info.collect_custom_menu_info(objdbca, menu, menu_record, privilege, custom_file_list)
+        
+        # オーガナイゼーションからai_assistantドライバの情報取得
+        org_noinstall_driver = objdborg.get_no_install_driver()
+        ai_assistant_enabled = org_noinstall_driver is not None and 'ai_assistant' not in org_noinstall_driver
+        data['ai_assistant'] = {
+            'enabled': ai_assistant_enabled
+        }
+        
     except Exception as e:
         raise e
     finally:
