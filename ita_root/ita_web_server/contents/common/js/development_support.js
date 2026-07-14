@@ -138,13 +138,37 @@ openButtonCheck() {
     const assistant = this.setting.assistant;
     const setting =  this.setting[ assistant ];
     if ( setting ) {
-        // API KEYが文字列かつ空白以外
-        const apiKeyCheck = ( fn.typeof( setting.apiKey ) === 'string' && setting.apiKey !== '');
+        // 認証情報チェック（アシスタントごとに異なるフィールド）
+        let authCheck = false;
+
+        if ( this.llm[ assistant ] && this.llm[ assistant ].setting ) {
+            const settingFields = this.llm[ assistant ].setting;
+
+            // 各必須フィールドがすべて入力されているかチェック
+            authCheck = true;
+            for ( const key in settingFields ) {
+                const field = settingFields[ key ];
+                // required が false の場合はスキップ
+                if ( field.required === false ) continue;
+                // modelSelect, modelDefault はここではチェックしない
+                if ( field.type === 'modelSelect' || field.type === 'modelDefault' ) continue;
+
+                // 必須フィールドが空の場合は false
+                if ( !setting[ key ] || setting[ key ] === '' ) {
+                    authCheck = false;
+                    break;
+                }
+            }
+        } else {
+            // 後方互換性: apiKey フィールドのチェック（Gemini等）
+            authCheck = ( fn.typeof( setting.apiKey ) === 'string' && setting.apiKey !== '');
+        }
+
         // モデル選択が配列かつ1つ以上
         const modelSelectCheck = ( fn.typeof( setting.modelSelect ) === 'array' && setting.modelSelect.length );
         // モデル初期値がオブジェクトかつIDが文字列かつ空白以外
         const modelDefaultCheck = ( fn.typeof( setting.modelDefault ) === 'object' && fn.typeof( setting.modelDefault.id ) === 'string' && setting.modelDefault.id !== '');
-        const flag = ( apiKeyCheck && modelSelectCheck && modelDefaultCheck );
+        const flag = ( authCheck && modelSelectCheck && modelDefaultCheck );
         this.$.openButton.prop('disabled', !flag );
     } else {
         this.$.openButton.prop('disabled', true );
@@ -175,6 +199,7 @@ async getModule( assistant ) {
 */
 // アシスタントリスト（JSファイル名:表示名）
 aiAssistantList = {
+    'bedrock': 'Amazon Bedrock(Claude Code)',
     'gemini': 'Google Gemini',
 }
 // 設定モーダルコンフィグ
@@ -310,8 +335,28 @@ async openSupportSettingModal() {
     settingModal.$.dialog.on('click', '.modelSelectButton', async ( e ) => {
         let process = fn.processingModal(getMessage.FTE14010);
         const assistant = settingModal.$.dialog.find('.aiSelect').val();
+
+        // 各アシスタントの設定フィールドを取得
+        const settingFields = this.llm[ assistant ]?.setting ?? {};
+        const apiParam = {};
+
+        for ( const key in settingFields ) {
+            const value = settingModal.$.dialog.find(`[name="${key}"]`).val();
+            if ( value ) {
+                apiParam[ key ] = value;
+            }
+        }
+
+        // 後方互換性: apiKeyフィールドが存在する場合（Gemini等）
         const apiKey = settingModal.$.dialog.find('[name="apiKey"]').val();
-        await this.getModelList( apiKey, assistant );
+        if ( apiKey ) {
+            apiParam.apiKey = apiKey;
+        }
+
+        // Bedrock等の複数パラメータ、またはGeminiのapiKeyを渡す
+        const param = Object.keys(apiParam).length > 0 ? apiParam : apiKey;
+
+        await this.getModelList( param, assistant );
         settingModal.$.dialog.find('[data-key="modelSelect"] .inputListBody').html( this.createModelListSelectHtml( assistant ) );
         $setting.find('.modelSelect').select2();
         process.close();
@@ -352,6 +397,9 @@ aiAssistantSettingHtml( assistant ) {
         switch ( item.type ) {
             case 'password':
                 html.push( this.createSettingRowHtml( key, title, fn.html.inputPassword('', value, key, {}, { textarea: 'sizing'} )));
+                break;
+            case 'text':
+                html.push( this.createSettingRowHtml( key, title, fn.html.inputText('', value, key, {}, { textarea: 'sizing'} )));
                 break;
             case 'modelSelect':
                 html.push( this.createSettingRowHtml( key, title, this.createModelListHtml( assistant ) ) );
