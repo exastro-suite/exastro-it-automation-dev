@@ -1893,7 +1893,8 @@ setTableEvents() {
 
             const fileType = fn.fileTypeCheck( fileName );
             const option = {
-                endPoint: `/menu/${tb.params.menuNameRest}/${id}/${rest}/file/`
+                endPoint: `/menu/${tb.params.menuNameRest}/${id}/${rest}/file/`,
+                aiAssistantEnabled: tb.info.ai_assistant.enabled
             };
 
             // ファイルが空、かつ編集可能の場合はファイルを取得する
