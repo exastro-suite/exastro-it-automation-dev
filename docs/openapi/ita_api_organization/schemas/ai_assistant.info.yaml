@@ -12,9 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-additionalProperties:
-  type: object
-  properties:
-    enabled:
-      description: Exastro AI Assistant 有効
-      type: boolean
+type: object
+properties:
+  enabled:
+    description: Exastro AI Assistant 有効
+    type: boolean
