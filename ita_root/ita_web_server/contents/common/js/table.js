@@ -1619,7 +1619,12 @@ setTableEvents() {
                     option.endPoint += `journal/${journalId}/`;
                 }
                 try {
-                    file = await fn.getFile( option.endPoint, 'GET', null );
+                    const fileType = fn.fileTypeCheck( fileName );
+                    if ( fileType !== 'unsupported') {
+                        file = await fn.getFile( option.endPoint, 'GET', null );
+                    } else {
+                        file = '';
+                    }
                 } catch ( e ) {
                     if ( e !== 'break') {
                         console.error( e );
@@ -1897,7 +1902,7 @@ setTableEvents() {
             };
 
             // ファイルが空、かつ編集可能の場合はファイルを取得する
-            if ( tb.option.fileFlag === false && fileName !== '' && file === undefined && ( fileType === 'text' || fileType === 'image') ) {
+            if ( tb.option.fileFlag === false && fileName !== '' && file === undefined && fileType !== 'unsupported' ) {
                 try {
                     file = await fn.getFile( option.endPoint, 'GET', null );
                 } catch ( e ) {
@@ -4043,7 +4048,8 @@ viewCellHtml( item, columnKey, journal ) {
                     const restType = ( tb.mode !== 'history')? 'default': 'history';
                     attrs.push(`data-restType="${restType}"`);
                     const fileHtml = [`<a href="${value}" class="tableViewDownload" ${attrs.join(' ')}>${value}</a>`];
-                    if ( ['text', 'image'].indexOf( fn.fileTypeCheck( value ) ) !== -1 ) {
+                    const fileType = fn.fileTypeCheck( value );
+                    if ( fileType !== 'unsupported') {
                         fileHtml.push(`<button class="button filePreview popup" title="${getMessage.FTE00176}">${fn.html.icon('search')}</button>`);
                     }
                     return checkJournal( fileHtml.join('') );
@@ -4601,7 +4607,10 @@ editConfirmCellHtml( item, columnKey ) {
                 const id = parameter[ tb.idNameRest ];
                 if ( val !== '') {
                     const fileHtml = [`<a href="${val}" class="tableViewDownload" data-type="${data}" data-id="${id}" data-rest="${columnName}">${val}</a>`];
-                    if ( ['text', 'image'].indexOf( fn.fileTypeCheck( val ) ) !== -1 ) fileHtml.push(`<button class="button filePreview popup" title="${getMessage.FTE00176}">${fn.html.icon('search')}</button>`);
+                    const fileType = fn.fileTypeCheck( val );
+                    if ( fileType !== 'unsupported') {
+                        fileHtml.push(`<button class="button filePreview popup" title="${getMessage.FTE00176}">${fn.html.icon('search')}</button>`);
+                    }
                     return fileHtml.join('');
                 } else {
                     return '';
