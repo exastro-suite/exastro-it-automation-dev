@@ -44,6 +44,9 @@ def external_valid_menu_before(objdbca, objtable, option):
     current_parameter = option.get("current_parameter", {}).get("parameter")
     entry_parameter = option.get("entry_parameter", {}).get("parameter")
 
+    # 自レコード除外用の重複排除設定ID（更新/復活時は既存レコードのIDが入る。新規登録時はNone）
+    deduplication_setting_id = current_parameter.get("deduplication_setting_id") if current_parameter else None
+
     # 「登録」「更新」の場合、entry_parameterから各値を取得
     if cmd_type == "Register" or cmd_type == "Update":
         try:
@@ -63,6 +66,13 @@ def external_valid_menu_before(objdbca, objtable, option):
         condition_expression = current_parameter.get("condition_expression")
     else:
         return retBool, msg, option
+
+    # 冗長グループのイベント収集設定は、他の重複排除設定レコードと重複してはならない
+    duplicated_ids = get_duplicated_event_source_ids(objdbca, event_source_redundancy_group, deduplication_setting_id)
+    for duplicated_id in duplicated_ids:
+        # メッセージ用にイベント収集設定名を取得
+        event_collection_settings_name = get_event_collection_settings_name_by_id(objdbca, duplicated_id)
+        msg.append(g.appmsg.get_api_message("MSG-160004", [event_collection_settings_name]))
 
     # 条件のラベルと式は必ずどちらも入力する or どちらも入力しない
     check_link_flag = False
@@ -125,6 +135,103 @@ def external_valid_menu_before(objdbca, objtable, option):
         retBool = False
 
     return retBool, msg, option
+
+
+def external_valid_menu_after(objdbca, objtable, option):
+    """
+    メニューバリデーション(登録/更新後)
+    重複排除設定の有効化/無効化に合わせ、行ロック用テーブル(T_COMN_RECODE_LOCK_TABLE)の
+    ロックキー(重複排除設定ID)を用意/除去する。OASE Receiver側のロック取得がINSERTを
+    伴わず済む（＝gap lockに落ちない）ようにするのが目的。
+      - 有効化(Register/Restore) … ロックキーを INSERT
+      - 無効化(Discard/Delete)   … ロックキーを DELETE
+    ARGS:
+        objdbca :DB接続クラスインスタンス
+        objtable :メニュー情報、カラム紐付、関連情報
+        option :パラメータ、その他設定値
+    RETRUN:
+        retBool :True/ False
+        msg :エラーメッセージ
+        option :受け取ったもの
+    """
+    retBool = True
+    msg = ''
+    cmd_type = option.get("cmd_type")
+
+    # ロックキー(重複排除設定ID)を取得。
+    # 新規登録は発番済みの uuid、それ以外は既存レコード(current_parameter)から取得。
+    if cmd_type == "Register":
+        deduplication_setting_id = option.get("uuid")
+    else:
+        current_parameter = option.get("current_parameter", {}).get("parameter")
+        deduplication_setting_id = current_parameter.get("deduplication_setting_id") if current_parameter else None
+
+    if not deduplication_setting_id:
+        return retBool, msg, option
+
+    # 接頭辞 "OASE_DEDUPLICATION_"
+    lock_key = "OASE_DEDUPLICATION_" + deduplication_setting_id
+
+    if cmd_type in ("Register", "Restore"):
+        # 有効化：ロックキーをロックテーブルへ登録。
+        objdbca.sql_execute(
+            "INSERT INTO `T_COMN_RECODE_LOCK_TABLE` (`TABLE_NAME`) VALUES (%s)",
+            [lock_key]
+        )
+    elif cmd_type in ("Discard", "Delete"):
+        # 無効化：対応するロックキーの行を削除。
+        objdbca.sql_execute(
+            "DELETE FROM `T_COMN_RECODE_LOCK_TABLE` WHERE `TABLE_NAME` = %s",
+            [lock_key]
+        )
+
+    return retBool, msg, option
+
+
+def get_duplicated_event_source_ids(objdbca, event_source_redundancy_group, deduplication_setting_id):
+    """
+    冗長グループのイベント収集設定が、他の重複排除設定レコードと重複しているか確認する
+
+    入力の冗長グループに含まれるイベント収集設定IDのうち、他の有効な重複排除設定レコードの
+    冗長グループにも含まれているもの（＝レコードをまたいで重複しているID）を返す。
+
+    Args:
+        objdbca (object): DB接続クラスインスタンス
+        event_source_redundancy_group (list): 入力の冗長グループ（イベント収集設定IDのリスト）
+        deduplication_setting_id (str): 自レコードの重複排除設定ID（新規登録時はNone）
+    Returns:
+        list: 他レコードと重複しているイベント収集設定IDのリスト（入力順・重複なし）
+    """
+    # 入力が空なら重複チェック不要
+    if not event_source_redundancy_group:
+        return []
+
+    # 他の有効な重複排除設定レコードを取得（自レコードは除外）
+    if deduplication_setting_id is None:
+        where = "WHERE DISUSE_FLAG='0'"
+        param = []
+    else:
+        where = "WHERE DISUSE_FLAG='0' AND DEDUPLICATION_SETTING_ID <> %s"
+        param = [deduplication_setting_id]
+
+    records = objdbca.table_select(oaseConst.T_OASE_DEDUPLICATION_SETTINGS, where, param)
+
+    # 他レコードの冗長グループに含まれるイベント収集設定IDをすべて集約
+    used_event_source_ids = set()
+    for record in records:
+        try:
+            other_group = json.loads(record.get("EVENT_SOURCE_REDUNDANCY_GROUP")).get("id", [])
+        except Exception:
+            other_group = []
+        used_event_source_ids.update(other_group)
+
+    # 入力のうち他レコードと重複しているIDを、入力順を保って重複なしで返す
+    duplicated_ids = []
+    for event_source_id in event_source_redundancy_group:
+        if event_source_id in used_event_source_ids and event_source_id not in duplicated_ids:
+            duplicated_ids.append(event_source_id)
+
+    return duplicated_ids
 
 
 def get_label_key_by_id(objdbca, id):
