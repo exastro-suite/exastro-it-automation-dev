@@ -82,7 +82,7 @@ class CollectionBase():
         column_name_list = objdbca.table_select("T_COMN_MENU_COLUMN_LINK", "WHERE COLUMN_DEFINITION_ID IN ('{}', '{}', '{}', '{}') AND `DISUSE_FLAG` = {}".format("11010401", "11010403", "11010404", "11010409", 0))  # noqa: E501
         for column_name in column_name_list:
             column_name_dict[column_name['COLUMN_DEFINITION_ID']] = column_name[column_name_lang]
-
+        print(f"{parameter=}")
         result = {}
         for rest_key_name, setting in parameter.items():
             for type, value in setting.items():
@@ -117,8 +117,7 @@ class CollectionBase():
                                 result[item_name] = self._create_search_value(item_name, value, event_data_dict, column_name_dict)
                             elif rest_key_name == "_exastro_events":
                                 tmp_list = self._create_search_value(item_name, value, event_data_dict, column_name_dict)
-                                for tmp in tmp_list:
-                                    result[item_name] = {"$in": [tmp]}
+                                result[item_name] = {"$in": tmp_list}
                             else:
                                 tmp_list = self._create_search_value(item_name, value, event_data_dict)
                                 result[item_name] = {"$regex": tmp_list}
@@ -152,7 +151,7 @@ class CollectionBase():
                 # イベント状態カラムかイベント種別カラムが検索条件にヒットしない場合はダミーの値を渡す
                 if (rest_key_name == "_exastro_event_status" or rest_key_name == "_exastro_type") and result == {}:
                     result = json.loads('{"labels._exastro_timeout": "2", "labels._exastro_evaluated": "2", "labels._exastro_undetected": "2"}')
-
+        print(f"query = {result}")
         return result
 
     def _convert_parameter_item_name_to_collection_item_name(self, rest_key_name, value):
