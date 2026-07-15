@@ -141,14 +141,11 @@ def external_valid_menu_after(objdbca, objtable, option):
     """
     メニューバリデーション(登録/更新後)
     重複排除設定の有効化/無効化に合わせ、行ロック用テーブル(T_COMN_RECODE_LOCK_TABLE)の
-    ロックキー(重複排除設定ID)を用意/除去する。OASE Receiver側のロック取得がINSERTを
-    伴わず済む（＝gap lockに落ちない）ようにするのが目的。
-      - 有効化(Register/Restore) … ロックキーを INSERT
-      - 無効化(Discard/Delete)   … ロックキーを DELETE
+    ロックキー(重複排除設定ID)を用意/除去する。
     ARGS:
-        objdbca :DB接続クラスインスタンス
-        objtable :メニュー情報、カラム紐付、関連情報
-        option :パラメータ、その他設定値
+        objdbca
+        objtable
+        option
     RETRUN:
         retBool :True/ False
         msg :エラーメッセージ
@@ -196,8 +193,8 @@ def get_duplicated_event_source_ids(objdbca, event_source_redundancy_group, dedu
     冗長グループにも含まれているもの（＝レコードをまたいで重複しているID）を返す。
 
     Args:
-        objdbca (object): DB接続クラスインスタンス
-        event_source_redundancy_group (list): 入力の冗長グループ（イベント収集設定IDのリスト）
+        objdbca (object)
+        event_source_redundancy_group (list): 入力の冗長グループ
         deduplication_setting_id (str): 自レコードの重複排除設定ID（新規登録時はNone）
     Returns:
         list: 他レコードと重複しているイベント収集設定IDのリスト（入力順・重複なし）
