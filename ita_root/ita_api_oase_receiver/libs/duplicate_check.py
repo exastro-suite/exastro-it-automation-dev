@@ -16,7 +16,6 @@ from flask import g
 import os
 import json
 import time
-import random
 import datetime
 import copy
 from pymongo import ASCENDING, InsertOne, ReturnDocument
@@ -54,7 +53,7 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
     # 重複排除の設定を取得
     deduplication_settings = wsDb.table_select(
         oaseConst.T_OASE_DEDUPLICATION_SETTINGS,
-        "WHERE DISUSE_FLAG='0' ORDER BY DEDUPLICATION_SETTING_NAME"
+        "WHERE DISUSE_FLAG='0' ORDER BY SETTING_PRIORITY, DEDUPLICATION_SETTING_NAME"
     )
     if len(deduplication_settings) == 0:
         # 重複排除の設定設定を取得できませんでした。
@@ -242,27 +241,30 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
         lock_keys = sorted(lock_key_set)
 
         # ロック取得（デッドロックでリトライ）
-        # ギャップロック相互待ちでデッドロック(errno 1213)を起こしうる。
         retry_limit = 3          # デッドロック(1213)時の最大リトライ回数
-        retry_interval = 1.0     # リトライ間隔秒
+        retry_interval = 0.1     # リトライ間隔秒
         for attempt in range(retry_limit + 1):
             try:
                 wsDb.db_transaction_start()
                 # 重複排除設定ID単位で行ロック
                 wsDb.table_lock(lock_keys)
                 # 取得成功ログ。解放側(releasing/rolling back)と文言を揃え、跨ぎリクエストの直列化順を追える。
-                g.applogger.info(f"deduplication setting lock acquired. {lock_keys=}")
+                g.applogger.debug(f"deduplication setting lock acquired. {lock_keys=}")
                 break  # ロック取得成功
             except AppException as lock_e:
                 # _is_transaction を False に戻すため rollback は必ず通す（次のstartが空振りしないように）
                 wsDb.db_transaction_end(False)
                 if wsDb.is_deadlock_exception(lock_e) and attempt < retry_limit:
-                    # 小ジッターで同時再突入を散らす（全リクエストが揃って再衝突するのを防ぐ）
-                    sleep_time = retry_interval + random.uniform(0, retry_interval * 0.2)
+                    # デッドロック(1213)が起きる条件（複数リクエストの同時受信時）:
+                    #   table_lock は「SELECT ... IN (...) FOR UPDATE → 無ければINSERT → 再SELECT」で動く。
+                    #   ロックキーの行が未存在だと FOR UPDATE が実レコードでなくギャップロックを取り、
+                    #   これは複数リクエストが同一ギャップに同時保持できる(共存可)。
+                    #   その状態で各リクエストが INSERT に進むと insert intention lock が互いのギャップロックと
+                    #   衝突して相互待ち→デッドロックになる。行が既に存在すれば実レコードロックになりこの経路に入らない。
                     g.applogger.info(
-                        f"deduplication setting lock deadlock(1213). retrying. {attempt=}, {retry_limit=}, {sleep_time=}, {lock_keys=}"
+                        f"deduplication setting lock deadlock(1213). retrying. {attempt=}, {retry_limit=}, {retry_interval=}, {lock_keys=}"
                     )
-                    time.sleep(sleep_time)
+                    time.sleep(retry_interval)
                     continue
                 # デッドロック以外、またはリトライ上限到達 → raise
                 raise
@@ -286,7 +288,7 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
                 future_to_group = None
 
             # 全ワーカー正常完了したのでcommit（＝ロック一括解放）。
-            g.applogger.info(f"deduplication setting lock releasing by commit. {lock_keys=}")
+            g.applogger.debug(f"deduplication setting lock releasing by commit. {lock_keys=}")
             wsDb.db_transaction_end(True)
         except Exception as e:
             # ワーカーで例外＝rollback。

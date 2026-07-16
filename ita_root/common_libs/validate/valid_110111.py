@@ -44,6 +44,12 @@ def external_valid_menu_before(objdbca, objtable, option):
     current_parameter = option.get("current_parameter", {}).get("parameter")
     entry_parameter = option.get("entry_parameter", {}).get("parameter")
 
+    # v2.9では優先順位は画面から入力しないが、カラムは残すため新規登録時に値を補完する。
+    #   entry に優先順位の指定があればそれを尊重し、無ければ(画面登録等)固定値1を入れる。
+    if cmd_type == "Register" and entry_parameter:
+        if entry_parameter.get("setting_priority") is None:
+            entry_parameter["setting_priority"] = 1
+
     # 自レコード除外用の重複排除設定ID（更新/復活時は既存レコードのIDが入る。新規登録時はNone）
     deduplication_setting_id = current_parameter.get("deduplication_setting_id") if current_parameter else None
 
@@ -139,9 +145,9 @@ def external_valid_menu_before(objdbca, objtable, option):
 
 def external_valid_menu_after(objdbca, objtable, option):
     """
-    メニューバリデーション(登録/更新後)
-    重複排除設定の有効化/無効化に合わせ、行ロック用テーブル(T_COMN_RECODE_LOCK_TABLE)の
-    ロックキー(重複排除設定ID)を用意/除去する。
+    メニューバリデーション(登録/編集後)
+    重複排除設定の廃止の有無に合わせ、行ロック用テーブル(T_COMN_RECODE_LOCK_TABLE)の
+    ロックキー(重複排除設定ID)を作成/削除する。
     ARGS:
         objdbca
         objtable
