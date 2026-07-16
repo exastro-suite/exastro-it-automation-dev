@@ -4932,7 +4932,7 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                 };
 
                 // 開発サポート
-                if ( typeof DevelopmentSupport === 'function') {
+                if ( typeof DevelopmentSupport === 'function' && mode === 'edit') {
                     const support = new DevelopmentSupport();
                     support.setup( modal, aceEditor );
                 } else {
