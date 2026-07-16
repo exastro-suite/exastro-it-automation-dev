@@ -4055,16 +4055,9 @@ def test_case4_2(mock_db, mock_mongo):
 
 # ==========================================================================
 # ロック取得のデッドロックリトライ（Issue #2961 ステップD）
-#
-# table_lock は fan-out（find_one_and_update）の"前"に走る。ロック行が事前登録
-# されていない設定があると SELECT FOR UPDATE→INSERT 経路に落ち、同時リクエスト同士で
-# ギャップロック相互待ち＝デッドロック(errno 1213)を起こしうる。これを txn ごと
+# ロック行が事前登録されていない設定があると SELECT FOR UPDATE→INSERT 経路に落ち、同時リクエスト同士で
+# ギャップロック相互待ち＝デッドロック(errno 1213)を起こしうる。
 # リトライする実装（duplicate_check.py の table_lock リトライループ）を検証する。
-#
-# DB は本物を用意せず、mock_db.table_lock.side_effect に「例外→成功」等を仕込んで
-# 受け答え（リトライ挙動）だけを固める。デッドロック判定は本物のロジックを使いたいので
-# is_deadlock_exception だけ DBConnectCommon の実装に差し替える（MagicMock だと常に
-# Truthy な Mock が返り判定が意味を失うため）。
 # ==========================================================================
 
 def _make_deadlock_appexception():

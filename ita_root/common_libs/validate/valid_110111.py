@@ -208,7 +208,7 @@ def get_duplicated_event_source_ids(objdbca, event_source_redundancy_group, dedu
         where = "WHERE DISUSE_FLAG='0'"
         param = []
     else:
-        where = "WHERE DISUSE_FLAG='0' AND DEDUPLICATION_SETTING_ID <> %s"
+        where = "WHERE DISUSE_FLAG='0' AND DEDUPLICATION_SETTING_ID != %s"
         param = [deduplication_setting_id]
 
     records = objdbca.table_select(oaseConst.T_OASE_DEDUPLICATION_SETTINGS, where, param)
