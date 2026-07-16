@@ -29,7 +29,7 @@ const fn = ( function() {
     'use strict';
 
     // バージョン
-    const version = '2.8.0';
+    const version = '2.9.0';
 
     // AbortController
     const controller = new AbortController();
@@ -4932,7 +4932,8 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                 };
 
                 // 開発サポート
-                if ( typeof DevelopmentSupport === 'function' && mode === 'edit') {
+                const aiEnabled = option.aiAssistantEnabled;
+                if ( typeof DevelopmentSupport === 'function' && mode === 'edit' && aiEnabled) {
                     const support = new DevelopmentSupport();
                     support.setup( modal, aceEditor );
                 } else {
