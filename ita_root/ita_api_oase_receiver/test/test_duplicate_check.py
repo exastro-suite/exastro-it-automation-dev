@@ -4139,8 +4139,8 @@ def test_table_lock_deadlock_retry_exhausted_raises(mock_db, mock_mongo):
     settings, labeled_event_list = _dedup_single_setting()
     mock_db.table_select.return_value = settings
     _bind_real_is_deadlock(mock_db)
-    # retry_limit=3 → 初回 + リトライ3回 = 4 回すべてデッドロック
-    mock_db.table_lock.side_effect = [_make_deadlock_appexception() for _ in range(4)]
+    # retry_limit=10 → 初回 + リトライ10回 = 11 回すべてデッドロック
+    mock_db.table_lock.side_effect = [_make_deadlock_appexception() for _ in range(11)]
 
     from common_libs.common.exception import AppException
     with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
@@ -4148,10 +4148,10 @@ def test_table_lock_deadlock_retry_exhausted_raises(mock_db, mock_mongo):
          pytest.raises(AppException):
         duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
 
-    # 初回 + リトライ3回 = 4 回で打ち止め
-    assert mock_db.table_lock.call_count == 4
-    # sleep はリトライ分の 3 回のみ（上限到達時は待たずに raise）
-    assert mock_sleep.call_count == 3
+    # 初回 + リトライ10回 = 11 回で打ち止め
+    assert mock_db.table_lock.call_count == 11
+    # sleep はリトライ分の 10 回のみ（上限到達時は待たずに raise）
+    assert mock_sleep.call_count == 10
     # 毎回 rollback（commit は一度も無い）
     assert mock_db.db_transaction_end.call_args_list.count(((True,), {})) == 0
     # fan-out に到達していない＝挿入 0 件

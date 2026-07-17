@@ -241,7 +241,7 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
         lock_keys = sorted(lock_key_set)
 
         # ロック取得（デッドロックでリトライ）
-        retry_limit = 3          # デッドロック(1213)時の最大リトライ回数
+        retry_limit = 10         # デッドロック(1213)時の最大リトライ回数
         retry_interval = 0.1     # リトライ間隔秒
         for attempt in range(retry_limit + 1):
             try:
@@ -258,9 +258,11 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
                     # デッドロック(1213)が起きる条件（複数リクエストの同時受信時）:
                     #   table_lock は「SELECT ... IN (...) FOR UPDATE → 無ければINSERT → 再SELECT」で動く。
                     #   ロックキーの行が未存在だと FOR UPDATE が実レコードでなくギャップロックを取り、
-                    #   これは複数リクエストが同一ギャップに同時保持できる(共存可)。
-                    #   その状態で各リクエストが INSERT に進むと insert intention lock が互いのギャップロックと
-                    #   衝突して相互待ち→デッドロックになる。行が既に存在すれば実レコードロックになりこの経路に入らない。
+                    #   複数リクエストが同一ギャップに同時保持できる(共存可)。
+                    #   その状態で各リクエストが INSERT に進むと、互いのギャップロックと
+                    #   衝突して循環待ちになるが、そのうちの1リクエストは続行される。
+                    #   それ以外をデッドロック(1213)でロールバックする。
+                    #   続行した側が行をINSERT済みなのでリトライ時は実レコードロックとなりこの経路に入らない。
                     g.applogger.info(
                         f"deduplication setting lock deadlock(1213). retrying. {attempt=}, {retry_limit=}, {retry_interval=}, {lock_keys=}"
                     )
