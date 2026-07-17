@@ -4466,16 +4466,59 @@ base64ToFile: function( base64, fileName ) {
    ファイルタイプ拡張子
 ##################################################
 */
+fileTypeCheckExtensions: {
+    // 画像
+    image: new Set(
+        ['gif','jpe','jpg','jpeg','png','svg','webp','bmp','ico','avif']
+    ),
+    // テキスト
+    text: new Set(
+        ['txt','yaml','yml','json','hc','hcl','tf','sentinel','py','j2','css','html','htm','js']
+    ),
+    // 未対応
+    unsupported: new Set([
+        // --- 画像 / グラフィック（ブラウザ表示できないもののみ） ---
+        'tif', 'tiff', 'heic', 'heif', 'psd', 'psb', 'dds', 'tga',
+        'jp2', 'j2k', 'exr', 'hdr', 'icns',
+        // カメラRAW
+        'raw', 'cr2', 'cr3', 'nef', 'arw', 'orf', 'rw2', 'dng', 'raf', 'sr2',
+
+        // --- ベクター / DTP ---
+        'ai', 'pdf', 'eps', 'ps', 'indd', 'idml', 'cdr', 'sketch', 'fig', 'xd', 'afdesign', 'afphoto',
+
+        // --- Office / ドキュメント ---
+        'xls', 'xlsx', 'xlsm', 'xlsb', 'doc', 'docx', 'docm',
+        'ppt', 'pptx', 'pptm', 'vsd', 'vsdx', 'one', 'pub',
+        'odt', 'ods', 'odp', 'odg', 'rtf',
+
+        // --- 圧縮 / アーカイブ ---
+        'zip', 'rar', '7z', 'gz', 'tgz', 'bz2', 'xz', 'lz', 'lzma', 'zst',
+        'cab', 'ar', 'iso', 'dmg', 'jar', 'war', 'apk', 'aab', 'nupkg',
+
+        // --- 実行 / バイナリ / ライブラリ ---
+        'exe', 'dll', 'so', 'dylib', 'bin', 'o', 'a', 'lib', 'obj',
+        'class', 'wasm', 'msi', 'app', 'deb', 'rpm', 'pyc', 'pyo',
+
+        // --- 音声 ---
+        'mp3', 'wav', 'flac', 'aac', 'ogg', 'oga', 'm4a', 'wma', 'aiff', 'opus', 'mid', 'midi',
+
+        // --- 動画 ---
+        'mp4', 'm4v', 'mov', 'avi', 'mkv', 'webm', 'wmv', 'flv', 'mpeg', 'mpg', '3gp', 'ts',
+
+        // --- フォント ---
+        'ttf', 'otf', 'woff', 'woff2', 'eot',
+
+        // --- DB / データ ---
+        'sqlite', 'sqlite3', 'db', 'mdb', 'accdb', 'dat', 'pak', 'bak',
+
+        // --- その他バイナリ ---
+        'pdb', 'swf', 'blend', 'fbx', 'glb', 'stl', 'unity3d', 'crx',
+    ])
+},
 fileTypeCheck: function( fileName ) {
     const extension = cmn.cv( fileName.split('.').pop(), '');
-
-    const fileTypes = {
-        image: ['gif','jpe','jpg','jpeg','png','svg','webp','bmp','ico'],
-        text: ['txt','yaml','yml','json','hc','hcl','tf','sentinel','py','j2','css','html','htm']
-    }
-
-    for ( const fileType in fileTypes ) {
-        if ( fileTypes[fileType].indexOf( extension ) !== -1 ) {
+    for ( const fileType in cmn.fileTypeCheckExtensions ) {
+        if ( cmn.fileTypeCheckExtensions[fileType].has( extension ) ) {
             return fileType;
         }
     }
@@ -4549,6 +4592,41 @@ fileModeCheck: function( fileName ) {
         }
     }
     return 'text';
+},
+/*
+##################################################
+   テキストファイル判定
+##################################################
+*/
+isProbablyText: function(buffer, sampleSize = 8192) {
+    const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, sampleSize));
+
+    // 1) BOM があれば確実にテキスト
+    if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return true;
+    if (bytes.length >= 2 && (bytes[0] === 0xff && bytes[1] === 0xfe)) return true; // UTF-16 LE
+    if (bytes.length >= 2 && (bytes[0] === 0xfe && bytes[1] === 0xff)) return true; // UTF-16 BE
+
+    // 2) NUL バイトがあればバイナリとみなす（最も効く判定）
+    if (bytes.includes(0x00)) return false;
+
+    // 3) UTF-8 として妥当にデコードできるか
+    try {
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        return true;
+    } catch {
+        // UTF-8 で壊れる → 制御文字比率でフォールバック判定
+    }
+
+    // 4) 非印字制御文字の比率が高ければバイナリ
+    let control = 0;
+    for (const b of bytes) {
+        // タブ(9) 改行(10) CR(13) 以外の C0 制御文字と DEL(127)
+        if ((b < 0x09) || (b > 0x0d && b < 0x20) || b === 0x7f) control++;
+    }
+    return control / bytes.length < 0.3;
+},
+sampleFromFile: async function(file, sampleSize = 8192) {
+  return file.slice(0, sampleSize).arrayBuffer()
 },
 /*
 ##################################################
@@ -4631,12 +4709,18 @@ fileOrBase64ToBase64: function( data ) {
 ##################################################
 */
 fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
-    return new Promise( function( resolve ){
-        const fileType = cmn.fileTypeCheck( fileName );
+    return new Promise( async function( resolve ){
+        // ファイルタイプ判定
+        let fileType = cmn.fileTypeCheck( fileName );
+        // 拡張子で判定できなかった場合、テキストとして読み込めるかチェックする
+        if ( fileData && fileType === false && fn.isProbablyText(await fn.sampleFromFile(fileData)) ) {
+            fileType = 'text';
+        }
+        // どのモードでエディターを開くか
         let fileMode = cmn.fileModeCheck( fileName );
 
         // モーダル設定
-        const height = ( mode === 'edit' && fileType === false )? 'auto': '100%';
+        const height = ( fileType === false || fileType === 'unsupported' )? 'auto': '100%';
         const config = {
             position: 'center',
             width: '960px',
@@ -4716,6 +4800,14 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                 html += `<div id="aceEditor" class="editorBody"></div>`;
             } else if ( fileType === 'image') {
                 html += `<div class="editorImageBody editorBody"><img class="editorImage"></div>`;
+            } else {
+                let unsupportedMessege = '';
+                if ( mode === 'edit') {
+                    unsupportedMessege = getMessage.FTE00193;
+                } else {
+                    unsupportedMessege = getMessage.FTE00194;
+                }
+                html += `<div class="dialogBody"><div class="commonSection"><div class="commonParagraph">${unsupportedMessege}</div></div></div>`;
             }
             return `<div class="fileEditor">${html}</div>`;
         };
