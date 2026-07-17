@@ -1371,6 +1371,7 @@
     "MSG-160001": "Both Labels and Expression must be entered to specify Condition.",
     "MSG-160002": "Event Source and Condition Label are not linked in the Labeling menu. (Event Collection Settings Name: {}, Label: {})",
     "MSG-160003": "Condition Label is not linked to any specified Event Source in the Labeling menu. (Label: {})",
+    "MSG-160004": "The specified Event Source is already used in another Deduplication setting. (Event Collection Settings Name: {})",
     "MSG-170001": "Event types cannot be changed for default templates.",
     "MSG-170002": "Notification Destinations cannot be changed for default templates.",
     "MSG-170003": "If not using a default template, Notification Destination is required.",
