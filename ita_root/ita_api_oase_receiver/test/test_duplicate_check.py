@@ -4051,3 +4051,161 @@ def test_case4_2(mock_db, mock_mongo):
     # 通知の総数確認
     assert recieve_num == 3
     assert duplicate_num == 0
+
+
+# ==========================================================================
+# ロック取得のデッドロックリトライ（Issue #2961 ステップD）
+# ロック行が事前登録されていない設定があると SELECT FOR UPDATE→INSERT 経路に落ち、同時リクエスト同士で
+# ギャップロック相互待ち＝デッドロック(errno 1213)を起こしうる。
+# リトライする実装（duplicate_check.py の table_lock リトライループ）を検証する。
+# ==========================================================================
+
+def _make_deadlock_appexception():
+    """table_lock が投げる、errno 1213 でラップされた AppException を作る"""
+    from common_libs.common.exception import AppException
+    import pymysql
+    pymysql_error = pymysql.err.OperationalError(1213, "Deadlock found when trying to get lock")
+    # sql_execute のラップ形: AppException("999-00003", [db, last_executed, pymysql_error], [])
+    return AppException("999-00003", ["ws_db", "SELECT ... FOR UPDATE", pymysql_error], [])
+
+
+def _make_other_appexception():
+    """デッドロック以外（errno 1062: Duplicate entry）でラップされた AppException を作る"""
+    from common_libs.common.exception import AppException
+    import pymysql
+    pymysql_error = pymysql.err.IntegrityError(1062, "Duplicate entry")
+    return AppException("999-00003", ["ws_db", "INSERT ...", pymysql_error], [])
+
+
+def _dedup_single_setting():
+    """fan-out（find_one_and_update）まで到達する最小の設定＋イベントを返す"""
+    settings = [
+        {
+            "DEDUPLICATION_SETTING_ID": "dup1",
+            "DEDUPLICATION_SETTING_NAME": "test_dup_rule",
+            "SETTING_PRIORITY": 1,
+            "EVENT_SOURCE_REDUNDANCY_GROUP": '{"id": ["ecs1"]}',
+            "CONDITION_EXPRESSION_ID": "1",
+            "CONDITION_LABEL_KEY_IDS": '{"id": ["labelkey1"]}'
+        }
+    ]
+    labeled_event_list = [
+        {
+            "labels": {
+                "_exastro_event_collection_settings_id": "ecs1",
+                "_exastro_agent_name": "agentA",
+                "labelkey1_name": "value1"
+            },
+            "exastro_label_key_inputs": {"labelkey1_name": "labelkey1"},
+            "exastro_created_at": 1672531200,
+            "labels._exastro_end_time": 9999999999
+        }
+    ]
+    return settings, labeled_event_list
+
+
+def _bind_real_is_deadlock(mock_db):
+    """mock_db.is_deadlock_exception を本物のロジックに差し替える"""
+    from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
+    mock_db.is_deadlock_exception.side_effect = DBConnectCommon.is_deadlock_exception
+
+
+def test_table_lock_deadlock_retry_then_success(mock_db, mock_mongo):
+    """①1回デッドロック→リトライして成功。fan-out まで到達する"""
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_is_deadlock(mock_db)
+    # 1回目デッドロック、2回目は成功（None を返す＝正常）
+    mock_db.table_lock.side_effect = [_make_deadlock_appexception(), None]
+
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch('libs.duplicate_check.time.sleep') as mock_sleep:
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    # table_lock は 2 回呼ばれた（1回失敗 + 1回成功）
+    assert mock_db.table_lock.call_count == 2
+    # リトライ待ちの sleep が 1 回入った
+    assert mock_sleep.call_count == 1
+    # rollback が 1 回（失敗時）、commit が 1 回（成功後の fan-out 完了時）
+    assert mock_db.db_transaction_end.call_args_list.count(((False,), {})) == 1
+    assert mock_db.db_transaction_end.call_args_list.count(((True,), {})) == 1
+    # fan-out まで到達して 1 件挿入された
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 1
+
+
+def test_table_lock_deadlock_retry_exhausted_raises(mock_db, mock_mongo):
+    """②デッドロックがリトライ上限を超えたら例外を送出。fan-out に到達しない"""
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_is_deadlock(mock_db)
+    # retry_limit=10 → 初回 + リトライ10回 = 11 回すべてデッドロック
+    mock_db.table_lock.side_effect = [_make_deadlock_appexception() for _ in range(11)]
+
+    from common_libs.common.exception import AppException
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch('libs.duplicate_check.time.sleep') as mock_sleep, \
+         pytest.raises(AppException):
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    # 初回 + リトライ10回 = 11 回で打ち止め
+    assert mock_db.table_lock.call_count == 11
+    # sleep はリトライ分の 10 回のみ（上限到達時は待たずに raise）
+    assert mock_sleep.call_count == 10
+    # 毎回 rollback（commit は一度も無い）
+    assert mock_db.db_transaction_end.call_args_list.count(((True,), {})) == 0
+    # fan-out に到達していない＝挿入 0 件
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 0
+
+
+def test_table_lock_non_deadlock_raises_immediately(mock_db, mock_mongo):
+    """③デッドロック以外(1062)のエラーはリトライせず即送出"""
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_is_deadlock(mock_db)
+    mock_db.table_lock.side_effect = [_make_other_appexception()]
+
+    from common_libs.common.exception import AppException
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch('libs.duplicate_check.time.sleep') as mock_sleep, \
+         pytest.raises(AppException):
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    # 1 回で即 raise（リトライしない）
+    assert mock_db.table_lock.call_count == 1
+    # sleep は呼ばれない
+    assert mock_sleep.call_count == 0
+    # rollback は 1 回、commit は無し
+    assert mock_db.db_transaction_end.call_args_list.count(((False,), {})) == 1
+    assert mock_db.db_transaction_end.call_args_list.count(((True,), {})) == 0
+    # fan-out 未到達
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 0
+
+
+def test_table_lock_deadlock_retry_does_not_duplicate_fanout(mock_db, mock_mongo):
+    """⑤リトライしても fan-out（find_one_and_update）は重複実行されない。
+
+    ロック取得だけがリトライ対象で、Mongo 書き込みはループ外＝1回だけ走ることを保証する。
+    （table_lock を先に失敗させても Mongo に二重書き込みされないのが A案の安全性の肝）
+    """
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_is_deadlock(mock_db)
+    # 2 回デッドロック → 3 回目で成功。リトライを複数回踏ませる
+    mock_db.table_lock.side_effect = [
+        _make_deadlock_appexception(),
+        _make_deadlock_appexception(),
+        None
+    ]
+
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch('libs.duplicate_check.time.sleep'):
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    # table_lock は 3 回（2 失敗 + 1 成功）
+    assert mock_db.table_lock.call_count == 3
+    # 何度リトライしても Mongo への挿入は 1 件だけ（fan-out は巻き戻らない）
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 1

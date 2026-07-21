@@ -585,6 +585,24 @@ class DBConnectCommon:
             res = self.sql_execute(sql, target_table_name)
         return res
 
+    @staticmethod
+    def is_deadlock_exception(e):
+        """sql_execute() で発生した例外が MariaDB のデッドロック(errno 1213)によるものかを判定する。
+        sql_execute は SQLエラーを AppException("999-00003", [db, sql, pymysql_error], []) に
+        ラップして飛ばす。このラップ形を知るこのクラスに errno の取り出しを集約する
+        （args[1][2] が元 pymysql 例外、その .args[0] が errno）。
+        形が想定と違えば（別経路の例外・ラップ形変更など）安全側で False を返す。
+
+        Arguments:
+            e: 例外オブジェクト（AppException）
+        Returns:
+            bool: デッドロック(1213)なら True
+        """
+        try:
+            return e.args[1][2].args[0] == 1213
+        except (AttributeError, IndexError, TypeError):
+            return False
+
     def prepared_val_escape(self, val):
         """
         escape sql statement

@@ -229,6 +229,8 @@ export function messageid_en() {
         'FTE00190' : "Delete confirmation",
         'FTE00191' : "Delete",
         'FTE00192' : "Return to list",
+        'FTE00193' : "This file does not support content previewing or editing. Please download it to view the contents.",
+        'FTE00194' : "This file does not support previewing. Please download it to view the content.",
 
         // Create parameter sheet
         'FTE01001' : "Item",
