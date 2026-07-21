@@ -21,6 +21,8 @@ AGENT_INSTALLER_VERSION=2.9.0
 AGENT_INSTALLER_VNC=20900
 
 POETRY_VERSION=1.6.0
+AAP_ANSIBLE_BUILDER_PKG_RHEL9="ansible-builder-3.1.1-1.2.el9ap"
+AAP_ANSIBLE_RUNNER_PKG_RHEL9="ansible-runner-2.4.2-3.el9ap"
 
 SETUP_VERSION=""
 EXECUTE_PATH=""
@@ -59,7 +61,7 @@ rhel9_repos["aap"]="ansible-automation-platform-2.5-for-rhel-9-x86_64-rpms"
 
 rhel10_repos["base"]="rhel-10-for-x86_64-baseos-rpms"
 rhel10_repos["appstream"]="rhel-10-for-x86_64-appstream-rpms"
-rhel10_repos["aap"]="ansible-automation-platform-2.5-for-rhel-10-x86_64-rpms"
+rhel10_repos["aap"]="ansible-automation-platform-2.6-for-rhel-10-x86_64-rpms"
 
 # dnf install list: common
 dnf_install_list_common=(
@@ -1375,7 +1377,12 @@ poetry_install(){
 
 ansible_additional_install(){
     if [ ${default_env_values["ANSIBLE_SUPPORT"]} = "2" ]; then
-        if [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL9" ] || [ "${DEP_PATTERN}" = "RHEL10" ]; then
+        if [ "${DEP_PATTERN}" = "RHEL9" ]; then
+            info "uninstall ansible-builder ansible-runner"
+            poetry run pip3 uninstall -y ansible-builder ansible-runner
+            info "run_sudo dnf install -y ${AAP_ANSIBLE_BUILDER_PKG_RHEL9} ${AAP_ANSIBLE_RUNNER_PKG_RHEL9}"
+            run_sudo dnf install -y "${AAP_ANSIBLE_BUILDER_PKG_RHEL9}" "${AAP_ANSIBLE_RUNNER_PKG_RHEL9}"
+        elif [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL10" ]; then
             info "uninstall ansible-builder ansible-runner"
             poetry run pip3 uninstall -y ansible-builder ansible-runner
             info "run_sudo dnf install -y ansible-builder ansible-runner"
