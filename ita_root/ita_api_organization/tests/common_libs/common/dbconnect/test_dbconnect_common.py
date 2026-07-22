@@ -379,14 +379,14 @@ class TestTableUpdateWithIdsWrapper:
 
 
 # ---------------------------------------------------------------------------
-# table_insert (table_insert_with_ids へ委譲するラッパー)
+# table_insert (_table_insert_with_ids へ委譲するラッパー)
 # ---------------------------------------------------------------------------
 class TestTableInsert:
 
     def test_delegates_to_with_ids_and_returns_result(self, dbconnect):
-        """table_insert_with_ids に委譲し、戻り値の1つ目(result)を返すこと"""
+        """_table_insert_with_ids に委譲し、戻り値の1つ目(data_list)を返すこと"""
         expected_data_list = [{'PK': 'uuid-1', 'NAME': 'x'}]
-        dbconnect.table_insert_with_ids = MagicMock(
+        dbconnect._table_insert_with_ids = MagicMock(
             return_value=(expected_data_list, [('uuid-1', None)])
         )
 
@@ -394,16 +394,16 @@ class TestTableInsert:
             'T_TEST', {'NAME': 'x'}, 'PK', is_register_history=True
         )
 
-        # result(data_list)のみが返り、uuids は返らないこと
+        # data_listのみが返り、uuids は返らないこと
         assert result == expected_data_list
         # 引数がそのまま委譲されること
-        dbconnect.table_insert_with_ids.assert_called_once_with(
+        dbconnect._table_insert_with_ids.assert_called_once_with(
             'T_TEST', {'NAME': 'x'}, 'PK', True
         )
 
     def test_returns_false_on_failure(self, dbconnect):
-        """table_insert_with_ids が (False, []) の場合 False を返すこと"""
-        dbconnect.table_insert_with_ids = MagicMock(return_value=(False, []))
+        """_table_insert_with_ids が (False, []) の場合 False を返すこと"""
+        dbconnect._table_insert_with_ids = MagicMock(return_value=(False, []))
 
         result = dbconnect.table_insert('T_TEST', {'NAME': 'x'}, 'PK')
 
@@ -411,16 +411,16 @@ class TestTableInsert:
 
     def test_default_is_register_history_false(self, dbconnect):
         """is_register_history 未指定時は False で委譲されること"""
-        dbconnect.table_insert_with_ids = MagicMock(return_value=([], []))
+        dbconnect._table_insert_with_ids = MagicMock(return_value=([], []))
 
         dbconnect.table_insert('T_TEST', {'NAME': 'x'}, 'PK')
 
-        dbconnect.table_insert_with_ids.assert_called_once_with(
+        dbconnect._table_insert_with_ids.assert_called_once_with(
             'T_TEST', {'NAME': 'x'}, 'PK', False
         )
 
     def test_insert_integration_returns_data_list(self, dbconnect):
-        """実際の table_insert_with_ids 経由(モックせず)で data_list が返ること"""
+        """実際の _table_insert_with_ids 経由(モックせず)で data_list が返ること"""
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
 
         result = dbconnect.table_insert(
@@ -432,14 +432,14 @@ class TestTableInsert:
 
 
 # ---------------------------------------------------------------------------
-# table_update (table_update_with_ids へ委譲するラッパー)
+# table_update (_table_update_with_ids へ委譲するラッパー)
 # ---------------------------------------------------------------------------
 class TestTableUpdate:
 
     def test_delegates_to_with_ids_and_returns_result(self, dbconnect):
-        """table_update_with_ids に委譲し、戻り値の1つ目(result)を返すこと"""
+        """_table_update_with_ids に委譲し、戻り値の1つ目(data_list)を返すこと"""
         expected_data_list = [{'PK': 'target-pk', 'NAME': 'x'}]
-        dbconnect.table_update_with_ids = MagicMock(
+        dbconnect._table_update_with_ids = MagicMock(
             return_value=(expected_data_list, [('target-pk', None)])
         )
 
@@ -447,16 +447,16 @@ class TestTableUpdate:
             'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', is_register_history=True
         )
 
-        # result(data_list)のみが返り、uuids は返らないこと
+        # data_listのみが返り、uuids は返らないこと
         assert result == expected_data_list
         # 引数がそのまま委譲されること
-        dbconnect.table_update_with_ids.assert_called_once_with(
+        dbconnect._table_update_with_ids.assert_called_once_with(
             'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', True
         )
 
     def test_returns_false_on_failure(self, dbconnect):
-        """table_update_with_ids が (False, []) の場合 False を返すこと"""
-        dbconnect.table_update_with_ids = MagicMock(return_value=(False, []))
+        """_table_update_with_ids が (False, []) の場合 False を返すこと"""
+        dbconnect._table_update_with_ids = MagicMock(return_value=(False, []))
 
         result = dbconnect.table_update('T_TEST', {'PK': 'target-pk'}, 'PK')
 
@@ -464,16 +464,16 @@ class TestTableUpdate:
 
     def test_default_is_register_history_false(self, dbconnect):
         """is_register_history 未指定時は False で委譲されること"""
-        dbconnect.table_update_with_ids = MagicMock(return_value=([], []))
+        dbconnect._table_update_with_ids = MagicMock(return_value=([], []))
 
         dbconnect.table_update('T_TEST', {'PK': 'target-pk'}, 'PK')
 
-        dbconnect.table_update_with_ids.assert_called_once_with(
+        dbconnect._table_update_with_ids.assert_called_once_with(
             'T_TEST', {'PK': 'target-pk'}, 'PK', False
         )
 
     def test_update_integration_returns_data_list(self, dbconnect):
-        """実際の table_update_with_ids 経由(モックせず)で data_list が返ること"""
+        """実際の _table_update_with_ids 経由(モックせず)で data_list が返ること"""
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
 
         result = dbconnect.table_update(
