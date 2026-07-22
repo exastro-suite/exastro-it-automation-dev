@@ -375,50 +375,11 @@ class DBConnectCommon:
             or
             update failure: (bool)False
         """
-        if isinstance(data_list, dict):
-            data_list = [data_list]
+        # _table_insert_with_ids 呼ぶ
+        data_list, _uuids = self._table_insert_with_ids(table_name, data_list, primary_key_name, is_register_history)
 
-        self.db_transaction_start()
-
-        is_last_res = True
-        for data in data_list:
-            # auto set
-            timestamp = get_timestamp()
-            if primary_key_name not in data or not data[primary_key_name]:
-                data[primary_key_name] = str(self._uuid_create())
-            data[self._COLUMN_NAME_TIMESTAMP] = timestamp
-
-            # make sql statement
-            column_list = list(data.keys())
-            prepared_list = ["%s"] * len(column_list)
-            value_list = list(data.values())
-
-            sql = "INSERT INTO `{}` ({}) VALUES ({})".format(table_name, ','.join(column_list), ','.join(prepared_list))
-            res = self.sql_execute(sql, value_list)
-            if res is False:
-                is_last_res = False
-                break
-
-            if is_register_history is False:
-                continue
-            # insert history table
-            history_table_name = table_name + "_JNL"
-            add_data = self._get_history_table_data("INSERT", timestamp)
-            # make history data
-            history_data = dict(data, **add_data)
-
-            # make sql statement
-            column_list = list(history_data.keys())
-            prepared_list = ["%s"] * len(column_list)
-            value_list = list(history_data.values())
-
-            sql = "INSERT INTO `{}` ({}) VALUES ({})".format(history_table_name, ','.join(column_list), ','.join(prepared_list))
-            res = self.sql_execute(sql, value_list)
-            if res is False:
-                is_last_res = False
-                break
-
-        return data_list if is_last_res is True else is_last_res
+        # data_listのみ返却する
+        return data_list
 
     def table_update(self, table_name, data_list, primary_key_name, is_register_history=False, last_timestamp=True):
         """
@@ -433,59 +394,45 @@ class DBConnectCommon:
             or
             update failure: (bool)False
         """
-        if isinstance(data_list, dict):
-            data_list = [data_list]
+        # _table_update_with_ids 呼ぶ
+        data_list, _uuids = self._table_update_with_ids(table_name, data_list, primary_key_name, is_register_history)
 
-        self.db_transaction_start()
-
-        is_last_res = True
-        for data in data_list:
-            # auto set
-            if last_timestamp is True:
-                timestamp = get_timestamp()
-                data[self._COLUMN_NAME_TIMESTAMP] = timestamp
-
-            # make sql statement
-            prepared_list = list(map(lambda k: "`" + k + "`=%s", data.keys()))
-            value_list = list(data.values())
-            primary_key_value = data[primary_key_name]
-
-            # key値もbindように最後に値を付加する
-            value_list.append(primary_key_value)
-            sql = "UPDATE `{}` SET {} WHERE `{}`=%s".format(table_name, ','.join(prepared_list), primary_key_name)
-            res = self.sql_execute(sql, value_list)
-            if res is False:
-                is_last_res = False
-                break
-
-            if is_register_history is False:
-                continue
-            # insert history table
-            history_table_name = table_name + "_JNL"
-            add_data = self._get_history_table_data("UPDATE", timestamp)
-
-            # re-get all column data
-            data = self.table_select(table_name, "WHERE `{}` = %s".format(primary_key_name), [primary_key_value])
-            if len(data) == 0:
-                return False
-            data = dict(data[0])
-            # make history data
-            history_data = dict(data, **add_data)
-
-            # make sql statement
-            column_list = list(history_data.keys())
-            prepared_list = ["%s"] * len(column_list)
-            value_list = list(history_data.values())
-
-            sql = "INSERT INTO `{}` ({}) VALUES ({})".format(history_table_name, ','.join(column_list), ','.join(prepared_list))
-            res = self.sql_execute(sql, value_list)
-            if res is False:
-                is_last_res = False
-                break
-
-        return data_list if is_last_res is True else is_last_res
+        # data_listのみ返却する
+        return data_list
 
     def table_insert_with_ids(self, table_name, data_list, primary_key_name, is_register_history=False):
+        """
+        insert table and return uuid and journal uuid
+
+        Arguments:
+            data_list: data list for insert ex.[{"name":"なまえ", "number":"3"}]
+            primary_key_name: primary key column name
+            is_register_history: (bool)is register history table
+        Returns:
+            table data list, uuids list : tuple(list(tuple), list(tuple))
+            or
+            update failure: (bool)False, []
+        """
+        # _table_insert_with_ids 呼ぶ、結果と発行したUUIDのリストを返却する
+        return self._table_insert_with_ids(table_name, data_list, primary_key_name, is_register_history)
+
+    def table_update_with_ids(self, table_name, data_list, primary_key_name, is_register_history=False, last_timestamp=True):
+        """
+        update table and return uuid and journal uuid
+
+        Arguments:
+            data_list: data list for update ex.[{primary_key_name:"{uuid}", "name":"なまえ", "number":"3"}]
+            primary_key_name: primary key column name
+            is_register_history: (bool)is register history table
+        Returns:
+            table data list, uuids list : tuple(list(tuple), list(tuple))
+            or
+            update failure: (bool)False, []
+        """
+        # _table_update_with_ids 呼ぶ、結果と発行したUUIDのリストを返却する
+        return self._table_update_with_ids(table_name, data_list, primary_key_name, is_register_history)
+
+    def _table_insert_with_ids(self, table_name, data_list, primary_key_name, is_register_history=False):
         """
         insert table and return uuid and journal uuid
 
@@ -539,7 +486,7 @@ class DBConnectCommon:
 
         return (data_list, uuids_list) if is_last_res is True else (is_last_res, [])
 
-    def table_update_with_ids(self, table_name, data_list, primary_key_name, is_register_history=False, last_timestamp=True):
+    def _table_update_with_ids(self, table_name, data_list, primary_key_name, is_register_history=False, last_timestamp=True):
         """
         update table and return uuid and journal uuid
 
@@ -588,7 +535,7 @@ class DBConnectCommon:
             # re-get all column data
             data = self.table_select(table_name, "WHERE `{}` = %s".format(primary_key_name), [primary_key_value])
             if len(data) == 0:
-                return False
+                return False, []
             data = dict(data[0])
             history_data = dict(data, **add_data)
 

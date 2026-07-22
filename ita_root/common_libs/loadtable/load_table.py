@@ -1968,21 +1968,13 @@ class loadTable():
                 # 登録・更新処理
                 if cmd_type == CMD_REGISTER:
                     result, _uuids = self.objdbca.table_insert_with_ids(self.get_table_name(), colname_parameter, primary_key, False)
-                elif cmd_type == CMD_UPDATE:
-                    result, _uuids = self.objdbca.table_update_with_ids(self.get_table_name(), colname_parameter, primary_key, False)
-                elif cmd_type == CMD_DISCARD:
-                    result, _uuids = self.objdbca.table_update_with_ids(self.get_table_name(), colname_parameter, primary_key, False)
-                elif cmd_type == CMD_RESTORE:
+                elif cmd_type in [CMD_UPDATE, CMD_DISCARD, CMD_RESTORE]:
                     result, _uuids = self.objdbca.table_update_with_ids(self.get_table_name(), colname_parameter, primary_key, False)
             else:
                 # 登録・更新処理
                 if cmd_type == CMD_REGISTER:
                     result, _uuids = self.objdbca.table_insert_with_ids(self.get_table_name(), colname_parameter, primary_key, history_flg)
-                elif cmd_type == CMD_UPDATE:
-                    result, _uuids = self.objdbca.table_update_with_ids(self.get_table_name(), colname_parameter, primary_key, history_flg)
-                elif cmd_type == CMD_DISCARD:
-                    result, _uuids = self.objdbca.table_update_with_ids(self.get_table_name(), colname_parameter, primary_key, history_flg)
-                elif cmd_type == CMD_RESTORE:
+                elif cmd_type in [CMD_UPDATE, CMD_DISCARD, CMD_RESTORE]:
                     result, _uuids = self.objdbca.table_update_with_ids(self.get_table_name(), colname_parameter, primary_key, history_flg)
                 elif cmd_type == CMD_DELETE:
                     result = self.objdbca.table_delete(self.get_table_name(), colname_parameter, primary_key, history_flg)

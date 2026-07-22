@@ -69,7 +69,7 @@ class TestInsertHistory:
 
 
 # ---------------------------------------------------------------------------
-# table_insert_with_ids
+# _table_insert_with_ids (本体ロジック)
 # ---------------------------------------------------------------------------
 class TestTableInsertWithIds:
 
@@ -78,7 +78,7 @@ class TestTableInsertWithIds:
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         data = {'NAME': 'name-value'}
 
-        data_list, uuids_list = dbconnect.table_insert_with_ids(
+        data_list, uuids_list = dbconnect._table_insert_with_ids(
             'T_TEST', data, 'PK', is_register_history=False
         )
 
@@ -95,7 +95,7 @@ class TestTableInsertWithIds:
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         data = {'NAME': 'name-value'}
 
-        data_list, uuids_list = dbconnect.table_insert_with_ids(
+        data_list, uuids_list = dbconnect._table_insert_with_ids(
             'T_TEST', data, 'PK', is_register_history=True
         )
 
@@ -108,7 +108,7 @@ class TestTableInsertWithIds:
         """dictで渡してもlistとして扱われること"""
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
 
-        data_list, uuids_list = dbconnect.table_insert_with_ids(
+        data_list, uuids_list = dbconnect._table_insert_with_ids(
             'T_TEST', {'NAME': 'x'}, 'PK', is_register_history=False
         )
 
@@ -120,7 +120,7 @@ class TestTableInsertWithIds:
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         data = {'PK': 'specified-pk', 'NAME': 'x'}
 
-        data_list, uuids_list = dbconnect.table_insert_with_ids(
+        data_list, uuids_list = dbconnect._table_insert_with_ids(
             'T_TEST', data, 'PK', is_register_history=False
         )
 
@@ -130,7 +130,7 @@ class TestTableInsertWithIds:
         """本体INSERTが失敗した場合 (False, []) が返ること"""
         dbconnect.sql_execute.return_value = False
 
-        result = dbconnect.table_insert_with_ids(
+        result = dbconnect._table_insert_with_ids(
             'T_TEST', {'NAME': 'x'}, 'PK', is_register_history=False
         )
 
@@ -141,7 +141,7 @@ class TestTableInsertWithIds:
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         data_list = [{'NAME': 'a'}, {'NAME': 'b'}]
 
-        _data_list, uuids_list = dbconnect.table_insert_with_ids(
+        _data_list, uuids_list = dbconnect._table_insert_with_ids(
             'T_TEST', data_list, 'PK', is_register_history=False
         )
 
@@ -154,7 +154,7 @@ class TestTableInsertWithIds:
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         data = {'PK': pk_value, 'NAME': 'x'}
 
-        _data_list, uuids_list = dbconnect.table_insert_with_ids(
+        _data_list, uuids_list = dbconnect._table_insert_with_ids(
             'T_TEST', data, 'PK', is_register_history=False
         )
 
@@ -165,7 +165,7 @@ class TestTableInsertWithIds:
         """本体INSERT文がテーブル名・カラム・値を正しく含むこと"""
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
 
-        dbconnect.table_insert_with_ids(
+        dbconnect._table_insert_with_ids(
             'T_TEST', {'NAME': 'name-value'}, 'PK', is_register_history=False
         )
 
@@ -183,7 +183,7 @@ class TestTableInsertWithIds:
         dbconnect.sql_execute.side_effect = [[{'dummy': 1}], False]
         data_list = [{'NAME': 'a'}, {'NAME': 'b'}]
 
-        result = dbconnect.table_insert_with_ids(
+        result = dbconnect._table_insert_with_ids(
             'T_TEST', data_list, 'PK', is_register_history=False
         )
 
@@ -193,7 +193,7 @@ class TestTableInsertWithIds:
 
     def test_insert_empty_list(self, dbconnect):
         """空リストの場合 ([], []) が返ること"""
-        result = dbconnect.table_insert_with_ids(
+        result = dbconnect._table_insert_with_ids(
             'T_TEST', [], 'PK', is_register_history=False
         )
 
@@ -202,7 +202,7 @@ class TestTableInsertWithIds:
 
 
 # ---------------------------------------------------------------------------
-# table_update_with_ids
+# _table_update_with_ids (本体ロジック)
 # ---------------------------------------------------------------------------
 class TestTableUpdateWithIds:
 
@@ -211,7 +211,7 @@ class TestTableUpdateWithIds:
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         data = {'PK': 'target-pk', 'NAME': 'name-value'}
 
-        data_list, uuids_list = dbconnect.table_update_with_ids(
+        data_list, uuids_list = dbconnect._table_update_with_ids(
             'T_TEST', data, 'PK', is_register_history=False
         )
 
@@ -228,7 +228,7 @@ class TestTableUpdateWithIds:
         dbconnect.table_select.return_value = [{'PK': 'target-pk', 'NAME': 'name-value'}]
         data = {'PK': 'target-pk', 'NAME': 'name-value'}
 
-        data_list, uuids_list = dbconnect.table_update_with_ids(
+        data_list, uuids_list = dbconnect._table_update_with_ids(
             'T_TEST', data, 'PK', is_register_history=True
         )
 
@@ -239,23 +239,23 @@ class TestTableUpdateWithIds:
         dbconnect.table_select.assert_called_once()
 
     def test_update_with_history_no_record_returns_false(self, dbconnect):
-        """履歴あり: 再取得で対象なしの場合 False が返ること"""
+        """履歴あり: 再取得で対象なしの場合 (False, []) が返ること"""
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         dbconnect.table_select.return_value = []
         data = {'PK': 'target-pk', 'NAME': 'x'}
 
-        result = dbconnect.table_update_with_ids(
+        result = dbconnect._table_update_with_ids(
             'T_TEST', data, 'PK', is_register_history=True
         )
 
-        assert result is False
+        assert result == (False, [])
 
     def test_update_failure_returns_false(self, dbconnect):
         """本体UPDATEが失敗した場合 (False, []) が返ること"""
         dbconnect.sql_execute.return_value = False
         data = {'PK': 'target-pk', 'NAME': 'x'}
 
-        result = dbconnect.table_update_with_ids(
+        result = dbconnect._table_update_with_ids(
             'T_TEST', data, 'PK', is_register_history=False
         )
 
@@ -266,7 +266,7 @@ class TestTableUpdateWithIds:
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
         data = {'PK': 'target-pk', 'NAME': 'x'}
 
-        dbconnect.table_update_with_ids(
+        dbconnect._table_update_with_ids(
             'T_TEST', data, 'PK', is_register_history=False, last_timestamp=False
         )
 
@@ -276,7 +276,7 @@ class TestTableUpdateWithIds:
         """dictで渡してもlistとして扱われること"""
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
 
-        data_list, uuids_list = dbconnect.table_update_with_ids(
+        data_list, uuids_list = dbconnect._table_update_with_ids(
             'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', is_register_history=False
         )
 
@@ -287,7 +287,7 @@ class TestTableUpdateWithIds:
         """UPDATE文が WHERE PK=%s で、バインド値末尾にPKが付くこと"""
         dbconnect.sql_execute.return_value = [{'dummy': 1}]
 
-        dbconnect.table_update_with_ids(
+        dbconnect._table_update_with_ids(
             'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', is_register_history=False
         )
 
@@ -307,7 +307,7 @@ class TestTableUpdateWithIds:
         ]
         data_list = [{'PK': 'pk-1', 'NAME': 'a'}, {'PK': 'pk-2', 'NAME': 'b'}]
 
-        _data_list, uuids_list = dbconnect.table_update_with_ids(
+        _data_list, uuids_list = dbconnect._table_update_with_ids(
             'T_TEST', data_list, 'PK', is_register_history=True
         )
 
@@ -321,7 +321,7 @@ class TestTableUpdateWithIds:
         dbconnect.sql_execute.side_effect = [[{'dummy': 1}], False]
         data_list = [{'PK': 'pk-1', 'NAME': 'a'}, {'PK': 'pk-2', 'NAME': 'b'}]
 
-        result = dbconnect.table_update_with_ids(
+        result = dbconnect._table_update_with_ids(
             'T_TEST', data_list, 'PK', is_register_history=False
         )
 
@@ -330,9 +330,155 @@ class TestTableUpdateWithIds:
 
     def test_update_empty_list(self, dbconnect):
         """空リストの場合 ([], []) が返ること"""
-        result = dbconnect.table_update_with_ids(
+        result = dbconnect._table_update_with_ids(
             'T_TEST', [], 'PK', is_register_history=False
         )
 
         assert result == ([], [])
         assert dbconnect.sql_execute.call_count == 0
+
+
+# ---------------------------------------------------------------------------
+# table_insert_with_ids (_table_insert_with_ids へ委譲するラッパー)
+# ---------------------------------------------------------------------------
+class TestTableInsertWithIdsWrapper:
+
+    def test_delegates_to_private(self, dbconnect):
+        """_table_insert_with_ids に委譲し、その戻り値をそのまま返すこと"""
+        expected = ([{'PK': 'uuid-1'}], [('uuid-1', None)])
+        dbconnect._table_insert_with_ids = MagicMock(return_value=expected)
+
+        result = dbconnect.table_insert_with_ids(
+            'T_TEST', {'NAME': 'x'}, 'PK', is_register_history=True
+        )
+
+        assert result == expected
+        dbconnect._table_insert_with_ids.assert_called_once_with(
+            'T_TEST', {'NAME': 'x'}, 'PK', True
+        )
+
+
+# ---------------------------------------------------------------------------
+# table_update_with_ids (_table_update_with_ids へ委譲するラッパー)
+# ---------------------------------------------------------------------------
+class TestTableUpdateWithIdsWrapper:
+
+    def test_delegates_to_private(self, dbconnect):
+        """_table_update_with_ids に委譲し、その戻り値をそのまま返すこと"""
+        expected = ([{'PK': 'target-pk'}], [('target-pk', None)])
+        dbconnect._table_update_with_ids = MagicMock(return_value=expected)
+
+        result = dbconnect.table_update_with_ids(
+            'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', is_register_history=True
+        )
+
+        assert result == expected
+        dbconnect._table_update_with_ids.assert_called_once_with(
+            'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', True
+        )
+
+
+# ---------------------------------------------------------------------------
+# table_insert (table_insert_with_ids へ委譲するラッパー)
+# ---------------------------------------------------------------------------
+class TestTableInsert:
+
+    def test_delegates_to_with_ids_and_returns_result(self, dbconnect):
+        """table_insert_with_ids に委譲し、戻り値の1つ目(result)を返すこと"""
+        expected_data_list = [{'PK': 'uuid-1', 'NAME': 'x'}]
+        dbconnect.table_insert_with_ids = MagicMock(
+            return_value=(expected_data_list, [('uuid-1', None)])
+        )
+
+        result = dbconnect.table_insert(
+            'T_TEST', {'NAME': 'x'}, 'PK', is_register_history=True
+        )
+
+        # result(data_list)のみが返り、uuids は返らないこと
+        assert result == expected_data_list
+        # 引数がそのまま委譲されること
+        dbconnect.table_insert_with_ids.assert_called_once_with(
+            'T_TEST', {'NAME': 'x'}, 'PK', True
+        )
+
+    def test_returns_false_on_failure(self, dbconnect):
+        """table_insert_with_ids が (False, []) の場合 False を返すこと"""
+        dbconnect.table_insert_with_ids = MagicMock(return_value=(False, []))
+
+        result = dbconnect.table_insert('T_TEST', {'NAME': 'x'}, 'PK')
+
+        assert result is False
+
+    def test_default_is_register_history_false(self, dbconnect):
+        """is_register_history 未指定時は False で委譲されること"""
+        dbconnect.table_insert_with_ids = MagicMock(return_value=([], []))
+
+        dbconnect.table_insert('T_TEST', {'NAME': 'x'}, 'PK')
+
+        dbconnect.table_insert_with_ids.assert_called_once_with(
+            'T_TEST', {'NAME': 'x'}, 'PK', False
+        )
+
+    def test_insert_integration_returns_data_list(self, dbconnect):
+        """実際の table_insert_with_ids 経由(モックせず)で data_list が返ること"""
+        dbconnect.sql_execute.return_value = [{'dummy': 1}]
+
+        result = dbconnect.table_insert(
+            'T_TEST', {'NAME': 'x'}, 'PK', is_register_history=False
+        )
+
+        assert isinstance(result, list)
+        assert result[0]['PK'] == 'uuid-1'
+
+
+# ---------------------------------------------------------------------------
+# table_update (table_update_with_ids へ委譲するラッパー)
+# ---------------------------------------------------------------------------
+class TestTableUpdate:
+
+    def test_delegates_to_with_ids_and_returns_result(self, dbconnect):
+        """table_update_with_ids に委譲し、戻り値の1つ目(result)を返すこと"""
+        expected_data_list = [{'PK': 'target-pk', 'NAME': 'x'}]
+        dbconnect.table_update_with_ids = MagicMock(
+            return_value=(expected_data_list, [('target-pk', None)])
+        )
+
+        result = dbconnect.table_update(
+            'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', is_register_history=True
+        )
+
+        # result(data_list)のみが返り、uuids は返らないこと
+        assert result == expected_data_list
+        # 引数がそのまま委譲されること
+        dbconnect.table_update_with_ids.assert_called_once_with(
+            'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', True
+        )
+
+    def test_returns_false_on_failure(self, dbconnect):
+        """table_update_with_ids が (False, []) の場合 False を返すこと"""
+        dbconnect.table_update_with_ids = MagicMock(return_value=(False, []))
+
+        result = dbconnect.table_update('T_TEST', {'PK': 'target-pk'}, 'PK')
+
+        assert result is False
+
+    def test_default_is_register_history_false(self, dbconnect):
+        """is_register_history 未指定時は False で委譲されること"""
+        dbconnect.table_update_with_ids = MagicMock(return_value=([], []))
+
+        dbconnect.table_update('T_TEST', {'PK': 'target-pk'}, 'PK')
+
+        dbconnect.table_update_with_ids.assert_called_once_with(
+            'T_TEST', {'PK': 'target-pk'}, 'PK', False
+        )
+
+    def test_update_integration_returns_data_list(self, dbconnect):
+        """実際の table_update_with_ids 経由(モックせず)で data_list が返ること"""
+        dbconnect.sql_execute.return_value = [{'dummy': 1}]
+
+        result = dbconnect.table_update(
+            'T_TEST', {'PK': 'target-pk', 'NAME': 'x'}, 'PK', is_register_history=False
+        )
+
+        assert isinstance(result, list)
+        assert result[0]['PK'] == 'target-pk'
