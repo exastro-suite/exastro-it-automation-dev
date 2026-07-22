@@ -1380,8 +1380,15 @@ ansible_additional_install(){
         if [ "${DEP_PATTERN}" = "RHEL9" ]; then
             info "uninstall ansible-builder ansible-runner"
             poetry run pip3 uninstall -y ansible-builder ansible-runner
-            info "run_sudo dnf install -y ${AAP_ANSIBLE_BUILDER_PKG_RHEL9} ${AAP_ANSIBLE_RUNNER_PKG_RHEL9}"
-            run_sudo dnf install -y "${AAP_ANSIBLE_BUILDER_PKG_RHEL9}" "${AAP_ANSIBLE_RUNNER_PKG_RHEL9}"
+            if run_sudo dnf repolist enabled 2>/dev/null | grep -q "${rhel9_repos['aap']}"; then
+                info "AAP 2.5 repo detected. Install with version pinning."
+                info "run_sudo dnf install -y ${AAP_ANSIBLE_BUILDER_PKG_RHEL9} ${AAP_ANSIBLE_RUNNER_PKG_RHEL9}"
+                run_sudo dnf install -y "${AAP_ANSIBLE_BUILDER_PKG_RHEL9}" "${AAP_ANSIBLE_RUNNER_PKG_RHEL9}"
+            else
+                info "AAP 2.5 repo not detected. Install without version pinning."
+                info "run_sudo dnf install -y ansible-builder ansible-runner"
+                run_sudo dnf install -y ansible-builder ansible-runner
+            fi
         elif [ "${DEP_PATTERN}" = "RHEL8" ] || [ "${DEP_PATTERN}" = "RHEL10" ]; then
             info "uninstall ansible-builder ansible-runner"
             poetry run pip3 uninstall -y ansible-builder ansible-runner
