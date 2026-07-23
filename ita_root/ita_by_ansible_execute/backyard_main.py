@@ -350,8 +350,17 @@ def child_process_exist_check(common_db, target_shema, ansibleAg):
                     is_running = True
 
         # DBのステータスが実行中なのに、子プロセスが存在しない
-        # 実行エンジンがansibel agent以外の場合
-        if ans_if_info["ANSIBLE_EXEC_MODE"] != ansc_const.DF_EXEC_MODE_AG:
+        # 再起動判定前に現在の状況を取得
+        result = cm.get_execution_process_info(wsDb, ansc_const, execution_no)
+        if result[0] is False:
+            g.applogger.info(g.appmsg.get_log_message(result[1], [execution_no]))
+            return False
+        execute_data = result[1]
+
+        # 実行エンジンがAnsible-Coreか、AAP/AAPSで「準備中」である場合は再起動しない
+        if ans_if_info["ANSIBLE_EXEC_MODE"] == ansc_const.DF_EXEC_MODE_ANSIBLE \
+           or (ans_if_info["ANSIBLE_EXEC_MODE"] == ansc_const.DF_EXEC_MODE_AAC and execute_data["STATUS_ID"] == ansc_const.PREPARE) \
+           or (ans_if_info["ANSIBLE_EXEC_MODE"] == ansc_const.DF_EXEC_MODE_AAP_CLOUD and execute_data["STATUS_ID"] == ansc_const.PREPARE):
             if is_running is False:
                 g.applogger.info(g.appmsg.get_log_message("MSG-10056", [driver_name, execution_no]))
 
@@ -361,18 +370,10 @@ def child_process_exist_check(common_db, target_shema, ansibleAg):
                 # /tmpをゴミ掃除
                 rmAnsibleCreateFiles()
 
-                # 情報を再取得して、想定外エラーにする
-                result = cm.get_execution_process_info(wsDb, ansc_const, execution_no)
-                if result[0] is False:
-                    err_log = g.appmsg.get_log_message(result[1], [execution_no])
-                    wsDb.db_disconnect()
-                    raise Exception(err_log)
-                execute_data = result[1]
-
                 # 実行中か再確認
                 status_id_list = [ansc_const.PREPARE, ansc_const.PROCESSING, ansc_const.PROCESS_DELAYED]
                 if execute_data["STATUS_ID"] in status_id_list:
-                    # 更新
+                    # 想定外エラーに更新
                     wsDb.db_transaction_start()
                     time_stamp = get_timestamp()
                     data = {
@@ -405,13 +406,7 @@ def child_process_exist_check(common_db, target_shema, ansibleAg):
                 # /tmpをゴミ掃除
                 rmAnsibleCreateFiles()
 
-                # 情報を再取得して、子プロ再起動回数の上限に達するまで再起動する。子プロ再起動回数の上限に達している場合は想定外エラーにする
-                result = cm.get_execution_process_info(wsDb, ansc_const, execution_no)
-                if result[0] is False:
-                    g.applogger.info(g.appmsg.get_log_message(result[1], [execution_no]))
-                    return False
-                execute_data = result[1]
-
+                # 子プロ再起動回数の上限に達するまで再起動する。子プロ再起動回数の上限に達している場合は想定外エラーにする
                 # 実行中か再確認
                 status_id_list = [ansc_const.PREPARE, ansc_const.PROCESSING, ansc_const.PROCESS_DELAYED, ansc_const.PREPARE_COMPLETE, ansc_const.PROCESSING_WAIT]
                 if execute_data["STATUS_ID"] in status_id_list:
