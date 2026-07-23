@@ -121,9 +121,9 @@ def test_external_valid_menu_before_duplication(cmd_type,
     "cmd_type, option_extra, expected_key",
     [
         # 登録：新規発番の uuid をロックキーに
-        ("Register", {"uuid": "NEW-DEDUP-ID", "current_parameter": {"parameter": {}}}, "NEW-DEDUP-ID"),
+        ("Register", {"uuid": "NEW-DEDUP-ID", "current_parameter": {"parameter": {}}}, "OASE_DEDUPLICATION_NEW-DEDUP-ID"),
         # 復活：既存レコードの deduplication_setting_id をロックキーに
-        ("Restore", {"current_parameter": {"parameter": {"deduplication_setting_id": "RES-DEDUP-ID"}}}, "RES-DEDUP-ID"),
+        ("Restore", {"current_parameter": {"parameter": {"deduplication_setting_id": "RES-DEDUP-ID"}}}, "OASE_DEDUPLICATION_RES-DEDUP-ID"),
     ]
 )
 def test_external_valid_menu_after_activation_inserts_lock_key(cmd_type, option_extra, expected_key):
@@ -139,7 +139,7 @@ def test_external_valid_menu_after_activation_inserts_lock_key(cmd_type, option_
     assert retBool is True
     assert msg == ''
     objdbca.sql_execute.assert_called_once_with(
-        "INSERT IGNORE INTO `T_COMN_RECODE_LOCK_TABLE` (`TABLE_NAME`) VALUES (%s)",
+        "INSERT INTO `T_COMN_RECODE_LOCK_TABLE` (`TABLE_NAME`) VALUES (%s)",
         [expected_key],
     )
 
@@ -170,7 +170,7 @@ def test_external_valid_menu_after_deactivation_removes_lock_key(cmd_type, expec
     assert msg == ''
     objdbca.sql_execute.assert_called_once_with(
         "DELETE FROM `T_COMN_RECODE_LOCK_TABLE` WHERE `TABLE_NAME` = %s",
-        [expected_key],
+        [f"OASE_DEDUPLICATION_{expected_key}"],
     )
 
 
@@ -220,7 +220,7 @@ def test_external_valid_menu_after_register_without_uuid_is_safe():
             ["S1"], "SELF-ID",
             [{"EVENT_SOURCE_REDUNDANCY_GROUP": '{"id": ["S9"]}'}],
             [],
-            "WHERE DISUSE_FLAG='0' AND DEDUPLICATION_SETTING_ID <> %s", ["SELF-ID"],
+            "WHERE DISUSE_FLAG='0' AND DEDUPLICATION_SETTING_ID != %s", ["SELF-ID"],
         ),
         # 入力が空 → table_select を呼ばず即空リスト
         (

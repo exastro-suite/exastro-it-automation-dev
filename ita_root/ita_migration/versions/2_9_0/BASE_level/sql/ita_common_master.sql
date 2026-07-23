@@ -9,6 +9,14 @@ SET ADDITIONAL_DRIVER = JSON_ARRAY_APPEND(
         'description_en', ''
     )
 ),
+INSTALLED_DRIVER_JA = JSON_SET(
+    INSTALLED_DRIVER_JA,
+    '$.ai_assistant','Exastro AI Assistant'
+),
+INSTALLED_DRIVER_EN = JSON_SET(
+    INSTALLED_DRIVER_EN,
+    '$.ai_assistant','Exastro AI Assistant'
+),
 LAST_UPDATE_TIMESTAMP = CURRENT_TIMESTAMP
 WHERE NOT JSON_CONTAINS(ADDITIONAL_DRIVER, '{"id": "ai_assistant"}');
 
