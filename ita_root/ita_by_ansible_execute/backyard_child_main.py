@@ -658,15 +658,6 @@ def instance_checkcondition(wsDb: DBConnectWs, ansdrv: CreateAnsibleExecFiles, a
             db_update_need = True
             db_update_need_no_jnl = True
 
-        # 5:正常終了時
-        # 6:完了(異常)
-        # 7:想定外エラー
-        # 8:緊急停止
-        if status in [ansc_const.COMPLETE, ansc_const.FAILURE, ansc_const.EXCEPTION, ansc_const.SCRAM]:
-            pass
-        else:
-            status = -1
-
     else:
         # 実行エンジンがAnsible Agenntの場合
         status, db_update_need = ag_execute_statuscheck(ansdrv, ansc_const, execution_no, execute_data, Timeout_Interval)
