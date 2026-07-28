@@ -377,7 +377,7 @@ def file_read_retry(func):
                 else:
                     # retry分は、メッセージのみを出力
                     # For retry minutes, only the message is output
-                    logger.info(print_exception_msg(e, logger_class=logger))
+                    print_exception_msg(e, logger_class=logger)
 
             if i == max:
                 break
