@@ -526,11 +526,12 @@ def update_error_executions(organization_id, workspace_id, exastro_api, error_ps
 
             finally:
                 # 実行時削除フラグを取得しておく
-                if runtime_data_del == 2:
-                    try:
-                        _, runtime_data_del = get_execution_parameters_file(organization_id, workspace_id, driver_id, del_execution)  # noqa: F405
-                    except Exception as e:
-                        g.applogger.info(f"read execution_parameters_file failed. execution_no={del_execution}")
+                try:
+                    _, runtime_data_del = get_execution_parameters_file(organization_id, workspace_id, driver_id, del_execution)  # noqa: F405
+                except Exception as e:
+                    # パラメータファイルが読めなかった場合、実行時削除はTrue扱いとする
+                    runtime_data_del = 1
+                    g.applogger.info(f"read execution_parameters_file failed. execution_no={del_execution}")
                 # ステータスファイルの削除
                 delete_status_file(organization_id, workspace_id, driver_id, del_execution)  # noqa: F405
                 # /tmpのゴミ掃除
