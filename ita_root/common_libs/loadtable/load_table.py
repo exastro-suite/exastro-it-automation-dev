@@ -2111,7 +2111,6 @@ class loadTable():
             self.set_exec_count_up(cmd_type)
 
         except Exception as e:
-            print(f"{cmd_type=}:{self.get_table_name()=}:{colname_parameter=}")
             raise e
         finally:
             retry_rmtree(tmp_path)  # noqa: F405
