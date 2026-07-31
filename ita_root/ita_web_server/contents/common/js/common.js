@@ -4599,31 +4599,87 @@ fileModeCheck: function( fileName ) {
 ##################################################
 */
 isProbablyText: function(buffer, sampleSize = 8192) {
-    const bytes = new Uint8Array(buffer, 0, Math.min(buffer.byteLength, sampleSize));
+    const length = Math.min(buffer.byteLength, sampleSize);
+    const bytes = new Uint8Array(buffer, 0, length);
 
-    // 1) BOM があれば確実にテキスト
-    if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return true;
-    if (bytes.length >= 2 && (bytes[0] === 0xff && bytes[1] === 0xfe)) return true; // UTF-16 LE
-    if (bytes.length >= 2 && (bytes[0] === 0xfe && bytes[1] === 0xff)) return true; // UTF-16 BE
+    // 空ファイルはテキストとして扱う
+    if ( bytes.length === 0) return true;
 
-    // 2) NUL バイトがあればバイナリとみなす（最も効く判定）
-    if (bytes.includes(0x00)) return false;
-
-    // 3) UTF-8 として妥当にデコードできるか
-    try {
-        new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    // BOM
+    if (
+        bytes.length >= 3 &&
+        bytes[0] === 0xef &&
+        bytes[1] === 0xbb &&
+        bytes[2] === 0xbf
+    ) {
         return true;
-    } catch {
-        // UTF-8 で壊れる → 制御文字比率でフォールバック判定
     }
 
-    // 4) 非印字制御文字の比率が高ければバイナリ
-    let control = 0;
-    for (const b of bytes) {
-        // タブ(9) 改行(10) CR(13) 以外の C0 制御文字と DEL(127)
-        if ((b < 0x09) || (b > 0x0d && b < 0x20) || b === 0x7f) control++;
+    if (
+        bytes.length >= 2 &&
+        (
+            (bytes[0] === 0xff && bytes[1] === 0xfe) ||
+            (bytes[0] === 0xfe && bytes[1] === 0xff)
+        )
+    ) {
+        return true;
     }
-    return control / bytes.length < 0.3;
+
+    // NULバイトがあればバイナリ
+    if ( bytes.includes(0x00) ) return false;
+
+    // UTF-8として検証
+    try {
+        const decoder = new TextDecoder('utf-8', { fatal: true });
+
+        // サンプル途中でUTF-8文字が切れることによる誤判定を防ぐ
+        // （呼び出し元が file.slice() でサンプルを切り出すため、末尾は常に途中で切れている可能性がある）
+        const text = decoder.decode(bytes, { stream: true });
+
+        let controlCount = 0;
+        let characterCount = 0;
+
+        for (const character of text) {
+            characterCount++;
+
+            const codePoint = character.codePointAt(0);
+
+            // タブ、LF、CRは許可
+            if (
+                codePoint !== 0x09 &&
+                codePoint !== 0x0a &&
+                codePoint !== 0x0d &&
+                (
+                    codePoint < 0x20 ||
+                    (codePoint >= 0x7f && codePoint <= 0x9f)
+                )
+            ) {
+                controlCount++;
+            }
+        }
+
+        // UTF-8として有効でも制御文字だらけならバイナリ
+        return controlCount / Math.max(characterCount, 1) < 0.01;
+    } catch {
+        // UTF-8ではない
+    }
+
+    // UTF-8でない場合はASCIIテキストらしさを確認
+    let printableCount = 0;
+
+    for ( const byte of bytes ) {
+        if (
+            byte === 0x09 || // TAB
+            byte === 0x0a || // LF
+            byte === 0x0d || // CR
+            (byte >= 0x20 && byte <= 0x7e)
+        ) {
+            printableCount++;
+        }
+    }
+
+    // 95%以上がASCII表示可能文字ならテキスト
+    return printableCount / bytes.length >= 0.95;
 },
 sampleFromFile: async function(file, sampleSize = 8192) {
   return file.slice(0, sampleSize).arrayBuffer()
