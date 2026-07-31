@@ -182,8 +182,14 @@ class Status {
         const op = this;
 
         // 完了、完了(異常)、想定外エラー、緊急停止、予約取消の場合は更新しない
-        const stopId = [ '5', '6', '7', '8', '10'];
-        if ( stopId.indexOf( op.info.status_id ) !== -1 ) return false;
+        const stopId = ['5', '6', '7', '8', '10'];
+        if ( stopId.indexOf( op.info.status_id ) !== -1 ) {
+            // ansibleの場合は、collection_statusがnull以外になるまで更新を続ける
+            // （collection_statusがnullの間は停止しない）
+            if ( !( op.driver === 'ansible' && op.info.execution_list?.parameter?.collection_status == null ) ) {
+                return false;
+            }
+        }
 
         const cycle = fn.cv( op.info.status_monitoring_cycle, 3000 );
         if (op.ignoreErrorCount == undefined) {
