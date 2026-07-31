@@ -2001,6 +2001,16 @@ class loadTable():
                 # INSERT/UPDATEの場合は、発番したUUIDを取得する
                 result_uuid, result_uuid_jnl = _uuids[0] if _uuids else ('', '')
 
+                # 履歴有無に応じて、ジャーナルのUUIDを取得する
+                if history_flg is True and not result_uuid_jnl:
+                    _jnl_uuid = self.get_maintenance_uuid(result_uuid)
+                    if _jnl_uuid:
+                        result_uuid_jnl = _jnl_uuid[0].get(COLNAME_JNL_SEQ_NO)
+                    else:
+                        result_uuid_jnl = result_uuid
+                elif history_flg is False:
+                    result_uuid_jnl = result_uuid
+
                 # 主キーのカラム名をitem_name_restに変更
                 temp_rows = {primary_key: result[0].get(primary_key)}
                 tmp_result = self.convert_colname_restkey(temp_rows)
