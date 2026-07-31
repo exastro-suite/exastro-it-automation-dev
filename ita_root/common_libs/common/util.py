@@ -1060,7 +1060,7 @@ def put_uploadfiles(config_file_path, src_dir, dest_dir):
                     retry_makedirs(old_file_path)
 
                     retry_copy(org_file, old_file_path + file)
-                    retry_symlink(old_file_path + file, file_path + file)
+                    retry_symlink_ignore_FileExistsError(old_file_path + file, file_path + file)
 
     return True
 
@@ -1096,7 +1096,7 @@ def put_uploadfiles_not_override(config_file_path, src_dir, dest_dir):
 
                     retry_copy(org_file, old_file_path + file)
 
-                    retry_symlink(old_file_path + file, file_path + file)
+                    retry_symlink_ignore_FileExistsError(old_file_path + file, file_path + file)
 
     return True
 
@@ -1500,6 +1500,33 @@ def retry_symlink(src_path, dest_path, raise_error=True):
         else:
             return False
 
+# FileExistsErrorを無視したシンボリックリンク作成
+@file_read_retry
+def retry_symlink_ignore_FileExistsError(src_path, dest_path, raise_error=True):
+    """
+        `os.symlink(src_path, dest_path)` を`@file_read_retry`付きで実行する
+        FileExistsErrorを無視したいユースケースに対応
+        Args:
+            src_path: リンク元パス
+            dest_path: リンク先パス
+            raise_error: リトライを実施してもエラーが発生した際に例外スローするか (True: 例外スロー&ログ出力/ False: ログ出力のみ)
+    """
+    g.applogger.debug(f"os.symlink({src_path, dest_path}) ignore_FileExistsError")
+    try:
+        os.listdir(os.path.dirname(src_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
+        os.listdir(os.path.dirname(dest_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
+        os.symlink(src_path, dest_path)
+        return True
+    except FileExistsError:
+        return True
+    except Exception as e:
+        g.applogger.info("retry_symlink failed. src_path={}, dest_path={}".format(src_path, dest_path))
+        t = traceback.format_exc()
+        g.applogger.debug(arrange_stacktrace_format(t))
+        if raise_error is True:
+            raise e
+        else:
+            return False
 
 # ZIP展開
 @file_read_retry
