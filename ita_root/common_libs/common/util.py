@@ -341,8 +341,8 @@ def file_encode(file_path):
     return read_value
 
 
-file_read_retry_limit = int(os.environ.get('FILE_READ_RETRY_LIMIT', 3))  # ファイルストレージへの読書のリトライ回数の上限
-file_read_retry_delay_time = float(os.environ.get('FILE_READ_RETRY_DELAY_TIME', 0.1))  # ファイルストレージへの読書のリトライのインターバル
+file_read_retry_limit = int(os.environ.get('FILE_READ_RETRY_LIMIT', 3))  # ファイルストレージへの読み書きのリトライ回数の上限
+file_read_retry_delay_time = float(os.environ.get('FILE_READ_RETRY_DELAY_TIME', 0.1))  # ファイルストレージへの読み書きのリトライのインターバル
 def file_read_retry(func):
     """
     file_read_retry
