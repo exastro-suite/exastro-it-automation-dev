@@ -4364,10 +4364,10 @@ editCellHtml( item, columnKey ) {
     }
 
     // 備考欄の場合、編集前と後で廃止フラグに変更があった場合は編集可能にする
-    if ( columnName === 'remarks' && attr.disabled === 'disabled') {
+    if ( inputData !== undefined && columnName === 'remarks' && attr.disabled === 'disabled') {
         const beforeDiscard = parameter?.discard ?? '';
-        const afterDiscard = inputData?.after?.parameter.discard ?? '';
-        if ( beforeDiscard !== afterDiscard ) {
+        const afterDiscard = inputData?.after?.parameter?.discard;
+        if ( afterDiscard && beforeDiscard !== afterDiscard ) {
             delete attr.disabled;
         }
     }
