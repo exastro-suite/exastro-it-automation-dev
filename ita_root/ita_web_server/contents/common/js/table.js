@@ -3921,12 +3921,16 @@ discardMark( value ) {
    Discard check
 ##################################################
 */
-discardCheck( id ) {
+discardCheck( id, editFlag = false ) {
     const tb = this;
 
     // 編集データがある場合
+    // ※編集モードの場合は編集前後で廃止を優先する
     if ( tb.edit.input[ id ] && tb.edit.input[ id ].after.parameter.discard ) {
-        return tb.edit.input[ id ].after.parameter.discard;
+        const discard = tb.edit.input[ id ].after.parameter.discard;
+        if ( !editFlag || discard === '1') {
+            return discard;
+        }        
     }
 
     if ( tb.data.body ) {
@@ -4331,7 +4335,7 @@ editCellHtml( item, columnKey ) {
     };
 
     // 廃止チェック
-    if ( tb.discardCheck( rowId ) === '1') {
+    if ( tb.discardCheck( rowId, true ) === '1') {
         attr.disabled = 'disabled';
     }
 
@@ -4356,6 +4360,15 @@ editCellHtml( item, columnKey ) {
                     }
                 }
             }
+        }
+    }
+
+    // 備考欄の場合、編集前と後で廃止フラグに変更があった場合は編集可能にする
+    if ( columnName === 'remarks' && attr.disabled === 'disabled') {
+        const beforeDiscard = parameter?.discard ?? '';
+        const afterDiscard = inputData?.after?.parameter.discard ?? '';
+        if ( beforeDiscard !== afterDiscard ) {
+            delete attr.disabled;
         }
     }
 
