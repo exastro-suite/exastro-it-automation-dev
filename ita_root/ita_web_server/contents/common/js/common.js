@@ -1108,7 +1108,6 @@ download: async function( type, data, fileName = 'noname') {
 fileSelect: function( type = 'base64', limitFileSize, accept ){
     return new Promise( function( resolve, reject ) {
         const file = document.createElement('input');
-        let cancelFlag = true;
 
         file.type = 'file';
         if ( accept !== undefined ) file.accept = accept;
@@ -1117,7 +1116,11 @@ fileSelect: function( type = 'base64', limitFileSize, accept ){
             const file = this.files[0],
                   reader = new FileReader();
 
-            cancelFlag = false;
+            // ファイルが選択されていない場合はキャンセル扱い
+            if ( !file ) {
+                reject('cancel');
+                return false;
+            }
 
             if ( limitFileSize && file.size > limitFileSize ) {
                 reject( getMessage.FTE10060( file.size, limitFileSize ) );
@@ -1170,15 +1173,12 @@ fileSelect: function( type = 'base64', limitFileSize, accept ){
             }
         });
 
-        file.click();
 
-        // bodyフォーカスでダイアログを閉じたか判定
-        document.body.onfocus = function(){
-            setTimeout( function(){
-                if ( cancelFlag ) reject('cancel');
-                document.body.onfocus = null;
-            }, 1000 );
-        };
+        file.addEventListener('cancel', function(){
+            reject('cancel');
+        });
+
+        file.click();
     });
 },
 /*
