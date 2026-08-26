@@ -240,10 +240,14 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
         # 昇順ソート=デッドロック回避（全リクエストで取得順を一定にする）。
         lock_keys = sorted(lock_key_set)
 
-        # ロック取得（デッドロックでリトライ）
-        retry_limit = 10         # デッドロック(1213)時の最大リトライ回数
-        retry_interval = 0.1     # リトライ間隔秒
-        for attempt in range(retry_limit + 1):
+        # ロック取得（デッドロック・ロック待ちタイムアウトでリトライ）
+        # 上限は errno ごとに独立して数え、どちらかが自分の上限に達した時点で例外にする
+        deadlock_retry_limit = 10  # デッドロック(1213)時の最大リトライ回数
+        lock_wait_timeout_retry_limit = int(os.environ.get("OASE_LOCK_WAIT_TIMEOUT_RETRY_LIMIT", 5))  # ロック待ちタイムアウト(1205)時の最大リトライ回数
+        retry_interval = 0.1       # デッドロック(1213)のリトライ間隔秒（1205 は待たずに再取得する）
+        deadlock_retry_count = 0
+        lock_wait_timeout_retry_count = 0
+        while True:
             try:
                 wsDb.db_transaction_start()
                 # 重複排除設定ID単位で行ロック
@@ -254,8 +258,9 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
             except AppException as lock_e:
                 # _is_transaction を False に戻すため rollback は必ず通す（次のstartが空振りしないように）
                 wsDb.db_transaction_end(False)
-                if wsDb.is_deadlock_exception(lock_e) and attempt < retry_limit:
-                    # デッドロック(1213)が起きる条件（複数リクエストの同時受信時）:
+                if wsDb.is_deadlock_exception(lock_e) and deadlock_retry_count < deadlock_retry_limit:
+                    # デッドロック(1213)
+                    #   起きる条件（複数リクエストの同時受信時）:
                     #   table_lock は「SELECT ... IN (...) FOR UPDATE → 無ければINSERT → 再SELECT」で動く。
                     #   ロックキーの行が未存在だと FOR UPDATE が実レコードでなくギャップロックを取り、
                     #   複数リクエストが同一ギャップに同時保持できる(共存可)。
@@ -263,12 +268,22 @@ def duplicate_check(wsDb, wsMongo, labeled_event_list):  # noqa: C901
                     #   衝突して循環待ちになるが、そのうちの1リクエストは続行される。
                     #   それ以外をデッドロック(1213)でロールバックする。
                     #   続行した側が行をINSERT済みなのでリトライ時は実レコードロックとなりこの経路に入らない。
+                    deadlock_retry_count += 1
                     g.applogger.info(
-                        f"deduplication setting lock deadlock(1213). retrying. {attempt=}, {retry_limit=}, {retry_interval=}, {lock_keys=}"
+                        "deduplication setting lock deadlock(1213). retrying. "
+                        f"{deadlock_retry_count=}, {deadlock_retry_limit=}, {retry_interval=}, {lock_keys=}"
                     )
                     time.sleep(retry_interval)
                     continue
-                # デッドロック以外、またはリトライ上限到達 → raise
+                if wsDb.is_lock_wait_timeout_exception(lock_e) and lock_wait_timeout_retry_count < lock_wait_timeout_retry_limit:
+                    # ロック待ちタイムアウト(1205)
+                    lock_wait_timeout_retry_count += 1
+                    g.applogger.info(
+                        "deduplication setting lock wait timeout(1205). retrying. "
+                        f"{lock_wait_timeout_retry_count=}, {lock_wait_timeout_retry_limit=}, {lock_keys=}"
+                    )
+                    continue
+                # 1213/1205 以外、またはどちらかのリトライ上限到達 → raise
                 raise
 
         try:

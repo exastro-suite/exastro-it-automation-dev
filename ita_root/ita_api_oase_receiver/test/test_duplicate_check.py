@@ -4059,17 +4059,31 @@ def _dedup_single_setting():
     return settings, labeled_event_list
 
 
-def _bind_real_is_deadlock(mock_db):
-    """mock_db.is_deadlock_exception を本物のロジックに差し替える"""
+def _make_lock_wait_timeout_appexception():
+    """table_lock が投げる、errno 1205 でラップされた AppException を作る"""
+    from common_libs.common.exception import AppException
+    import pymysql
+    pymysql_error = pymysql.err.OperationalError(1205, "Lock wait timeout exceeded; try restarting transaction")
+    # sql_execute のラップ形: AppException("999-00003", [db, last_executed, pymysql_error], [])
+    return AppException("999-00003", ["ws_db", "SELECT ... FOR UPDATE", pymysql_error], [])
+
+
+def _bind_real_lock_error_judges(mock_db):
+    """mock_db の errno 判定メソッドを本物のロジックに差し替える。
+
+    MagicMock のままだと戻り値が truthy になり、判定していないつもりの errno でも
+    リトライ経路に入ってしまうため、1213/1205 の両方を必ず束ねる。
+    """
     from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
     mock_db.is_deadlock_exception.side_effect = DBConnectCommon.is_deadlock_exception
+    mock_db.is_lock_wait_timeout_exception.side_effect = DBConnectCommon.is_lock_wait_timeout_exception
 
 
 def test_table_lock_deadlock_retry_then_success(mock_db, mock_mongo):
     """①1回デッドロック→リトライして成功。fan-out まで到達する"""
     settings, labeled_event_list = _dedup_single_setting()
     mock_db.table_select.return_value = settings
-    _bind_real_is_deadlock(mock_db)
+    _bind_real_lock_error_judges(mock_db)
     # 1回目デッドロック、2回目は成功（None を返す＝正常）
     mock_db.table_lock.side_effect = [_make_deadlock_appexception(), None]
 
@@ -4093,7 +4107,7 @@ def test_table_lock_deadlock_retry_exhausted_raises(mock_db, mock_mongo):
     """②デッドロックがリトライ上限を超えたら例外を送出。fan-out に到達しない"""
     settings, labeled_event_list = _dedup_single_setting()
     mock_db.table_select.return_value = settings
-    _bind_real_is_deadlock(mock_db)
+    _bind_real_lock_error_judges(mock_db)
     # retry_limit=10 → 初回 + リトライ10回 = 11 回すべてデッドロック
     mock_db.table_lock.side_effect = [_make_deadlock_appexception() for _ in range(11)]
 
@@ -4118,7 +4132,7 @@ def test_table_lock_non_deadlock_raises_immediately(mock_db, mock_mongo):
     """③デッドロック以外(1062)のエラーはリトライせず即送出"""
     settings, labeled_event_list = _dedup_single_setting()
     mock_db.table_select.return_value = settings
-    _bind_real_is_deadlock(mock_db)
+    _bind_real_lock_error_judges(mock_db)
     mock_db.table_lock.side_effect = [_make_other_appexception()]
 
     from common_libs.common.exception import AppException
@@ -4147,7 +4161,7 @@ def test_table_lock_deadlock_retry_does_not_duplicate_fanout(mock_db, mock_mongo
     """
     settings, labeled_event_list = _dedup_single_setting()
     mock_db.table_select.return_value = settings
-    _bind_real_is_deadlock(mock_db)
+    _bind_real_lock_error_judges(mock_db)
     # 2 回デッドロック → 3 回目で成功。リトライを複数回踏ませる
     mock_db.table_lock.side_effect = [
         _make_deadlock_appexception(),
@@ -4164,3 +4178,149 @@ def test_table_lock_deadlock_retry_does_not_duplicate_fanout(mock_db, mock_mongo
     # 何度リトライしても Mongo への挿入は 1 件だけ（fan-out は巻き戻らない）
     collection = mock_mongo.collection.return_value
     assert collection.count_documents({}) == 1
+
+
+# ==========================================================================
+# ロック待ちタイムアウト(1205)のリトライ（Issue #2961 ステップE）
+# fan-out の前に取ったロックを commit まで保持するため、先行リクエストの臨界区間が
+# innodb_lock_wait_timeout を超えると後続は 1205 でロールバックされる。
+# 1213 とは別カウンタでリトライし、どちらかが上限に達したら例外送出することを検証する。
+# ==========================================================================
+
+def test_table_lock_lock_wait_timeout_retry_then_success(mock_db, mock_mongo):
+    """⑥1回ロック待ちタイムアウト(1205)→リトライして成功。fan-out まで到達する"""
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_lock_error_judges(mock_db)
+    # 1回目 1205、2回目は成功（None を返す＝正常）
+    mock_db.table_lock.side_effect = [_make_lock_wait_timeout_appexception(), None]
+
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch('libs.duplicate_check.time.sleep') as mock_sleep:
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    # table_lock は 2 回呼ばれた（1回失敗 + 1回成功）
+    assert mock_db.table_lock.call_count == 2
+    # 1205 は innodb_lock_wait_timeout ぶん待たされた後なので、追加の sleep は入れない
+    assert mock_sleep.call_count == 0
+    # rollback が 1 回（失敗時）、commit が 1 回（成功後の fan-out 完了時）
+    assert mock_db.db_transaction_end.call_args_list.count(((False,), {})) == 1
+    assert mock_db.db_transaction_end.call_args_list.count(((True,), {})) == 1
+    # fan-out まで到達して 1 件挿入された
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 1
+
+
+def test_table_lock_lock_wait_timeout_retry_exhausted_raises(mock_db, mock_mongo):
+    """⑦1205 がリトライ上限(既定5)を超えたら例外を送出。fan-out に到達しない"""
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_lock_error_judges(mock_db)
+    # 上限5 → 初回 + リトライ5回 = 6 回すべて 1205
+    mock_db.table_lock.side_effect = [_make_lock_wait_timeout_appexception() for _ in range(6)]
+
+    from common_libs.common.exception import AppException
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch('libs.duplicate_check.time.sleep') as mock_sleep, \
+         pytest.raises(AppException):
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    # 初回 + リトライ5回 = 6 回で打ち止め
+    assert mock_db.table_lock.call_count == 6
+    # 1205 のリトライは sleep を挟まない
+    assert mock_sleep.call_count == 0
+    # 毎回 rollback（commit は一度も無い）
+    assert mock_db.db_transaction_end.call_args_list.count(((True,), {})) == 0
+    # fan-out に到達していない＝挿入 0 件
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 0
+
+
+def test_table_lock_retry_counters_are_independent(mock_db, mock_mongo):
+    """⑧1213 と 1205 のリトライ回数は別勘定。
+
+    1205 を上限まで使い切っても、1213 側の残回数は独立に残っていてリトライできる。
+    """
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_lock_error_judges(mock_db)
+    # 1205 を 5 回（上限まで）→ その後 1213 を 1 回 → 成功
+    side_effect = [_make_lock_wait_timeout_appexception() for _ in range(5)]
+    side_effect.append(_make_deadlock_appexception())
+    side_effect.append(None)
+    mock_db.table_lock.side_effect = side_effect
+
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch('libs.duplicate_check.time.sleep') as mock_sleep:
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    # 1205×5 + 1213×1 + 成功 = 7 回
+    assert mock_db.table_lock.call_count == 7
+    # sleep が入るのは 1213 の 1 回だけ（1205 は待たない）
+    assert mock_sleep.call_count == 1
+    # 最後に commit されて fan-out 到達
+    assert mock_db.db_transaction_end.call_args_list.count(((True,), {})) == 1
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 1
+
+
+def test_table_lock_lock_wait_timeout_retry_limit_env_override(mock_db, mock_mongo):
+    """⑨1205 のリトライ上限は OASE_LOCK_WAIT_TIMEOUT_RETRY_LIMIT で変更できる"""
+    settings, labeled_event_list = _dedup_single_setting()
+    mock_db.table_select.return_value = settings
+    _bind_real_lock_error_judges(mock_db)
+    # 上限1 → 初回 + リトライ1回 = 2 回で打ち止め（3 個目は消費されない）
+    mock_db.table_lock.side_effect = [_make_lock_wait_timeout_appexception() for _ in range(3)]
+
+    from common_libs.common.exception import AppException
+    with patch('libs.duplicate_check.LABEL_KEY_MAP', {"labelkey1": {"LABEL_KEY_NAME": "labelkey1_name"}}), \
+         patch.dict('os.environ', {"OASE_LOCK_WAIT_TIMEOUT_RETRY_LIMIT": "1"}), \
+         patch('libs.duplicate_check.time.sleep') as mock_sleep, \
+         pytest.raises(AppException):
+        duplicate_check.duplicate_check(mock_db, mock_mongo, labeled_event_list)
+
+    assert mock_db.table_lock.call_count == 2
+    assert mock_sleep.call_count == 0
+    collection = mock_mongo.collection.return_value
+    assert collection.count_documents({}) == 0
+
+
+# ==========================================================================
+# errno 判定ヘルパーの単体テスト（dbconnect_common）
+# ==========================================================================
+
+def test_get_db_errno_extracts_errno():
+    """ラップされた AppException から errno を取り出せる"""
+    from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
+    assert DBConnectCommon.get_db_errno(_make_deadlock_appexception()) == 1213
+    assert DBConnectCommon.get_db_errno(_make_lock_wait_timeout_appexception()) == 1205
+    assert DBConnectCommon.get_db_errno(_make_other_appexception()) == 1062
+
+
+def test_get_db_errno_returns_none_for_unexpected_shape():
+    """想定外の形の例外は None（安全側）"""
+    from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
+    from common_libs.common.exception import AppException
+    assert DBConnectCommon.get_db_errno(ValueError("not a wrapped exception")) is None
+    assert DBConnectCommon.get_db_errno(AppException("999-00003", [], [])) is None
+    assert DBConnectCommon.get_db_errno(AppException("999-00003", ["ws_db", "SELECT ...", "not an exception"], [])) is None
+
+
+def test_is_deadlock_and_lock_wait_timeout_judges():
+    """1213/1205 の判定が互いを取り違えない"""
+    from common_libs.common.dbconnect.dbconnect_common import DBConnectCommon
+    deadlock = _make_deadlock_appexception()
+    lock_wait_timeout = _make_lock_wait_timeout_appexception()
+    other = _make_other_appexception()
+
+    assert DBConnectCommon.is_deadlock_exception(deadlock) is True
+    assert DBConnectCommon.is_deadlock_exception(lock_wait_timeout) is False
+    assert DBConnectCommon.is_deadlock_exception(other) is False
+
+    assert DBConnectCommon.is_lock_wait_timeout_exception(lock_wait_timeout) is True
+    assert DBConnectCommon.is_lock_wait_timeout_exception(deadlock) is False
+    assert DBConnectCommon.is_lock_wait_timeout_exception(other) is False
+
+    # 想定外の形はどちらも False
+    assert DBConnectCommon.is_deadlock_exception(ValueError("x")) is False
+    assert DBConnectCommon.is_lock_wait_timeout_exception(ValueError("x")) is False
