@@ -1,0 +1,72 @@
+###### MCP Server ######
+
+# Global values
+# not quate strings
+@org-user-id = admin
+@org-user-pw = password
+@base_org_url = http://platform-auth:{{org-mng-port}}
+@organization_id = org1
+@workspace_id = ws1
+
+
+###
+# MCPの初期化(initialize)を行う
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/mcp
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "initialize",
+  "params": {},
+  "id": 1
+}
+
+###
+# 利用可能なツールの一覧を取得する(tools/list)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/mcp
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/list",
+  "params": {},
+  "id": 2
+}
+
+###
+# ツール "list-users" を呼び出し、組織内のユーザー一覧を取得する(tools/call)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/mcp
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "list-users",
+    "arguments": {}
+  },
+  "id": 3
+}
+
+###
+# ツール "create-user" を呼び出し、組織内に新規ユーザーを作成する(tools/call)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/mcp
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "tools/call",
+  "params": {
+    "name": "create-user",
+    "arguments": {
+      "username": "mcp_test_user1",
+      "password": "password",
+      "email": "mcp_test_user1@test.com"
+    }
+  },
+  "id": 4
+}
