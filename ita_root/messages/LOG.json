@@ -115,6 +115,7 @@
     "499-00918": "Target Terraform Workspace record does not exist. (tf_workspace_name: {})",
     "499-00919": "The target of Terraform Workspace linked to Movement is invalid. (tf_workspace_id: {})",
     "499-00920": "This function cannot use because it is not Conductor execution. (Execution No.:{})",
+    "499-00921": "A parameter sheet that uses Hostgroup cannot be specified for Parameter sheet(TO).",
     "499-01000": "{}",
     "499-01001": "Check the conditions for compare execution. ({})",
     "499-01002": "Invalid compare list. Check the compare list and compare detail. ({})",
