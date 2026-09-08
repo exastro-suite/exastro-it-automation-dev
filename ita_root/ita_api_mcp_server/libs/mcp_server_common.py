@@ -48,10 +48,11 @@ import base64
 import os
 import re
 
-from flask import request, g
+from flask import request, g, jsonify
 
 # common_libs 配下のファイルは変更しない(既存の共通ライブラリをそのまま利用する)
 # Files under common_libs are NOT modified; we simply reuse the existing common library.
+from common_libs.common.dbconnect import DBConnectOrg
 from common_libs.common.exception import AppException
 from common_libs.common.logger import AppLog
 from common_libs.common.message_class import MessageTemplate
@@ -63,6 +64,49 @@ from common_libs.api import set_api_timestamp, get_api_timestamp, app_exception_
 # Regex used to detect health-check URLs.
 # (Same pattern as organization_common.py / admin_common.py)
 HEALTH_CHECK_URL_PATTERN = r"/internal-api/health-check/liveness$|/internal-api/health-check/readiness$"
+
+# ai_assistantドライバがインストール対象外(無効)にされているかどうかの判定に
+# 使う対象文字列。ita_api_organization/controllers/menu_info_controller.py の
+# ai_assistant_enabled判定と同じチェック方式(NO_INSTALL_DRIVERの文字列に
+# 含まれるかどうか)を用いる。
+#
+# Driver name used to determine whether the ai_assistant driver has been
+# excluded from installation (disabled). Uses the same check
+# (whether the name is contained in NO_INSTALL_DRIVER) as the
+# ai_assistant_enabled check in
+# ita_api_organization/controllers/menu_info_controller.py.
+AI_ASSISTANT_DRIVER_NAME = "ai_assistant"
+
+
+def _is_ai_assistant_driver_enabled(organization_id):
+    """
+    オーガナイゼーションでai_assistantドライバが有効かどうかを確認する
+
+    ita_api_mcp_server が提供する機能(MCPのJSON-RPCツール全般・
+    attachment_fileのアップロード/ダウンロードAPI)は、いずれもai_assistant
+    ドライバに属する機能のため、オーガナイゼーション作成時にこのドライバが
+    インストール対象外(無効)にされている場合は、機能自体を無効として扱う。
+
+    Check whether the ai_assistant driver is enabled for the organization.
+
+    Every feature provided by ita_api_mcp_server (all MCP JSON-RPC tools, and
+    the attachment_file upload/download API) belongs to the ai_assistant
+    driver. So if this driver was excluded from installation (disabled) when
+    the organization was created, the feature itself is treated as disabled.
+
+    Args:
+        organization_id (str): organization id
+
+    Returns:
+        bool: 有効な場合True / True if enabled
+    """
+    org_db = DBConnectOrg(organization_id)
+    try:
+        no_install_driver = org_db.get_no_install_driver()
+    finally:
+        org_db.db_disconnect()
+
+    return no_install_driver is None or AI_ASSISTANT_DRIVER_NAME not in no_install_driver
 
 
 def before_request_handler():
@@ -122,6 +166,20 @@ def before_request_handler():
             workspace_id = request.path.split("/")[4]
             g.WORKSPACE_ID = workspace_id
 
+            # ita_api_mcp_serverの機能はai_assistantドライバに属するため、
+            # このオーガナイゼーションでai_assistantドライバが無効化されている
+            # 場合は、全てのツール・APIを対象にHTTP 403で機能無効を返す。
+            # ITA共通のメッセージコード(AppException)は使わず、固定の英語
+            # メッセージを直接返す。
+            #
+            # Every feature of ita_api_mcp_server belongs to the ai_assistant
+            # driver, so if the ai_assistant driver is disabled for this
+            # organization, return an HTTP 403 (feature disabled) for every
+            # tool/API. This does not use ITA's common message-code mechanism
+            # (AppException); it returns a fixed English message directly.
+            if not _is_ai_assistant_driver_enabled(organization_id):
+                return jsonify({"message": "This feature is disabled."}), 403
+
             # 認証プロキシが付与する "User-Id" ヘッダーを取得する
             # Get the "User-Id" header injected by the authentication proxy
             user_id = request.headers.get("User-Id")
@@ -176,24 +234,26 @@ def before_request_handler():
         # organization_common.py / admin_common.py ではここで
         # 組織DB・ワークスペースDBへの接続確認(DBConnectOrg/DBConnectWs)や
         # メンテナンスモード確認(get_maintenance_mode_setting)、
-        # サービス単位のログレベル設定(set_service_loglevel)を行っていますが、
-        # ita_api_mcp_server の現在のスコープ(platform_user.pyツールのみ)では
-        # ITAのデータベースに直接アクセスしないため、これらのDB接続処理は
-        # 一旦組み込んでいません。
-        # 今後、ITAのDB(MariaDB)を利用するツールを追加する場合は、
-        # common_libs.common.dbconnect の DBConnectCommon 等を用いて
-        # organization/admin と同様の接続処理を追加してください。
+        # サービス単位のログレベル設定(set_service_loglevel)を行っています。
+        # ita_api_mcp_serverでは、上記の_is_ai_assistant_driver_enabled呼び出しで
+        # DBConnectOrgによる組織DBへの接続(ドライバ有効チェック)のみ行っており、
+        # ワークスペースDBへの接続確認・メンテナンスモード確認・
+        # サービス単位のログレベル設定は現状組み込んでいません。
+        # 今後これらが必要になった場合は、common_libs.common.dbconnect の
+        # DBConnectWs等を用いて organization/admin と同様の処理を追加してください。
         #
         # organization_common.py / admin_common.py additionally connect to the
         # organization/workspace database (DBConnectOrg/DBConnectWs), check the
         # maintenance mode (get_maintenance_mode_setting), and configure the
         # per-service log level (set_service_loglevel) here.
-        # Because the current scope of ita_api_mcp_server (the platform_user.py
-        # tool only) does not access ITA's database directly, that
-        # database-connection handling is intentionally left out for now.
-        # When a future tool needs ITA's database (MariaDB), add the same
-        # common_libs.common.dbconnect based connection handling used by
-        # organization/admin.
+        # ita_api_mcp_server only connects to the organization DB via
+        # DBConnectOrg (the driver-enabled check) through the
+        # _is_ai_assistant_driver_enabled call above; the workspace DB
+        # connectivity check, maintenance mode check, and per-service log
+        # level configuration are not implemented yet.
+        # Add the same processing as organization/admin (using
+        # common_libs.common.dbconnect's DBConnectWs etc.) when they become
+        # necessary.
     except AppException as e:
         # AppException(業務エラー)を捕捉し、ITA共通のエラーレスポンス形式に変換する
         # Catch AppException (business error) and convert it into ITA's common error response

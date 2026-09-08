@@ -60,12 +60,16 @@ from libs import load_dynamic_tools, get_tool_functions, check_tool_permission, 
 
 # tools パッケージをimportすることで、配下の @tool デコレーター付き関数が
 # レジストリ(libs.tools_decorator.TOOL_REGISTRY)に登録される。
-# (現状は tools/platform_user.py のみを対象とする)
+# また、attachment_file.py のように@toolデコレーターではなく通常のFlaskルート
+# (Blueprint)として提供されるものは、tools.attachment_file_bp として
+# このimportを通じて参照できるようになる。
 #
 # Importing the tools package registers every @tool-decorated function found
 # in it into the registry (libs.tools_decorator.TOOL_REGISTRY).
-# (Currently only tools/platform_user.py is in scope.)
-import tools  # noqa: F401
+# It also makes Blueprints provided as ordinary Flask routes instead of
+# @tool-decorated functions (e.g. attachment_file.py) available as
+# tools.attachment_file_bp through this import.
+import tools
 
 
 # .env ファイルの環境変数を読み込む(既存値は上書きする)
@@ -85,6 +89,10 @@ app = Flask(__name__)
 # Register the common pre-processing (log init / header validation, etc.)
 # to run before every request
 app.before_request(before_request_handler)
+
+# tools パッケージが提供するBlueprintを登録する
+# Register the Blueprints provided by the tools package
+app.register_blueprint(tools.attachment_file_bp)
 
 
 # ============================================================================

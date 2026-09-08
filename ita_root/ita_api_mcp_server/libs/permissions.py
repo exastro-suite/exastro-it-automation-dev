@@ -32,8 +32,9 @@
   2. ITAのメニュー権限による規制(required_menu)
      ITAのAPI( /api/{organization_id}/workspaces/{workspace_id}/ita/user/menus/ )
      を呼び出し、指定した menu_name_rest がレスポンスに含まれているかどうかで
-     判定する。tools/list での表示可否のみをチェックし、tools/call実行時には
-     再チェックしない(要件どおり)。
+     判定する。複数のmenu_name_restを指定できる(いずれか1つのメニュー権限を
+     持っていれば表示可)。tools/list での表示可否のみをチェックし、
+     tools/call実行時には再チェックしない(要件どおり)。
   3. 権限チェック無し(required_roles, required_menuのいずれも未指定)
      誰でも表示・実行可能。
 
@@ -63,6 +64,8 @@ There are three kinds of permission requirements (specified per tool via the
      Checked by calling ITA's API
      ( /api/{organization_id}/workspaces/{workspace_id}/ita/user/menus/ )
      and looking for the given menu_name_rest in the response.
+     Multiple menu_name_rest values may be specified (having access to any
+     one of them is enough to be visible).
      Only checked when listing tools (tools/list); not re-checked when
      calling the tool (tools/call), as specified.
   3. No permission check (neither required_roles nor required_menu is set)
@@ -82,15 +85,16 @@ def _decode_role_detail() -> list:
     """
     "Role-Detail" ヘッダーをデコードし、ロール文字列のリストを返す。
 
-    "Role-Detail" は platform_auth の mcp_tool_call が、JWTの
-    resource_access.{organization_id}-workspaces.roles をそのまま
+    "Role-Detail" は platform_auth の ita_workspace_api_call(function=="mcp"の場合)が、
+    JWTの resource_access.{organization_id}-workspaces.roles をそのまま
     (organization/workspaceに分割する前の状態で)"Roles"と同じ形式で
     セットしているヘッダー。
 
     Decode the "Role-Detail" header and return the list of role strings.
 
-    "Role-Detail" is a header set by platform_auth's mcp_tool_call, carrying
-    the JWT's resource_access.{organization_id}-workspaces.roles as-is
+    "Role-Detail" is a header set by platform_auth's ita_workspace_api_call
+    (when function == "mcp"), carrying the JWT's
+    resource_access.{organization_id}-workspaces.roles as-is
     (before it is split into organization/workspace roles), in the same
     format as "Roles".
 
@@ -176,7 +180,7 @@ def get_ita_user_menu_name_rests(organization_id: str, workspace_id: str) -> set
     Call ITA's API to fetch the set of menu_name_rest values the user can access.
 
     Parameters:
-        organization_id (str): 組織ID / organization id
+        organization_id (str): オーガナイゼーションID / organization id
         workspace_id (str): ワークスペースID / workspace id
 
     Returns:
@@ -199,7 +203,7 @@ def get_ita_user_menu_name_rests(organization_id: str, workspace_id: str) -> set
     url = "http://{}:{}/api/{}/workspaces/{}/ita/user/menus/".format(
         ita_api_host, ita_api_port, organization_id, workspace_id
     )
-    headers = build_forward_headers()
+    headers = build_forward_headers(method="GET")
 
     try:
         # ユーザがアクセス可能なメニューグループ・メニューの一覧を取得する
@@ -240,12 +244,16 @@ def is_tool_visible(tool_config: dict, payload: dict, menu_cache: dict = None) -
 
     required_roles が指定されている場合は"Role-Detail"を、
     required_menu が指定されている場合はITAのメニュー権限を確認する。
+    required_menu は文字列1つ、または文字列のリスト(複数指定時はいずれか
+    1つのメニュー権限を持っていればよい)で指定できる。
     どちらも未指定の場合は常に表示可能とする。
 
     Decide whether this tool should be included in tools/list.
 
     If required_roles is set, checks "Role-Detail". If required_menu is set,
-    checks ITA menu permission. If neither is set, the tool is always visible.
+    checks ITA menu permission. required_menu may be a single string or a
+    list of strings (when a list is given, having access to any one of them
+    is enough). If neither is set, the tool is always visible.
 
     Parameters:
         tool_config (dict): ツール設定(TOOL_REGISTRYの値) / tool configuration
@@ -284,7 +292,14 @@ def is_tool_visible(tool_config: dict, payload: dict, menu_cache: dict = None) -
         if cache_key not in menu_cache:
             menu_cache[cache_key] = get_ita_user_menu_name_rests(organization_id, workspace_id)
 
-        return required_menu in menu_cache[cache_key]
+        # 単一文字列で指定された場合もリストとして扱う
+        # Treat a single string the same as a one-element list
+        required_menus = required_menu if isinstance(required_menu, list) else [required_menu]
+        accessible_menu_name_rests = menu_cache[cache_key]
+
+        # 指定されたメニューのいずれか1つでもアクセス可能であれば表示可能とする
+        # If the user has access to any one of the specified menus, the tool is visible
+        return any(menu in accessible_menu_name_rests for menu in required_menus)
 
     # 3. 権限チェック無し
     # 3. No permission check

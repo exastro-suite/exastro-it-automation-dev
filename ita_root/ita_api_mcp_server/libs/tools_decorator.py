@@ -65,7 +65,7 @@ TOOL_REGISTRY = {}
 
 
 def tool(name: str, description: str, input_schema: dict = None, enabled: bool = True,
-         required_roles=None, required_menu: str = None):
+         required_roles=None, required_menu=None):
     """
     MCPツールをメタデータとともに登録するデコレーター
 
@@ -93,15 +93,20 @@ def tool(name: str, description: str, input_schema: dict = None, enabled: bool =
             the JWT's resource_access.{organization_id}-workspaces.roles)
             matches any one of them, both tools/list visibility and
             tools/call callability are granted.
-        required_menu (str, optional): このツールの表示に必要なITAメニューの
-            menu_name_rest。指定した場合、ITAのメニュー一覧API
+        required_menu (str | list[str], optional): このツールの表示に必要な
+            ITAメニューのmenu_name_rest。文字列1つ、または文字列のリスト
+            (複数指定時はいずれか1つのメニュー権限を持っていればよい)で
+            指定する。指定した場合、ITAのメニュー一覧API
             ( /api/{organization_id}/workspaces/{workspace_id}/ita/user/menus/ )
-            のレスポンスにこのmenu_name_restが含まれているかどうかで、
-            tools/list での表示可否を判定する(tools/call実行時には
+            のレスポンスにこのmenu_name_restのいずれか1つでも含まれているか
+            どうかで、tools/list での表示可否を判定する(tools/call実行時には
             再チェックしない)。
-            / the ITA menu_name_rest required for this tool to be listed.
-            If set, tools/list visibility is determined by whether this
-            menu_name_rest is present in the response of ITA's menu-list API
+            / the ITA menu_name_rest(s) required for this tool to be listed.
+            May be a single string or a list of strings (when a list is
+            given, having access to any one of them is enough). If set,
+            tools/list visibility is determined by whether any one of these
+            menu_name_rest values is present in the response of ITA's
+            menu-list API
             ( /api/{organization_id}/workspaces/{workspace_id}/ita/user/menus/ ).
             Not re-checked when the tool is actually called via tools/call.
 

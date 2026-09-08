@@ -67,18 +67,18 @@ def tool_list_users(arguments: dict, payload: dict) -> dict:
         arguments (dict): ツールの引数(このツールでは未使用)
             / tool arguments (unused by this tool)
         payload (dict): 呼び出しコンテキスト情報
-            - organization_id (str): 組織ID / organization id
+            - organization_id (str): オーガナイゼーションID / organization id
 
     Returns:
         dict: ユーザーリスト取得結果
             - result: APIレスポンスのユーザーリスト / the user list returned by the API
             - message (str): 処理結果メッセージ / result message
-            - organization_id (str): 組織ID / organization id
+            - organization_id (str): オーガナイゼーションID / organization id
 
     Raises:
         HTTPException: ユーザーリストの取得に失敗した場合 / if fetching the user list fails
     """
-    # payloadから組織IDを取り出す(URLパスから解決済みのもの)
+    # payloadからオーガナイゼーションIDを取り出す(URLパスから解決済みのもの)
     # Extract the organization id from the payload (already resolved from the URL path)
     organization_id = payload.get("organization_id")
 
@@ -96,7 +96,7 @@ def tool_list_users(arguments: dict, payload: dict) -> dict:
 
     # 転送用ヘッダーを組み立てる
     # Build the headers to forward
-    headers = build_forward_headers()
+    headers = build_forward_headers(method="GET")
 
     # プラットフォームAPIへユーザー一覧取得のGETリクエストを送信する
     # Send a GET request to the platform API to fetch the user list
@@ -152,18 +152,18 @@ def tool_create_user(arguments: dict, payload: dict) -> dict:
             - password (str): 新規ユーザーのパスワード / password for the new user
             - email (str): 新規ユーザーのメールアドレス / email address for the new user
         payload (dict): 呼び出しコンテキスト情報
-            - organization_id (str): 組織ID / organization id
+            - organization_id (str): オーガナイゼーションID / organization id
 
     Returns:
         dict: ユーザー作成結果
             - result: APIレスポンスの作成されたユーザー情報 / the created user info returned by the API
             - message (str): 処理結果メッセージ / result message
-            - organization_id (str): 組織ID / organization id
+            - organization_id (str): オーガナイゼーションID / organization id
 
     Raises:
         HTTPException: ユーザーの作成に失敗した場合 / if creating the user fails
     """
-    # payloadから組織IDを取り出す
+    # payloadからオーガナイゼーションIDを取り出す
     # Extract the organization id from the payload
     organization_id = payload.get("organization_id")
 
@@ -193,9 +193,9 @@ def tool_create_user(arguments: dict, payload: dict) -> dict:
     # Protocol is always fixed to http (inter-service communication within ITA uses http)
     url = "http://{}:{}/api/{}/platform/users".format(platform_api_host, platform_api_port, organization_id)
 
-    # 転送用ヘッダーを組み立てる
-    # Build the headers to forward
-    headers = build_forward_headers()
+    # 転送用ヘッダーを組み立てる(POSTでボディを送るため"Content-Type"も付与する)
+    # Build the headers to forward (also adds "Content-Type" since this is a POST with a body)
+    headers = build_forward_headers(method="POST")
 
     # プラットフォームAPIへユーザー作成のPOSTリクエストを送信する
     # Send a POST request to the platform API to create the user
