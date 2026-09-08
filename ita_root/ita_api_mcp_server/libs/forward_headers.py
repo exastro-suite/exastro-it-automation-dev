@@ -32,7 +32,7 @@ shared across multiple tools.
 from flask import request
 
 
-def build_forward_headers() -> dict:
+def build_forward_headers(method: str = "GET") -> dict:
     """
     ダウンストリームAPI呼び出し用のヘッダーを組み立てる。
 
@@ -42,6 +42,10 @@ def build_forward_headers() -> dict:
     ロールを表すヘッダーで、"Roles"と同様にBase64エンコードされた
     改行区切りのロール一覧が入っている。
 
+    "Content-Type" はリクエストボディを送るメソッド(POST/PUT/PATCHなど)の
+    場合のみ付与する。GET(デフォルト)のようにボディを送らないメソッドでは
+    不要なため付与しない。
+
     Build the headers used when calling a downstream API.
 
     Forwards the "User-Id" / "Roles" / "Org-Roles" headers of the incoming
@@ -50,11 +54,20 @@ def build_forward_headers() -> dict:
     (as opposed to "Roles", which carries the workspace-level roles), and
     uses the same Base64-encoded, newline-separated format as "Roles".
 
+    "Content-Type" is only added for methods that send a request body
+    (POST/PUT/PATCH, etc.). It is omitted for body-less methods such as GET
+    (the default), where it is not needed.
+
+    Parameters:
+        method (str, optional): 呼び出すダウンストリームAPIのHTTPメソッド
+            (デフォルト: "GET")。大文字・小文字は区別しない。
+            / the HTTP method of the downstream API call (default: "GET").
+            Case-insensitive.
+
     Returns:
         dict: 転送用ヘッダー / headers to forward
     """
     headers = {
-        "Content-Type": "application/json",
         # 受信したリクエストヘッダーからそのまま取得して転送する
         # Read directly from the incoming request headers and forward as-is
         "User-Id": request.headers.get("User-Id"),
@@ -67,5 +80,10 @@ def build_forward_headers() -> dict:
         # across API calls)
         "Language": "en",
     }
+
+    # GETのようにリクエストボディを送らないメソッドでは "Content-Type" を付与しない
+    # Do not add "Content-Type" for body-less methods such as GET
+    if method.upper() != "GET":
+        headers["Content-Type"] = "application/json"
 
     return headers

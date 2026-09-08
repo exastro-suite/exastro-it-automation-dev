@@ -35,6 +35,8 @@ ENV DB_CONNECT_RETRY_LIMIT=2
 ENV SERVICE_NAME=ita-api-mcp-server
 ENV USER_ID=ita-api-mcp-server
 
+ENV MENU_FILTER_FILE_RECORD_LIMIT 5
+
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
     dnf install -y \
     gcc \
