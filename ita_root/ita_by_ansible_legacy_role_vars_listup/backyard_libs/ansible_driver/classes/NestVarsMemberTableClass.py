@@ -12,7 +12,6 @@
 # limitations under the License.
 #
 from flask import g
-import copy
 
 from common_libs.ansible_driver.classes.AnscConstClass import AnscConst
 from common_libs.common.exception import AppException
@@ -26,6 +25,23 @@ class NestVarsMemberTable(TableBase):
 
     TABLE_NAME = "T_ANSR_NESTVAR_MEMBER"
     PKEY = "ARRAY_MEMBER_ID"
+
+    # レコードの同一性判定に使うカラム（_record_key で使用）
+    COMPARE_KEYS = (
+        'MVMT_VAR_LINK_ID',
+        'PARENT_VARS_KEY_ID',
+        'VARS_NAME',
+        'ARRAY_NEST_LEVEL',
+        'ASSIGN_SEQ_NEED',
+        'COL_SEQ_NEED',
+        'MEMBER_DISP',
+        'VRAS_NAME_PATH',
+        'VRAS_NAME_ALIAS',
+        'MAX_COL_SEQ'
+    )
+
+    # ignore_vars_key_id=Falseのときに使う比較カラム
+    COMPARE_KEYS_WITH_VARS_KEY_ID = COMPARE_KEYS + ('VARS_KEY_ID',)
 
     def __init__(self, ws_db):
         """
@@ -58,7 +74,7 @@ class NestVarsMemberTable(TableBase):
 
                 link_id = mov_vars_link_id_dict[(movement_id, mov_vars_item.var_name)]
                 for var_chain_array in mov_vars_item.var_struct['CHAIN_ARRAY']:
-                    var_chain_array_copy = copy.deepcopy(var_chain_array)
+                    var_chain_array_copy = dict(var_chain_array)
                     var_chain_array_copy['MVMT_VAR_LINK_ID'] = link_id
                     extracted_records.append(var_chain_array_copy)
 
@@ -107,26 +123,71 @@ class NestVarsMemberTable(TableBase):
         # 再読み込み
         self.store_dbdata_in_memory()
 
+    def _record_key(self, record, ignore_vars_key_id=True):
+        """レコードの同一性判定に使う値をタプルにして返す
+
+        Args:
+            record (dict): 対象レコード
+            ignore_vars_key_id (bool, optional): VARS_KEY_IDを比較対象に含むか切り替え。Defaults to True.
+
+        Returns:
+            tuple:
+        """
+
+        keys_to_compare = NestVarsMemberTable.COMPARE_KEYS if ignore_vars_key_id else NestVarsMemberTable.COMPARE_KEYS_WITH_VARS_KEY_ID
+
+        # 既存データと解析結果で型が異なる場合があるため、str()に揃えてから比較する
+        key_values = []
+        for field in keys_to_compare:
+            key_values.append(str(record.get(field)))
+
+        return tuple(key_values)
+
+    def _index_by_record_key(self, records, ignore_vars_key_id=True):
+        """レコードを同一性判定キーで引ける辞書にして返す
+
+        同一キーのレコードが複数ある場合は先に現れたものを採用する。
+        修正前の実装が「先頭から線形探索してbreak」だったため、先勝ちでないと結果が変わる。
+        （辞書内包表記にすると後勝ちになるのでここはループで書く）
+
+        Args:
+            records (iterable): 対象レコードの集まり
+            ignore_vars_key_id (bool, optional): VARS_KEY_IDを比較対象に含むか切り替え。Defaults to True.
+
+        Returns:
+            dict: {同一性判定キー: レコード}
+        """
+
+        index = {}
+        for record in records:
+            index.setdefault(self._record_key(record, ignore_vars_key_id), record)
+
+        return index
+
     def _a_minus_b(self, list_a, list_b, ignore_vars_key_id=True):
         """list aにのみ存在するレコードのリストを返す
 
         Args:
             list_a (list): 比較されるリスト
             list_b (list): 比較するリスト
-            ignore_vars_key_id (bool, optional): VARS_KEY_IDを比較対象に含むか切り替え。 Defaults to False.
+            ignore_vars_key_id (bool, optional): VARS_KEY_IDを比較対象に含むか切り替え。 Defaults to True.
 
         Returns:
             list:
         """
 
+        # list_b側のキーを先に集合にしておき、list_aは1回だけ走査する
+        keys_b = set()
+        for record_b in list_b:
+            keys_b.add(self._record_key(record_b, ignore_vars_key_id))
+
         result_list = []
 
         for record_a in list_a:
-            for record_b in list_b:
-                if self._same_record(record_a, record_b, ignore_vars_key_id):
-                    break
-            else:
-                result_list.append(record_a)
+            if self._record_key(record_a, ignore_vars_key_id) in keys_b:
+                continue
+
+            result_list.append(record_a)
 
         return result_list
 
@@ -142,41 +203,17 @@ class NestVarsMemberTable(TableBase):
             list:
         """
 
+        records_b_by_key = self._index_by_record_key(list_b, ignore_vars_key_id)
+
         result_list = []
 
         for record_a in list_a:
-            for record_b in list_b:
-                if self._same_record(record_a, record_b, ignore_vars_key_id):
-                    if marge_vars_key_id:
-                        record_a["VARS_KEY_ID"] = record_b["VARS_KEY_ID"]
-                    result_list.append(record_a)
-                    break
+            record_b = records_b_by_key.get(self._record_key(record_a, ignore_vars_key_id))
+            if record_b is None:
+                continue
+
+            if marge_vars_key_id:
+                record_a["VARS_KEY_ID"] = record_b["VARS_KEY_ID"]
+            result_list.append(record_a)
 
         return result_list
-
-    def _same_record(self, record_a, record_b, ignore_vars_key_id=True):
-
-        # 共通の比較条件をリストで定義
-        keys_to_compare = [
-            'MVMT_VAR_LINK_ID',
-            'PARENT_VARS_KEY_ID',
-            'VARS_NAME',
-            'ARRAY_NEST_LEVEL',
-            'ASSIGN_SEQ_NEED',
-            'COL_SEQ_NEED',
-            'MEMBER_DISP',
-            'VRAS_NAME_PATH',
-            'VRAS_NAME_ALIAS',
-            'MAX_COL_SEQ'
-        ]
-
-        # ignore_vars_key_idがFalseの場合、VARS_KEY_IDを追加
-        if not ignore_vars_key_id:
-            keys_to_compare.append('VARS_KEY_ID')
-
-        # すべてのフィールドで値が一致するかチェック
-        for field in keys_to_compare:
-            if str(record_a.get(field)) != str(record_b.get(field)):
-                return False
-
-        return True
