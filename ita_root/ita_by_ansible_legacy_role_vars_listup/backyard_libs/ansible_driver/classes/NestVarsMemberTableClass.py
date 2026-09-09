@@ -81,9 +81,6 @@ class NestVarsMemberTable(TableBase):
         user_id = g.get('USER_ID')
 
         # 同一性判定キーは既存側・解析側それぞれ1回だけ計算し、登録・復活・廃止の3回の突き合わせで使い回す。
-        # 前提：索引を作ってから使い終わるまで、各レコードのキーが変わらないこと。
-        #   復活時（marge_vars_key_id=True）に書き換える VARS_KEY_ID は既定の比較キー（COMPARE_KEYS）に含まれないので安全。
-        #   ignore_vars_key_id=False で索引を作ると VARS_KEY_ID がキーに入るため、この前提が崩れる。
         keyed_stored = self._keyed_records(self._stored_records.values())
         keyed_extracted = self._keyed_records(extracted_records)
         stored_by_key = self._index_by_record_key(keyed_stored)
