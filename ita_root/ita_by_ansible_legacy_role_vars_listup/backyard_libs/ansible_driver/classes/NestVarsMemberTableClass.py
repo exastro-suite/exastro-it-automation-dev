@@ -80,8 +80,17 @@ class NestVarsMemberTable(TableBase):
 
         user_id = g.get('USER_ID')
 
+        # 同一性判定キーは既存側・解析側それぞれ1回だけ計算し、登録・復活・廃止の3回の突き合わせで使い回す。
+        # 前提：索引を作ってから使い終わるまで、各レコードのキーが変わらないこと。
+        #   復活時（marge_vars_key_id=True）に書き換える VARS_KEY_ID は既定の比較キー（COMPARE_KEYS）に含まれないので安全。
+        #   ignore_vars_key_id=False で索引を作ると VARS_KEY_ID がキーに入るため、この前提が崩れる。
+        keyed_stored = self._keyed_records(self._stored_records.values())
+        keyed_extracted = self._keyed_records(extracted_records)
+        stored_by_key = self._index_by_record_key(keyed_stored)
+        extracted_by_key = self._index_by_record_key(keyed_extracted)
+
         # 登録：解析した側にのみ存在する変数を登録
-        register_list = self._a_minus_b(list_a=extracted_records, list_b=self._stored_records.values())
+        register_list = self._a_minus_b(keyed_a=keyed_extracted, index_b=stored_by_key)
         for record in register_list:
             record.pop('COL_SEQ_MEMBER')
             record['DISUSE_FLAG'] = '0'
@@ -95,7 +104,7 @@ class NestVarsMemberTable(TableBase):
 
         # 更新：共通の変数だが、定義されている順番（VARS_KEY_ID）が異なる場合、解析した側に更新
         # 復活：両者に共通する変数が廃止されている場合は復活
-        restore_list = self._a_and_b(self._stored_records.values(), extracted_records, marge_vars_key_id=True)
+        restore_list = self._a_and_b(keyed_a=keyed_stored, index_b=extracted_by_key, marge_vars_key_id=True)
         for record in restore_list:
             if record['DISUSE_FLAG'] == '1':
                 record['DISUSE_FLAG'] = '0'
@@ -108,7 +117,7 @@ class NestVarsMemberTable(TableBase):
             raise AppException(result_code, log_msg_args)
 
         # 廃止：既存側にのみ存在する変数を廃止
-        discard_list = self._a_minus_b(list_a=self._stored_records.values(), list_b=extracted_records)
+        discard_list = self._a_minus_b(keyed_a=keyed_stored, index_b=extracted_by_key)
         for record in discard_list:
             if record['DISUSE_FLAG'] == '0':
                 record['DISUSE_FLAG'] = '1'
@@ -143,72 +152,82 @@ class NestVarsMemberTable(TableBase):
 
         return tuple(key_values)
 
-    def _index_by_record_key(self, records, ignore_vars_key_id=True):
-        """レコードを同一性判定キーで引ける辞書にして返す
+    def _keyed_records(self, records, ignore_vars_key_id=True):
+        """レコードに同一性判定キーを付けたリストを返す
 
-        同一キーのレコードが複数ある場合は先に現れたものを採用する。
-        修正前の実装が「先頭から線形探索してbreak」だったため、先勝ちでないと結果が変わる。
-        （辞書内包表記にすると後勝ちになるのでここはループで書く）
+        元の順序・重複・レコードオブジェクトはそのまま保つ（_a_minus_b / _a_and_b の keyed_a 側に使う）。
+        キー計算はここで1回だけ行い、以降の突き合わせでは計算し直さない。
 
         Args:
             records (iterable): 対象レコードの集まり
             ignore_vars_key_id (bool, optional): VARS_KEY_IDを比較対象に含むか切り替え。Defaults to True.
 
         Returns:
+            list: [(同一性判定キー, レコード), ...]
+        """
+
+        keyed_records = []
+        for record in records:
+            keyed_records.append((self._record_key(record, ignore_vars_key_id), record))
+
+        return keyed_records
+
+    def _index_by_record_key(self, keyed_records):
+        """キー付きレコードのリストを同一性判定キーで引ける辞書にして返す
+
+        同一キーのレコードが複数ある場合は先に現れたものを採用する。
+        修正前の実装が「先頭から線形探索してbreak」だったため、先勝ちでないと結果が変わる。
+        （辞書内包表記にすると後勝ちになるのでここはループで書く）
+
+        Args:
+            keyed_records (list): _keyed_records() の戻り値
+
+        Returns:
             dict: {同一性判定キー: レコード}
         """
 
         index = {}
-        for record in records:
-            index.setdefault(self._record_key(record, ignore_vars_key_id), record)
+        for key, record in keyed_records:
+            index.setdefault(key, record)
 
         return index
 
-    def _a_minus_b(self, list_a, list_b, ignore_vars_key_id=True):
-        """list aにのみ存在するレコードのリストを返す
+    def _a_minus_b(self, keyed_a, index_b):
+        """a側にのみ存在するレコードのリストを返す
 
         Args:
-            list_a (list): 比較されるリスト
-            list_b (list): 比較するリスト
-            ignore_vars_key_id (bool, optional): VARS_KEY_IDを比較対象に含むか切り替え。 Defaults to True.
+            keyed_a (list): 比較されるキー付きレコードのリスト（_keyed_records() の戻り値）
+            index_b (dict): 比較する側の索引（_index_by_record_key() の戻り値）
 
         Returns:
             list:
         """
 
-        # list_b側のキーを先に集合にしておき、list_aは1回だけ走査する
-        keys_b = set()
-        for record_b in list_b:
-            keys_b.add(self._record_key(record_b, ignore_vars_key_id))
-
         result_list = []
 
-        for record_a in list_a:
-            if self._record_key(record_a, ignore_vars_key_id) in keys_b:
+        for key, record_a in keyed_a:
+            if key in index_b:
                 continue
 
             result_list.append(record_a)
 
         return result_list
 
-    def _a_and_b(self, list_a, list_b, ignore_vars_key_id=True, marge_vars_key_id=False):
-        """list_a, list_bに共通して存在するレコードのリストを返す
+    def _a_and_b(self, keyed_a, index_b, marge_vars_key_id=False):
+        """a側, b側に共通して存在するレコードのリストを返す
 
         Args:
-            list_a (list): 比較されるリスト
-            list_b (list): 比較するリスト
-            ignore_vars_key_id (bool, optional): VARS_KEY_IDを比較対象に含むか切り替え。Defaults to True.
+            keyed_a (list): 比較されるキー付きレコードのリスト（_keyed_records() の戻り値）
+            index_b (dict): 比較する側の索引（_index_by_record_key() の戻り値）
             marge_vars_key_id (bool, optional): record_bのVARS_KEY_IDをrecord_aにマージするか切り替え。Defaults to False.
         Returns:
             list:
         """
 
-        records_b_by_key = self._index_by_record_key(list_b, ignore_vars_key_id)
-
         result_list = []
 
-        for record_a in list_a:
-            record_b = records_b_by_key.get(self._record_key(record_a, ignore_vars_key_id))
+        for key, record_a in keyed_a:
+            record_b = index_b.get(key)
             if record_b is None:
                 continue
 
