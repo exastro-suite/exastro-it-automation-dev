@@ -14,11 +14,15 @@
 ARG USERNAME=app_user
 ARG GROUPNAME=app_user
 ARG APP_PATH=/exastro
+ARG EMBEDDING_MODEL=snowflake/snowflake-arctic-embed-xs
+ARG EMBEDDING_MODEL_CACHE_PATH=/embedding_model
 
 FROM    registry.access.redhat.com/ubi9/ubi-init:9.4 as common_build
 ARG USERNAME
 ARG GROUPNAME
 ARG APP_PATH
+ARG EMBEDDING_MODEL
+ARG EMBEDDING_MODEL_CACHE_PATH
 
 ENV PYTHONPATH=/exastro/
 ENV DEFAULT_LANGUAGE=ja
@@ -33,13 +37,26 @@ ENV DB_CONNECT_TIMEOUT=10
 ENV DB_CONNECT_RETRY_SLEEP_TIME=0.5
 ENV DB_CONNECT_RETRY_LIMIT=2
 ENV SERVICE_NAME=ita-api-mcp-server
-ENV USER_ID=ita-api-mcp-server
 
+# EMBEDDING MODEL設定
+ENV EMBEDDING_MODEL             $EMBEDDING_MODEL
+ENV EMBEDDING_MODEL_CACHE_PATH  $EMBEDDING_MODEL_CACHE_PATH
+
+# ハイブリッドスコアにおけるベクトルスコアの重み(0.0-1.0)。値が大きいほど
+# ベクトル検索(意味的な類似度)を重視し、小さいほどキーワードマッチングを重視する。
+ENV HYBRID_SEARCH_ALPHA 0.9
+
+# キーワードスコア計算において、タイトルへのマッチをテキストへのマッチの
+# 何倍重視するかの重み。
+ENV TITLE_MATCH_WEIGHT  3
+
+# menu filterツールのfile=yesで最大取得可能なレコード件数
 ENV MENU_FILTER_FILE_RECORD_LIMIT 5
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
     dnf install -y \
     gcc \
+    hostname \
     httpd \
     httpd-devel \
     langpacks-en \
@@ -74,6 +91,17 @@ RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted
 
 RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
     poetry install --without develop_build
+
+# embedding_modelのダウンロード
+COPY ./ita_root/ita_api_mcp_server/download_embedding_model.py $APP_PATH/
+
+RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    mkdir -p $EMBEDDING_MODEL_CACHE_PATH \
+&&  python3 $APP_PATH/download_embedding_model.py --model-name $EMBEDDING_MODEL --cache-path $EMBEDDING_MODEL_CACHE_PATH \
+&&  chown -R $USERNAME:$GROUPNAME $EMBEDDING_MODEL_CACHE_PATH
+
+ENV HF_HUB_OFFLINE 1
+ENV TRANSFORMERS_OFFLINE 1
 
 #
 # Build for development

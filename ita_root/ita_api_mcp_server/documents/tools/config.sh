@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 #   Copyright 2026 NEC Corporation
 #
 #   Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,8 +13,6 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+#
 
-import sys
-
-sys.path.insert(0, '/exastro')
-from api import app as application
+QDRANT_SNAPSHOT_FILE_PATH=/workspace/exastro-it-automation-dev/ita_root/ita_qdrant/snapshot/qdrant_common.snapshot

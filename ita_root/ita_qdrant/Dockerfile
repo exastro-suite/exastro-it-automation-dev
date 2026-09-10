@@ -11,8 +11,21 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+#
+FROM qdrant/qdrant:v1.19
 
-import sys
+ENV QDRANT__TELEMETRY_DISABLED true
 
-sys.path.insert(0, '/exastro')
-from api import app as application
+RUN mkdir -p /exastro/snapshot/
+
+COPY ./ita_root/ita_qdrant/snapshot/qdrant_common.snapshot /exastro/snapshot/
+
+#
+# --force-snapshotで起動時に必ずsnapshotから起動
+# --snapshotで起動時に取り込むsnapshotを指定(スナップショットファイル名:コレクション名)
+#
+CMD [ \
+    "./qdrant", \
+    "--force-snapshot", \
+    "--snapshot",   "/exastro/snapshot/qdrant_common.snapshot:_common" \
+]

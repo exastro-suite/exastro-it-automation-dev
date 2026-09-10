@@ -85,6 +85,10 @@ from . import ita_menu_create
 # Import ita_driver_control.py so that its @tool-decorated functions get registered
 from . import ita_driver_control
 
+# search_documents.py の @tool デコレーター付き関数群を登録するためにimportする
+# Import search_documents.py so that its @tool-decorated functions get registered
+from . import search_documents
+
 __all__ = [
     "platform_user",
     "attachment_file_bp",
@@ -97,5 +101,6 @@ __all__ = [
     "ita_menu_filter",
     "ita_menu_maintenance_all",
     "ita_menu_create",
-    "ita_driver_control"
+    "ita_driver_control",
+    "search_documents"
 ]
