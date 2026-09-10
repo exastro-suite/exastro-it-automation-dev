@@ -1,262 +1,102 @@
-# Ansible実行環境のカスタマイズ
-# はじめに
-本書では、ITAで使用するAnsible実行環境のカスタマイズ方法を説明します。
-# Ansible 実行環境カスタマイズの概要
-- | Ansible-Coreでのカスタマイズ例
-  - | Ansible作業時のビルドにカスタマイズ工程を追加する例（docker-compose版のみ）
-    - | コレクションを使用する例
-    - | 自作モジュールを使用する例
-  - | Ansible作業時にカスタマイズを施したイメージを使用する例
-- | Ansible Execution AgentやAnsible Automation Platformでのカスタマイズ例
-  - | コレクションを使用する例（無償版ベースイメージ）
-  - | コレクションを使用する例（有償版ベースイメージ）
-  - | 自作モジュールを使用する例
-# Ansible-Coreでのカスタマイズ例
+# Ansible実行環境のカスタマイズ方法
 
-## Ansible作業時のビルドにカスタマイズ工程を追加する例
-Ansible作業時のビルドにカスタマイズ工程を追加するという手順の関係上、本手順は「docker-compose版のみ」となります。
+ITAで使用するAnsible実行環境をカスタマイズする方法を説明します。Ansible-Coreではビルド時にカスタマイズ工程を挟む（docker-compose版のみ）、またはカスタマイズ済みイメージを使用する方法があります。Ansible Execution AgentやAnsible Automation Platformではansible-builderを用いた実行環境カスタマイズが可能です。
 
-### 既存の環境変数を確認
-既存の環境変数を確認します。
+## Ansible-Coreでのカスタマイズ
 
-### 既存のイメージを削除
+### ビルドにカスタマイズ工程を追加する例（docker-compose版のみ）
 
-### ビルドファイルの編集
+`~/exastro-docker-compose/.env` の `ANSIBLE_AGENT_IMAGE` / `ANSIBLE_AGENT_IMAGE_TAG` / `ANSIBLE_AGENT_BASE_IMAGE` / `ANSIBLE_AGENT_BASE_IMAGE_TAG` を確認します（コメントアウト時の既定値: `ANSIBLE_AGENT_IMAGE=my-exastro-ansible-agent`、タグはITAバージョン、ベースイメージは`exastro/exastro-it-automation-by-ansible-agent`）。既存イメージがある場合は`docker rmi`で削除しておきます。
 
-#### コレクションを使用する例
-そのため下記以外のコレクションを追加する場合、及びコレクションに必要なライブラリをインストール場合の手順となります。
-   ---------------------------------------- -------
+ビルドには`~/exastro-docker-compose/ita_by_ansible_execute/templates/docker-compose.yml`と`work/Dockerfile`を使用するため、カスタマイズ内容はこの2ファイルに記載します（ITA 2.6.0以降、デフォルトベースイメージのPython/pipはPython3.11/pip3.11）。
 
-#### 自作モジュールを使用する例
-   -rw-r--r--. 1 user01 user01 1024 Jan 1 00:00 ~/exastro-docker-compose/ita_by_ansible_execute/templates/work/my_module.py
+**コレクション追加の例**: Dockerfileに以下を追加します（ライブラリはコレクション公式ドキュメント記載のものを指定）。
 
-## Ansible作業時にカスタマイズを施したイメージを使用する例
+```dockerfile
+RUN ansible-galaxy collection install [インストールしたいコレクション名] \
+&& pip3.11 install [コレクションに必要なライブラリ]
+```
 
-### カスタマイズを施したイメージの出力
+透過型プロキシでSSL/TLSインスペクションを行っている場合は証明書エラーを避けるため`ansible-galaxy collection install --ignore-certs ...`のように`--ignore-certs`を付与します（カスタムCA証明書のインストールでの証明書検証も可能）。
 
-### カスタマイズを施したイメージの投入
+**自作モジュールの例**: モジュールファイルを`~/exastro-docker-compose/ita_by_ansible_execute/templates/work/my_module.py`に配置し読み取り権限を付与（`chmod a+r`）、Dockerfileに以下を追加します。
 
-#### docker-compose版
-イメージの確認後、Ansible-CoreでのAnsible作業時に対象のイメージを使用するように環境変数を設定します。
-   - # ANSIBLE_AGENT_IMAGE=my-exastro-ansible-agent
-   - # ANSIBLE_AGENT_IMAGE_TAG=
-環境変数の編集後、「`~/exastro-docker-compose/setup.sh` 」を実行して編集を反映します。
+```dockerfile
+RUN mkdir -p /home/app_user/.ansible/plugins/modules
+COPY my_module.py /home/app_user/.ansible/plugins/modules/
+```
 
-#### Kubenetes版
-イメージの投入後、Ansible-CoreでのAnsible作業時に対象のイメージを使用するように環境変数を設定します。
-   -     ANSIBLE_AGENT_IMAGE: "docker.io/exastro/exastro-it-automation-by-ansible-agent"
-   -     ANSIBLE_AGENT_IMAGE_TAG: ""
-# Ansible Execution Agentでのカスタマイズ例
+編集後、Ansible-Coreでの作業実行時にビルドが行われます（`returned a non-zero code: 1`エラーが出た場合はビルド失敗）。
 
-## コレクションを使用する例（無償版ベースイメージ）
-- | このケースでは下記条件でカスタマイズを施します。
-  - | ベースイメージは「registry.access.redhat.com/ubi9/ubi-init:latest」を使用する
-  - | コレクションは「Azure.AzCollection」を使用する
+### カスタマイズ済みイメージを使用する例
 
-### ITAでの実行環境定義登録
-Ansible共通 --> 実行環境定義テンプレート管理 に実行環境定義のテンプレートファイルを登録します。
-  Ansible共通 --> 実行環境定義テンプレート管理 に設定するパラメータ一覧
-項目名                                      | 設定値                                                                                 | 備考                                                                                     |
-テンプレートファイル                        | 下記内容を登録します。                                                                 | 将来的に、必要となる `ansible_core` のバージョンは変更となる可能性があります。           |
-Ansible共通 --> 実行環境管理 に実行環境定義のテンプレートファイルとテンプレートファイルに代入する設定値の紐付けを登録します。
-  Ansible共通 --> 実行環境管理 に設定するパラメータ一覧
-項目名                      | 設定値                                  | 備考                                                                              |
-実行環境構築方法            | ITA                                     | ー                                                                                |
-実行環境定義名              | 実行環境パラメータ定義/~[Exastro standa\| 初期データとして用意されているものを使用します。                                  |
-テンプレート名              | azure_ee_template                       | Ansible共通 --> 実行環境定義テンプレート管理 のテンプレート名    |
-Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 （実行しようとするAnsible作業のMovement）に実行環境設定を登録します。
-実行環境設定に関連しないパラメータについては記載省略としています。
-  Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 に設定するパラメータ一覧
-項目名                              | 設定値                                                                      | 備考                                                        |
-MovementID                          | （記載省略）                                                                | ー                                                          |
-Movement名                          | （記載省略）                                                                | ー                                                          |
-オプションパラメータ    | （記載省略）                                                                | ー                                                          |
-Ansible \   | 実行環境  | azure_ee_ubi9                                                               | Ansible共通 --> 実行環境管理 の実行環境名  |
-ansible-\ | ansible-builderで実行環境をbuildする際に\                                   | 通常は設定不要です。                                        |
-builder\  | ansible-builderのパラメータが必要であれば入力します。                       |                                                             |
+イメージ存在サーバで対象イメージを確認し（Kubernetesではタグ名`latest`/`none`だとローカルイメージが使われないため、それ以外のタグに変更推奨）、`docker save <image>:<tag> | gzip -c > /tmp/custom-docker-image.tar.gz`で出力します。
 
-## コレクションを使用する例（有償版ベースイメージ）
-- | このケースでは下記条件でカスタマイズを施します。
-  - | ベースイメージは「registry.redhat.io/ansible-automation-platform-24/ee-minimal-rhel9:latest」を使用する
-  - | コレクションは「Azure.AzCollection」を使用する
+**docker-compose版**: 対象サーバへtar.gzを転送し`docker load < /tmp/custom-docker-image.tar.gz`で投入、`docker images`で確認後、`.env`の`ANSIBLE_AGENT_IMAGE`/`ANSIBLE_AGENT_IMAGE_TAG`を編集し、`sh setup.sh install`で反映します。
 
-### Ansible Execution Agentでの事前準備
+**Kubernetes版**: 全ノードへtar.gzを転送し`ctr images -n k8s.io import /tmp/custom-docker-image.tar.gz`で投入、`values.yaml`の`exastro-it-automation.ita-by-ansible-execute.extraEnv.ANSIBLE_AGENT_IMAGE`/`ANSIBLE_AGENT_IMAGE_TAG`を編集し、`helm upgrade`と`kubectl rollout restart deploy/ita-by-ansible-execute`で反映します。
 
-### ITAでの実行環境定義登録
-入力用 --> 実行環境パラメータ定義 に実行環境定義のテンプレートファイルに代入する設定値を登録します。
-  入力用 --> 実行環境パラメータ定義 に設定するパラメータ一覧
-項目名                                      | 設定値                                                                     | 備考                                                                                     |
-bindep_file                                 | 下記内容を登録します。                                                     | ー                                                                                       |
-Ansible共通 --> 実行環境定義テンプレート管理 に実行環境定義のテンプレートファイルを登録します。
-  Ansible共通 --> 実行環境定義テンプレート管理 に設定するパラメータ一覧
-項目名                                      | 設定値                                                                                 | 備考                                                                                     |
-テンプレートファイル                        | 下記内容を登録します。                                                                 | 将来的に、必要となる `ansible_core` のバージョンは変更となる可能性があります。           |
-Ansible共通 --> 実行環境管理 に実行環境定義のテンプレートファイルとテンプレートファイルに代入する設定値の紐付けを登録します。
-  Ansible共通 --> 実行環境管理 に設定するパラメータ一覧
-項目名                      | 設定値                                  | 備考                                                                              |
-実行環境構築方法            | ITA                                     | ー                                                                                |
-実行環境定義名              | 実行環境パラメータ定義/azure_ee         |  入力用 --> 実行環境パラメータ定義 のexecution_environment_name  |
-テンプレート名              | azure_ee_template                       |  Ansible共通 --> 実行環境定義テンプレート管理 のテンプレート名   |
-Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 （実行しようとするAnsible作業のMovement）に実行環境設定を登録します。
-実行環境設定に関連しないパラメータについては記載省略としています。
-  Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 に設定するパラメータ一覧
-項目名                              | 設定値                                                                      | 備考                                                        |
-MovementID                          | （記載省略）                                                                | ー                                                          |
-Movement名                          | （記載省略）                                                                | ー                                                          |
-オプションパラメータ    | （記載省略）                                                                | ー                                                          |
-Ansible \   | 実行環境  | azure_ee                                                                    | Ansible共通 --> 実行環境管理 の実行環境名  |
-ansible-\ | ansible-builderで実行環境をbuildする際に\                                   | 通常は設定不要です。                                        |
-builder\  | ansible-builderのパラメータが必要であれば入力します。                       |                                                             |
+## Ansible Execution Agentでのカスタマイズ
 
-## 自作モジュールを使用する例
-- | このケースでは下記条件でカスタマイズを施します。
-  - | ベースイメージは「registry.access.redhat.com/ubi9/ubi-init:latest」を使用する
-  - | 自作モジュールは「 `/tmp/ansible_module/my_module.py` 」を使用する
+ITA側で実行環境定義テンプレート（`Ansible共通 --> 実行環境定義テンプレート管理`）と、テンプレートに代入する値（無償版は直接テンプレート内のJinja変数、有償版はパラメータシート「実行環境パラメータ定義」経由）、および両者を紐付ける実行環境（`Ansible共通 --> 実行環境管理`）を登録し、対象Movementの「Ansible Execution Agent利用情報」に実行環境名を設定する、という共通の流れで設定します。
 
-### 自作モジュールの配置
-   -rw-r--r--. 1 userA userA 1024 Jan 1 00:00 /tmp/ansible_module/my_module.py
+### コレクション利用（無償版ベースイメージ）例
 
-### ITAでの実行環境定義登録
-Ansible共通 --> 実行環境定義テンプレート管理 に実行環境定義のテンプレートファイルを登録します。
-  Ansible共通 --> 実行環境定義テンプレート管理 に設定するパラメータ一覧
-項目名                                      | 設定値                                                                                      | 備考                                                                                     |
-テンプレートファイル                        | 下記内容を登録します。                                                                      | 自作モジュールのファイルパスが異なる場合は、\                                            |
-Ansible共通 --> 実行環境管理 に実行環境定義のテンプレートファイルとテンプレートファイルに代入する設定値の紐付けを登録します。
-  Ansible共通 --> 実行環境管理 に設定するパラメータ一覧
-項目名                      | 設定値                                                                           | 備考                                                                              |
-実行環境構築方法            | ITA                                                                              | ー                                                                                |
-実行環境定義名              | 実行環境パラメータ定義/~[Exastro standard] default (no galaxy collection)        |  初期データとして用意されているものを使用します。                                 |
-テンプレート名              | my_module_ubi9_template                                                          |  Ansible共通 --> 実行環境定義テンプレート管理 のテンプレート名   |
-Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 （実行しようとするAnsible作業のMovement）に実行環境設定を登録します。
-実行環境設定に関連しないパラメータについては記載省略としています。
-  Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 に設定するパラメータ一覧
-項目名                              | 設定値                                                                      | 備考                                                        |
-MovementID                          | （記載省略）                                                                | ー                                                          |
-Movement名                          | （記載省略）                                                                | ー                                                          |
-オプションパラメータ    | （記載省略）                                                                | ー                                                          |
-Ansible \   | 実行環境  | my_module_ubi9                                                              | Ansible共通 --> 実行環境管理 の実行環境名  |
-ansible-\ | ansible-builderで実行環境をbuildする際に\                                   | 通常は設定不要です。                                        |
-builder\  | ansible-builderのパラメータが必要であれば入力します。                       |                                                             |
-# Ansible Automation Platformでのカスタマイズ例
+ベースイメージ`registry.access.redhat.com/ubi9/ubi-init:latest`にコレクション`azure.azcollection`を追加する例です。
 
-## コレクションを使用する例（無償版ベースイメージ）
-- | このケースでは下記条件でカスタマイズを施します。
-  - | ベースイメージは「registry.access.redhat.com/ubi9/ubi-init:latest」を使用する
-  - | コレクションは「Azure.AzCollection」を使用する
+実行環境定義テンプレート（テンプレート名`azure_ee_template`）は以下のようなJinja2テンプレートです。
 
-### ansible-builderのインストール
+```yaml+jinja
+version: 3
+build_arg_defaults:
+  ANSIBLE_GALAXY_CLI_COLLECTION_OPTS: '--ignore-certs'
+images:
+  base_image:
+    name: {{ image }}
+dependencies:
+  ansible_core:
+    package_pip: {{ ansible_core }}
+  ansible_runner:
+    package_pip: {{ ansible_runner }}
+  system: {{ bindep_file }}
+  python: {{ python_requirements_file }}
+{% if galaxy_requirements_file == "" %}
+{% else %}
+  galaxy: {{ galaxy_requirements_file }}
+{% endif %}
+  python_interpreter:
+    package_system: "python3.11"
+    python_path: "/usr/bin/python3.11"
+additional_build_steps:
+  append_base:
+    - RUN /usr/bin/python3.11 -m pip install --upgrade pip
+options:
+  package_manager_path: {{ package_manager_path }}
+  user: root
+```
 
-### 必要ファイルの準備
-- | execution-environment.yml
-  - ansible-builderの定義ファイル
-       - RUN /usr/bin/python3.11 -m pip install --upgrade pip
-- | galaxy-requirements.yml
-  - インストールしたいansible-galaxy コレクションリストを記載するファイル
-     - azure.azcollection
-- | python-requirements.txt
-  - Python の依存関係を解決するためにPython 要件を記載するファイル
-- | bindep.txt
-  - システムレベルの依存関係を解決するためにパッケージ要件を記載するファイル
+実行環境管理には、実行環境名（例: `azure_ee_ubi9`）、実行環境構築方法「ITA」、タグ名（例: `azure_ee_image_ubi9`）、実行環境定義名（初期データの「~[Exastro standard] default (galaxy collection is azure only)」を使用）、テンプレート名（`azure_ee_template`）を登録します。対象MovementのAnsible Execution Agent利用情報の「実行環境」に実行環境名（`azure_ee_ubi9`）を設定します（ansible-builderパラメータは通常不要、デバッグ時に`-v 3`等を指定）。
 
-### ansible-builderの実行
+### コレクション利用（有償版ベースイメージ）例
 
-### ControlNodeのawxユーザ用にカスタムイメージをコピー
+ベースイメージ`registry.redhat.io/ansible-automation-platform-24/ee-minimal-rhel9:latest`を使う場合。Agent側で事前に`podman login registry.redhat.io`を実施しておきます。
 
-### ExecutionNodeのawxユーザ用にカスタムイメージをコピー
+パラメータシート「実行環境パラメータ定義」（`入力用 --> 実行環境パラメータ定義`）に、execution_environment_name（例: `azure_ee`）、image（上記ベースイメージ）、ansible_core（例: `ansible_core==2.16.0`）、ansible_runner、bindep_file（`systemd-devel`/`gcc`/`python3.11-devel`）、python_requirements_file（`pywinrm`/`setuptools`/`pexpect`/`boto3`/`paramiko`/`boto`/`certifi`）、galaxy_requirements_file（`collections:\n - azure.azcollection`）、package_manager_path（`/usr/bin/microdnf`）を登録します。テンプレート・実行環境管理・Movementの設定は無償版と同様（実行環境定義名は「実行環境パラメータ定義/azure_ee」を指定）。
 
-### AAPに実行環境を登録
-コピーしたカスタムイメージを使用する実行環境設定をAnsible Automation Platformに登録します。
+### 自作モジュールを使用する例（Agent）
 
-### ITAに実行環境を登録
-ITAに実行環境設定を登録します。
-登録する環境名は、AAPで登録した名前（上記ではazure_ee_ubi9）となります。
-Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 （実行しようとするAnsible作業のMovement）に実行環境設定を登録します。
-実行環境設定に関連しないパラメータについては記載省略としています。
-  Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 に設定するパラメータ一覧
-項目名                              | 設定値                                                                      | 備考                                                        |
-MovementID                          | （記載省略）                                                                | ー                                                          |
-Movement名                          | （記載省略）                                                                | ー                                                          |
-オプションパラメータ    | （記載省略）                                                                | ー                                                          |
-Ansible \   | 実行環境  | e.g.) azure_ee_ubi9                                                         | AAPに実行環境を登録 で登録した実行環境名   |
+`/tmp/ansible_module/my_module.py`をAgentに配置し読み取り権限を付与します。実行環境定義テンプレート（例: `my_module_ubi9_template`）には`additional_build_files`でモジュールファイルをコピーし、`additional_build_steps.append_base`で`COPY _build/configs/my_module.py /usr/share/ansible/plugins/modules/`を追加します。実行環境定義名には初期データ「~[Exastro standard] default (no galaxy collection)」を使用し、実行環境管理・Movement設定は同様です。
 
-## コレクションを使用する例（有償版ベースイメージ）
-- | このケースでは下記条件でカスタマイズを施します。
-  - | ベースイメージは「registry.redhat.io/ansible-automation-platform-24/ee-minimal-rhel9:latest」を使用する
-  - | コレクションは「Azure.AzCollection」を使用する
+## Ansible Automation Platformでのカスタマイズ
 
-### ansible-builderのインストール
+Ansible Automation Platform (Cloud)を実行エンジンに選択した場合も同じ手順が使えます（Cloudの場合はITA作業用ディレクトリへのファイル配置が不要になるのみで、実行環境の指定方法自体は変わりません）。
 
-### 必要ファイルの準備
-- | execution-environment.yml
-  - ansible-builderの定義ファイル
-       - RUN /usr/bin/python3.11 -m pip install --upgrade pip
-- | galaxy-requirements.yml
-  - インストールしたいansible-galaxy コレクションリストを記載するファイル
-     - azure.azcollection
-- | python-requirements.txt
-  - Python の依存関係を解決するためにPython 要件を記載するファイル
-- | bindep.txt
-  - システムレベルの依存関係を解決するためにパッケージ要件を記載するファイル
+共通の流れ: ControlNodeに`ansible-builder`をインストール（`dnf install --enablerepo=ansible-automation-platform-2.4-for-rhel-8-x86_64-rpms ansible-builder`）→ 定義ファイル（`execution-environment.yml`、`galaxy-requirements.yml`、`python-requirements.txt`、`bindep.txt`）を同一ディレクトリに準備 → `ansible-builder build -t <タグ名>`でイメージ作成 → `podman images`で確認 → `podman save`でtarに出力しControlNode/ExecutionNodeのawxユーザへ`podman load`でコピー → AAPの管理画面で実行環境として登録 → ITA側のMovement「Ansible Automation Controller利用情報」の実行環境にAAPで登録した名前を設定。
 
-### ansible-builderの実行
+**コレクション利用（無償版）例**: `execution-environment.yml`のbase_imageに`registry.access.redhat.com/ubi9/ubi-init:latest`、galaxy-requirements.ymlに`azure.azcollection`、python-requirements.txtに`pywinrm`/`setuptools`/`pexpect`/`boto3`/`paramiko`/`boto`/`certifi`、bindep.txtに`openssh-clients`/`sshpass`/`expect`を記載します。
 
-### ControlNodeのawxユーザ用にカスタムイメージをコピー
+**コレクション利用（有償版）例**: base_imageに`registry.redhat.io/ansible-automation-platform-24/ee-minimal-rhel9:latest`を使用し、事前に`podman login registry.redhat.io`が必要です。bindep.txtは`systemd-devel`/`gcc`/`python3.11-devel`、package_manager_pathは`/usr/bin/microdnf`となります（他のファイル内容は無償版と同様）。
 
-### ExecutionNodeのawxユーザ用にカスタムイメージをコピー
+**自作モジュール利用例**: モジュールをControlNodeの`/tmp/ansible_module/my_module.py`に配置し読み取り権限を付与、`execution-environment.yml`に`additional_build_files`（`src: /tmp/ansible_module/my_module.py`, `dest: configs`）と`additional_build_steps.append_base`の`COPY _build/configs/my_module.py /usr/share/ansible/plugins/modules/`を追加します。
 
-### AAPに実行環境を登録
-コピーしたカスタムイメージを使用する実行環境設定をAnsible Automation Platformに登録します。
-
-### ITAに実行環境を登録
-ITAに実行環境設定を登録します。
-登録する環境名は、AAPで登録した名前（上記ではazure_ee）となります。
-Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 （実行しようとするAnsible作業のMovement）に実行環境設定を登録します。
-実行環境設定に関連しないパラメータについては記載省略としています。
-  Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 に設定するパラメータ一覧
-項目名                              | 設定値                                                                      | 備考                                                        |
-MovementID                          | （記載省略）                                                                | ー                                                          |
-Movement名                          | （記載省略）                                                                | ー                                                          |
-オプションパラメータ    | （記載省略）                                                                | ー                                                          |
-Ansible \   | 実行環境  | e.g.) azure_ee                                                              | AAPに実行環境を登録 で登録した実行環境名   |
-
-## 自作モジュールを使用する例
-- | このケースでは下記条件でカスタマイズを施します。
-  - | ベースイメージは「registry.access.redhat.com/ubi9/ubi-init:latest」を使用する
-  - | 自作モジュールは「 `/tmp/ansible_module/my_module.py` 」を使用する
-
-### 自作モジュールの配置
-   -rw-r--r--. 1 root root 1024 Jan 1 00:00 /tmp/ansible_module/my_module.py
-
-### ansible-builderのインストール
-
-### 必要ファイルの準備
-- | execution-environment.yml
-  - ansible-builderの定義ファイル
-     - src: /tmp/ansible_module/my_module.py
-       - COPY _build/configs/my_module.py /usr/share/ansible/plugins/modules/
-       - RUN /usr/bin/python3.11 -m pip install --upgrade pip
-- | python-requirements.txt
-  - Python の依存関係を解決するためにPython 要件を記載するファイル
-- | bindep.txt
-  - システムレベルの依存関係を解決するためにパッケージ要件を記載するファイル
-
-### ansible-builderの実行
-
-### ControlNodeのawxユーザ用にカスタムイメージをコピー
-
-### ExecutionNodeのawxユーザ用にカスタムイメージをコピー
-
-### AAPに実行環境を登録
-コピーしたカスタムイメージを使用する実行環境設定をAnsible Automation Platformに登録します。
-
-### ITAに実行環境を登録
-ITAに実行環境設定を登録します。
-登録する環境名は、AAPで登録した名前（上記ではmy_module_ubi9_image）となります。
-Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 （実行しようとするAnsible作業のMovement）に実行環境設定を登録します。
-実行環境設定に関連しないパラメータについては記載省略としています。
-  Ansible[Legacy/Pioneer/Legacy-Role] --> Movement一覧 に設定するパラメータ一覧
-項目名                              | 設定値                                                                      | 備考                                                        |
-MovementID                          | （記載省略）                                                                | ー                                                          |
-Movement名                          | （記載省略）                                                                | ー                                                          |
-オプションパラメータ    | （記載省略）                                                                | ー                                                          |
-Ansible \   | 実行環境  | e.g.) my_module_ubi9_image                                                  | AAPに実行環境を登録 で登録した実行環境名   |
+いずれの場合も、ビルド完了後は`Complete! The build context can be found at: ...`が表示され、`podman images`でイメージを確認できます。イメージはControlNodeのawxユーザ用に`podman save`→`chown awx:awx`→`podman load`、ExecutionNodeには転送後`podman load`でコピーしてから、AAPの実行環境管理画面に登録します。

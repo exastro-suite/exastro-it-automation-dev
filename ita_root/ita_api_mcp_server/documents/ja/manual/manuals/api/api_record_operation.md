@@ -1,259 +1,87 @@
-# APIのアクセス（認証）について
-利用する対象のAPIのエンドポイント、パラメータ、詳細については、各利用者向けの、「」、「」を参照してください。
-   - 最終ログイン時の言語情報が参照されます。
-   - 初回ログイン後の設定が行われていない為、認証エラーとなります。
-# 登録、編集のAPI、関連APIの実行例
-以下、登録、編集のAPI、及び関連APIの実行の例について記載します。
-- -  
-APIのエンドポイントで使用するメニュー名の確認方法ついて
-   - 「管理コンソール --> メニュー管理」から該当するメニューのレコードを確認し、「メニュー名(rest) 」の値を使用してください。
-パラメータで使用する、JSONデータ、FOEMデータに関する補足
-パラメータ指定時の形式、指定方法について
-コンテンツタイプ、パラメータ指定の方法や、curlの実行環境等により、適切なもので対応してください。
-    - JSONデータをJSONファイルで保存し、パラメータにJSONファイルを指定して使用する
-    - JSONデータのシングルクォーテーション「'」が使用できない場合、ダブルクォーテーション「 "」 を用いて、かつ内部で使用されたダブルクォーテーションをエスケープした書き方に変更する
-    - 末尾の「\\」、「^」については、ご利用環境で適切なものに変更する
-以下、コンテンツタイプによるパラメータの指定方法の詳細は、「」を参照してください。
-       -H "Authorization: Basic dXNlcl9pZDpwYXNzd29yZA==" \
-       -H "Content-Type: application/json" \
-       --data-raw [ { \"file\": { \"playbook_file\": \"LSBuYW1lOiBydW4gImVjaG8iCiAgY29tbWFuZDogZWNobyB7eyBWQVJfU1RSXzEgfX0=\" }, \"parameter\": { \"discard\": \"0\", \"item_no\": null, \"playbook_name\": \"echo\", \"playbook_file\": \"echo.yml\", \"remarks\": null, \"last_update_date_time\": null, \"last_updated_user\": null }, \"type\": \"Register\" } ]
-       -H "Authorization: Basic dXNlcl9pZDpwYXNzd29yZA==" \
-       -H "Content-Type: application/json" \
-       -d @playbook_files_sample.json
-       -H "Authorization: Basic dXNlcl9pZDpwYXNzd29yZA==" \
-       -F "json_parameters=[{\"parameter\":{\"discard\":\"0\",\"item_no\":null,\"playbook_name\":\"echo\",\"playbook_file\":\"echo.yml\",\"remarks\":null,\"last_update_date_time\":null,\"last_updated_user\":null},\"type\":\"Register\"}] " \
-       -F "0.playbook_file=@echo.yml"
+# ITA REST APIによるレコード操作とパラメータ適用
+
+## APIのアクセス（認証）について
+
+各APIのエンドポイント・パラメータの詳細は利用者向けマニュアル（オペレータ向け／システム管理者向け）を参照してください。Bearer認証を使う場合は認証方式の変更が必要です。API実行時の言語は最終ログイン時の言語情報が参照されます。作成直後のユーザーでBasic認証を使う場合、初回ログイン後の設定が未完了だと認証エラー（`401-00002`）になります。
 
 ## 一覧取得（Menu Filter：レコードの取得）
-    BASE64_BASIC=$(echo -n "ユーザー名を設定してください:パスワードを設定してください" | base64)
-      -H "Authorization: Basic ${BASE64_BASIC}" \
-      -H "Authorization: Basic ${BASE64_BASIC}" \
-      -H "Content-Type: application/json" \
-      --data-raw "{\"discard\":{\"LIST\":[\"0\"]}}"
-条件指定で利用可能な検索方法を以下に記載します。
-- **オプション**
-       - **説明**
-       - **設定例**
-       - **制約事項**
-- NORMAL
-       - | あいまい検索を実施します。
-       - {"対象のキー":{"NORMAL":"検索条件"}}
-       -
-- LIST
-       - | 完全一致検索を実施します。
-       - {"対象のキー":{"LIST":["検索条件"]}}
-       -
-- RANGE
-       - | 範囲指定による検索を実施します。
-       - {"対象のキー":{"RANGE":{"START":"検索条件","END":"検索条件"}}}
-       -
-機器一覧の条件指定した検索のパラメータ:
-  - 廃止含まず
-  - ホスト名に「host」を含む
-  - 最終更新日時が「2023/01/01 00:00:00」～「2023/12/31 00:00:00」の間
-   - | 論理削除状態のレコードのことを指します。
-   - | 各レコードのdiscardの値で、レコードの論理削除状態を示します。
-- "0"：有効なレコード
-- "1"：廃止されたレコード
-   - 廃止状態のレコードは、バリデーションの対象には含まれません。
-   - ファイルのデータは、base64エンコードした文字列で出力されます。必要に応じて、base64デコードして使用してください。
-   - パスワード等の一部の項目について、暗号化された形で保存されます。
-   - 一覧取得のAPIで出力される値は、nullとなり登録された値は、出力されません。
-※暗号化された形で、保存される項目については、各メニューのマニュアルを参照してください。
+
+`POST /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/filter/` にBasic/Bearer認証で条件を指定してレコードを取得します（GETでも全件取得可）。
+
+条件指定の検索オプション:
+
+| オプション | 説明 | 設定例 |
+|---|---|---|
+| NORMAL | あいまい検索（指定語句を含むレコード） | `{"キー":{"NORMAL":"条件"}}` |
+| LIST | 完全一致検索 | `{"キー":{"LIST":["条件"]}}` |
+| RANGE | 範囲検索（STARTのみ=以上、ENDのみ=以下） | `{"キー":{"RANGE":{"START":"..","END":".."}}}` |
+
+レコードの`discard`値は論理削除状態を示します（`"0"`＝有効、`"1"`＝廃止。廃止レコードはバリデーション対象外）。ファイルデータはbase64エンコードされた文字列で出力されます。パスワード等の暗号化項目は、一覧取得APIの出力では常に`null`になります（登録値は出力されない）。
 
 ## 登録、編集（Menu MaintenanceAll レコードの一括操作）
-登録、編集のAPIのパラメータの指定方式として、以下のContent-Typeで選択可能です。
-- application/json 形式
-  - パラメータをJSONデータで送信します。
-  - ファイルデータは、パラメータ内に、base64文字列として記載し送信します。
-- multipart/form-data 形式
-  - パラメータ、ファイルをformデータとして送信します。
-  - ファイルのformデータのキーは、パラメータのJSONデータのindexと、対象のキーを「.」で接続して使用します。
-以下のサンプルはBasic認証を使用して、「Ansible共通 --> 機器一覧」、「Ansible-Legacy --> Playbook素材集」のレコード操作のAPIを呼出しています。
-- 登録、編集時のバリデーションについて
-   - 各項目のバリデーションについては、各メニューのマニュアルを参照してください。
 
-### Content-Typeによるパラメータの構造の違いについて
-以下は、各Content-Type毎の、パラメータの構成について説明します。
-パラメータで使用する対象キーの取得、確認方法については、「」を参照してください。
-- Content-Type: application/json
-- Content-Type: multipart/form-data
-以下、登録、更新時のパラメータ例について記載します。
-- 「Ansible-Legacy --> Playbook素材集」の登録のサンプル
-- 「Ansible-Legacy --> Playbook素材集」の更新のサンプル
-   - last_update_date_timeには、FILTERで取得した最新の該当レコードの値を使用してください。
-   - 最新の値と一致しない場合、レコードの更新は行われません。
-   - | ファイルの登録、更新方法
-parameter、file配下の指定のキーに、登録、更新する値を指定してください。
-   - | ファイル名の変更方法
-   - | ファイルの削除方法
-   - | ファイルの登録、更新方法
-parameter配下の指定のキーに、登録、更新する値を指定してください。
-   - | ファイル名の変更方法
-   - | ファイルの削除方法
-   - parameter配下の変更する対象の項目の値のみ変更して、file配下、もしくは、-F でファイル指定せずに、対象項目のキーを含めずに更新してください。
-   - プルダウン項目の対象、使用可能な値については、「 」で取得できる情報を参照してください。
+`POST /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/maintenance/all/` で登録・編集を行います。Content-Typeにより指定方式が異なります。
 
-### Ansible共通 - 機器一覧
-   BASE64_BASIC=$(echo -n "ユーザー名を設定してください:パスワードを設定してください" | base64)
-     -H "Authorization: Basic ${BASE64_BASIC}" \
-     -H "Content-Type: application/json" \
-     --data-raw "[{ \"file\": {\"ssh_private_key_file\": \"\", \"server_certificate\": \"\"}, \"parameter\": { \"authentication_method\": \"パスワード認証\", \"connection_options\": null, \"connection_type\": \"machine\", \"discard\": \"0\", \"host_dns_name\": null, \"host_name\": \"exastro-test\", \"hw_device_type\": null, \"instance_group_name\": null, \"inventory_file_additional_option\": null, \"ip_address\": \"127.0.0.1\", \"lang\": \"utf-8\", \"login_password\": \"password\", \"login_user\": \"root\", \"os_type\": null, \"passphrase\": null, \"port_no\": null, \"protocol\": \"ssh\", \"remarks\": null, \"server_certificate\": null, \"ssh_private_key_file\": null }} ]"
-     -H "Authorization: Basic ${BASE64_BASIC}" \
-     -F 'json_parameters="[ { "parameter": { "discard": "0", "managed_system_item_number": null, "hw_device_type": null, "host_name": "exastro-test", "host_dns_name": null, "ip_address": "127.0.0.1", "login_user": "root", "login_password": "asdfghjkl", "ssh_private_key_file": "ssh_key_file.pem", "authentication_method": "パスワード認証","port_no": null, "server_certificate": "certificate_file.crt", "protocol": "ssh", "os_type": null, "lang": "utf-8", "connection_options": null, "inventory_file_additional_option": null, "instance_group_name": null,"connection_type": "machine", "remarks": null,"last_update_date_time": null, "last_updated_user": null}, "type": "Register" }]"' \
-     -F '0.ssh_private_key_file=@/ssh_key_file.pem' \
-     -F '0.server_certificate=@/certificate_file.crt' \
+- **application/json形式**: パラメータをJSONで送信し、ファイルデータはbase64文字列として`file`配下に指定します。
+- **multipart/form-data形式**: パラメータをformデータとして送信し、ファイルのformデータキーは「JSONデータのインデックス + `.` + 対象キー」（例: `0.playbook_file=@echo.yml`）で指定します。
 
-### Ansible-Legacy - Playbook素材集
-   BASE64_BASIC=$(echo -n "ユーザー名を設定してください:パスワードを設定してください" | base64)
-     -H "Authorization: Basic ${BASE64_BASIC}" \
-     -H "Content-Type: application/json" \
-     --data-raw "[{\"file\":{\"playbook_file\":\"LSBuYW1lOiBydW4gImVjaG8iCiAgY29tbWFuZDogZWNobyB7eyBWQVJfU1RSXzEgfX0=\"},\"parameter\":{\"discard\":\"0\",\"item_no\":null,\"playbook_name\":\"echo\",\"playbook_file\":\"echo.yml\",\"remarks\":null,\"last_update_date_time\":null,\"last_updated_user\":null},\"type\":\"Register\"}]"
-    -H "Authorization: Basic ${BASE64_BASIC}" \
-    -F "json_parameters=[{\"parameter\":{\"discard\":\"0\",\"item_no\":null,\"playbook_name\":\"echo\",\"playbook_file\":\"echo.yml\",\"remarks\":null,\"last_update_date_time\":null,\"last_updated_user\":null},\"type\":\"Register\"}] " \
-    -F "0.playbook_file=@echo.yml"
+パラメータ構造（共通）: 配列内の各要素は`file`（アップロードファイルのbase64エンコード文字列、キー単位）、`parameter`（対象メニューのカラムキーと値）、`type`（`Register`/`Update`/`Discard`/`Restore`）で構成されます。API実行時も画面操作時と同じバリデーションが適用されます。
 
-## APIのパラメータ関連情報（Menu Info メニュー情報の取得）
-レコードの一括操作パラメータの作成について
-レコードの一括操作のパラメータ、項目の構成については、以下を参照してください。
-- -  
+**レコード更新時の注意**: `last_update_date_time`にはFILTER取得時の最新値を指定する必要があり、一致しない場合は更新されません。
 
-### メニュー情報
- で使用する、メニューの構成情報、カラムグループ、カラムに関する設定値を取得できます。
-- | /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/
-     MENU="対象メニュー"
-     BASE64_BASIC=$(echo -n "ユーザー名を設定してください:パスワードを設定してください" | base64)
-       -H "Authorization: Basic ${BASE64_BASIC}" \
-                     "column_name_rest": "", # APIのパラメータで指定する項目名
-レコードの一括操作のパラメータに関するメニューの項目情報と設定値について
-メニューの情報取得APIの、項目情報(column_info)のキーと設定値について
-    .. list-table:: メニューの項目情報のキーと設定値
-- **キー**
-         - **説明**
-         - **設定値**
-- column_name
-         - 文字列
-- column_name_rest
-         - APIのパラメータで指定する項目名
-         - 文字列
-- auto_input
-         - | 自動入力フラグ
-         - | "0":非対象
-- input_item
-         - | 入力対象フラグ
-登録、編集のAPI実行時の入力対象項目
-         - | "0": 非対象
-- view_item
-         - | 出力対象フラグ
-         - | "0": 非対象
-- required_item
-         - | 必須入力フラグ
-登録、編集のAPI実行時の必須対象項目
-         - | "0": 非対象
-- unique_item
-         - | 一意制約フラグ
-登録、編集のAPI実行時の一意制約対象項目
-         - | "0": 非対象
-※バリデーションについては、各メニューのマニュアルを参照してください。
+**ファイル操作（application/json）**: 登録・更新はparameter/file配下の対象キーに値を指定。ファイル名のみ変更する場合もfile配下への指定が必要（省略すると更新対象から除外）。削除はparameter配下の対象キーを`""`または`null`に設定（`"null"`は文字列としてファイル名扱いになるため注意）。
 
-### パラメータの項目情報
- で使用するパラメータの情報、を取得できます。
-より詳細な設定を確認したい場合は、 も併せて参照してください。
-- | /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/column/
-     MENU="対象メニュー"
-     BASE64_BASIC=$(echo -n "ユーザー名を設定してください:パスワードを設定してください" | base64)
-       -H "Authorization: Basic ${BASE64_BASIC}" \
-  - | 例: 「Playbook素材集」のレスポンス
-             "playbook_file": "Playbook素材",
-             "playbook_name": "Playbook素材名",
+**ファイル操作（multipart/form-data）**: ファイル名はparameter配下に指定し、ファイル本体は「インデックス.キー」を`-F`で指定。ファイル名のみ変更する場合もファイルパス指定が必要。削除はparameter配下を`""`または`null`に設定。
 
-### プルダウン項目で使用可能なリスト
-- | /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/pulldown/
-     MENU="対象メニュー"
-     BASE64_BASIC=$(echo -n "ユーザー名を設定してください:パスワードを設定してください" | base64)
-       -H "Authorization: Basic ${BASE64_BASIC}" \
-  - | 例: 「機器一覧」のレスポンス
-# パラメータ適用（API）
-本APIは、オペレーションの生成からパラメータの適用までを行いConductor作業実行を行うAPIです。
-尚、Conductor作業実行の完了確認は行いません。完了確認は、 Conductor  -->  Conductor作業履歴 より行って下さい。
+ファイル・他項目を変更せず一部項目のみ更新する場合は、対象項目のキーのみをparameterに含め、file指定は行いません。プルダウン項目の選択可能値は「プルダウン項目情報取得API」で確認します。
 
-## request形式
-- 項目
-     - 説明
-- APIカテゴリ
-     - Apply
-- API名
-     - パラメータ適用
-- URL
-     - /api/{organizaiton_id}/workspaces/{workspace_id}/ita/apply/
-- method
-     - POST
-- headers
-     - | content-type: application/json
-- Request body
-     - | Request bodyを参照して下さい。
+## APIのパラメータ関連情報（Menu Info）
 
-## Request body
-conductor_class_name                   | Conductor名            | ○    | 文字列           | | 作業実行を要求するConductor名を指定します。                                                                                 |
-|                  | | Conductor名は、Conductor  -->  Conductor一覧 に登録されている Conductor名称 を指定します。|
-|                  | | Conductor  -->  Conductor一覧 に登録されていないConductor名を指定した場合はエラーになります。              |
-operation_name                         | オペレーション名       |      | 文字列           | | 作業実行を行うオペレーション名を指定します。                                                                                |
-|                  | + | 既存オペレーション                                                                                                        |
-|                  |   | 基本コンソール  -->  オペレーション一覧 に登録されている オペレーション名 を指定します。|
-|                  | + | 新規オペレーション                                                                                                        |
-|                  |   | 基本コンソール  -->  オペレーション一覧 に登録されていない オペレーション名 \           |
-|                  |   | 指定されたoperation_nameが 基本コンソール  -->  オペレーション一覧 に登録されます。                      |
-|                  | + | オペレーション自動採番                                                                                                    |
-|                  |   | operation_nameの指定がない場合や省略した場合は、以下の採番ルールで オペレーション名 を採番し\            |
-|                  |     基本コンソール  -->  オペレーション一覧 に登録されます。                                                 |
-schedule_date                          | 予約日時               |      | 文字列           | | Conductor作業実行の予約日時を yyyy/mm/dd hh:mi:ss で指定します。                                                            |
-parameter_info                         | パラメータ情報         |      | 配列             | | 登録/更新/廃止/復活の操作を行うパラメータ情報を指定します。                                                                 |
-|                  | | 複数メニューが対象で順序性を考慮する必要がある場合は、配列の順番で調整して下さい。                                          |
-|                  | | Conductor作業実行のみを行う場合は省略して下さい。                                                                           |
-※1             | (menu_name_rest)      | メニュー名(REST)       |      | 配列             | | 管理コンソール  -->  メニュー管理 の メニュー名(Rest) を指定します。                      |
-|                        |      |                  | | 登録の場合： Register                                                                                                       |
-parameter    | パラメータ             |      | 辞書             | | 対象メニューのカラムキーと値の組み合わせを指定します。                                                                      |
-|                        |      |                  | | operation_nameで「新規オペレーション」や「オペレーション自動採番」を指定した場合、オペレーション名に相当する\               |
-|                        |      |                  | | また、conductor_class_nameで、Conductor call function（以降、サブConductorと称す。）が含まれるConductor名を指定した場合\    |
-|                        |      |                  |   で、サブConductorの個別オペレーションを明示的に指定する必要がある場合、該当のオペレーション名を指定します。                 |
+- `GET /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/`: メニューの構成情報（column_group_info、column_info、custom_menu、menu_info）を取得。column_infoの主なキー: `column_name`（画面表示名）、`column_name_rest`（APIパラメータ名）、`auto_input`（自動入力フラグ、0/1）、`input_item`（入力対象フラグ、0=非対象/1=対象/2=非表示）、`view_item`（出力対象フラグ、0/1）、`required_item`（必須フラグ、0/1）、`unique_item`（一意制約フラグ、0/1）。
+- `GET /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/column/`: パラメータの項目情報（項目名(rest)と画面表示名の対応）を取得。
+- `GET /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/pulldown/`: プルダウン項目で選択可能な値の一覧を取得（例: 機器一覧の`authentication_method`, `connection_type`, `hw_device_type`, `lang`, `protocol`等）。
 
-## Request bodyの具体例
+## パラメータ適用API（Apply）
 
-### 既存オペレーションで登録済みパラメータを使用したConductorの作業実行
+オペレーションの生成からパラメータ適用までを行い、Conductor作業実行を行うAPIです（完了確認はConductor作業履歴から行う必要があります。本APIは完了確認を行いません）。
 
-### 既存オペレーションで登録済みパラメータを使用したConductorの予約実行
+- URL: `POST /api/{organization_id}/workspaces/{workspace_id}/ita/apply/`
+- headers: `content-type: application/json`、`Authorization: Basic認証またはBearer認証`
 
-### 既存オペレーションでパラメータ適用をしたConductorの作業実行
-オペレーション「operation_name_select」の指定について
-既存オベーションの場合、オペレーション「operation_name_select」に設定する値は、該当オペレーションの「実施予定日」(YYYY/MM/DD hh:mm)_「オペレーション名」で指定します。
+### Request body
 
-### 新規オペレーションでパラメータ適用をしたConductorの作業実行
-オペレーション「operation_name_select」の指定について
-新規オペレーションの場合、オペレーション「operation_name_select」の指定は不要です。
+| キー | 項目 | 必須 | 型 | 説明 |
+|---|---|---|---|---|
+| conductor_class_name | Conductor名 | 〇 | 文字列 | Conductor一覧に登録済みのConductor名称。未登録の場合エラー。 |
+| operation_name | オペレーション名 | - | 文字列 | 既存オペレーション名を指定するか、未登録の名前を指定すると新規オペレーションとして登録される。省略時は`yyyymmddhhmissffffffN`形式で自動採番される。 |
+| schedule_date | 予約日時 | - | 文字列 | `yyyy/mm/dd hh:mi:ss`形式。省略時は即時実行。 |
+| parameter_info | パラメータ情報 | - | 配列 | 登録/更新/廃止/復活を行うパラメータ情報。複数メニューがあり順序が重要な場合は配列順で調整。Conductor実行のみなら省略可。 |
+| parameter_info[].(menu_name_rest) | メニュー名(REST) | - | 配列 | 管理コンソールのメニュー管理で確認できる「メニュー名(Rest)」を指定。 |
+| ...[].type | レコード操作種別 | - | 文字列 | `Register`/`Update`/`Discard`/`Restore` |
+| ...[].file | アップロードファイル | - | 辞書 | カラムキーとbase64エンコード文字列の組み合わせ |
+| ...[].parameter | パラメータ | - | 辞書 | 対象メニューのカラムキーと値の組み合わせ。新規/自動採番オペレーションの場合オペレーション名相当のキーは不要。サブConductorの個別オペレーションを明示する場合は該当オペレーション名を指定。 |
 
-### オペレーション自動採番でパラメータ適用をしたConductorの予約実行
-オペレーション「operation_name_select」の指定について
-オペレーション自動採番の場合、オペレーション「operation_name_select」の指定は不要です。
+`(menu_name_rest)`からparameterまでの構造は「Menu MaintenanceAll」APIと同一仕様です。
 
-### 複数メニューに対して複数レコードのパラメータ適用をしたConductor作業実行
+### Request bodyの具体例
 
-### サブConductorの個別オペレーションを明示的に指定してパラメータ適用でConductor作業実行
+既存オペレーションで登録済みパラメータのみで実行:
+```json
+{"conductor_class_name": "sample_conductor", "operation_name": "sample_operation"}
+```
 
-## response body
-     Request bodyで指定しているメニュー名(REST):sample_menu_001 の 1レコード目(0オリジン) の キー:column_1 に指定した値の文字数の不備でエラーが発生した場合の例
-             "1": {                                                                                    メニュー名(REST)のレコード番号が0オリジンで表示されます。
-                "column_1": [ "文字長エラー (閾値 : 値<=8byte, 値 : 30byte), menu : sample_menu_001"]  キー：エラーとなった項目のREST名、値：エラー内容、menu : エラーとなったメニュー名（REST)
+予約実行の場合は`schedule_date`を追加。既存オペレーションでパラメータ適用する場合は`operation_name_select`（既存オペレーションの「実施予定日(YYYY/MM/DD hh:mm)」_「オペレーション名」）をparameter内に指定。新規オペレーション・自動採番の場合は`operation_name_select`の指定は不要です。
 
-## 留意事項
-本APIは、ITAで更新可能なメニューに対してパラメータ適用を行う事が出来ます。
+複数メニュー・複数レコードへのパラメータ適用や、サブConductor（Conductor call function）の個別オペレーションを明示指定する場合は、`parameter_info`配列内に複数のメニュー・レコードを列挙します（各レコードに`operation_name_select`を指定してサブConductor個別のオペレーションを明示できる）。
 
-### ホストグループへのパラメータ適用
-「ホストグループ管理」にパラメータ適用をした場合、指定されたホストグループに属するホスト解析が処理されない状態でconductor作業実行が行われます。
-「ホストグループ管理」へのパラメータ適用は、以下のレコード操作を行うAPIで事前に登録を行ってください。
+### Response body
 
-### 変数抜出対象のメニューへのパラメータ適用
-変数抜出対象のメニューにパラメータ適用は、指定されたパラメータ内で使用している変数の刈取りが処理されない状態でconductor作業実行が行われます。
-変数抜出対象のメニューへのパラメータ適用は、以下のレコード操作を行うAPIで事前に登録を行ってください。
-変数抜出対象のメニューについては、「 -> 」\
+正常時: `{"data": {"conductor_instance_id": "採番されたID"}, "message": "SUCCESS", "result": "000-00000", "ts": "処理日時"}`
 
-### エラー時のロールバック
+異常時: `{"message": "エラーメッセージ", "result": "エラーコード", "ts": "処理日時"}`（バリデーションエラーの例: `{"message": {"1": {"column_1": ["文字長エラー (閾値 : 値<=8byte, 値 : 30byte), menu : sample_menu_001"]}}, "result": "499-00201", "ts": "実施日時"}`。メッセージのキーはメニュー内のレコード番号（0オリジン）。
+
+### 留意事項
+
+- **ホストグループへのパラメータ適用**: ホストグループ管理へのパラメータ適用はホスト解析が未処理の状態でConductorが実行されるため、事前に「Menu MaintenanceAll」または「Menu Maintenance」で登録しておく必要があります。
+- **変数抜出対象メニューへのパラメータ適用**: 変数の刈取りが未処理の状態でConductorが実行されるため、同様に事前登録が必要です（変数抜出対象メニューはTerraform driver共通・Ansible driver共通のドキュメントを参照）。
+- **エラー時のロールバック**: 本APIはトランザクション処理でDB更新を行うため、Request body不備等で更新に失敗した場合、トランザクション内の更新はロールバックされます。

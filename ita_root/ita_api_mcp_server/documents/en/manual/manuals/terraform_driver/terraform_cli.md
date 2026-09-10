@@ -1,373 +1,152 @@
-# Terraform CLI driver
-# Introduction
-This document describes the functions and operation methods of Terraform CLI driver.
-For an overview of Terraform and Terraform driver, and for functions common to Terraform Cloud/EP driver, refer to "".
-# Console Menu Structure
-This chapter describes the menu structure used by Terraform CLI driver.
+# Terraform CLI Driver Configuration and Usage
 
-## Menu/Screen List
-1. **Basic Console menus**
-The list of Basic Console menus used by Terraform CLI driver is described below.
-- No
-        - Menu group
-        - Description
-- 1
-        - Basic Console
-        - Operation list
-        - You can maintain (view/register/update/discontinue) the operation list.
-1. **Terraform CLI driver menus**
-The list of Terraform CLI driver menus is described below.
--*N\  | **Menu\  | **Menu\  | **Description**                               |
-1     | Terraform \  | Interface\    | Manages work execution information.           |
-Management         | Manages work execution information.                   |
-3     |              | Movement\    | Manages the Movement list.           |
-4     |              | Module\      | Manages Module files.           |
-5     |              | Movement-\   | Manages the association\        |
-Module Link   | between Movements and Module materials.                         |
-6     |              | Variable\  | If the type of a variable defined in the tf file\      |
-Nesting Management         | registered in the Module material collection is\        |
-| list or set, and that variable contains a\          |
-| list, set, tuple, or object defined\           |
-| within it, manages the maximum\          |
-| iteration count of the member variables.             |
-7     |              | Automatic Assignment\  | Manages the Movement and variable\      |
-Value Registration Setting     | linked to the item and value of each operation\      |
-| registered in the parameter sheet menu.\          |
-| \                          |
-8     |              | Work Execution     | Executes the Movement and operation\  |
-9     |              | Work Management     | Manages work execution history.             |
-11    |              | Assignment Value Management   | Manages the assignment values of variables.             |
-12    |              | Module-Variable\ | Manages the link between\          |
-Link\        | Module variables and Module materials.                         |
-13    |              | Member\    | Manages member variables.             |
-Variable Management\    |                                        |
-14    |              | Movement-\   | Manages the link between Movements and variables.      |
-Variable Link\    |                                        |
-15    |              | Movement-\   | Manages the link between Movements and\           |
-Member\    | member variables.                         |
-Variable Link\    |                                        |
-※1 Hidden menus are menus in which data is registered/updated by internal functions.
-When the Terraform CLI driver function is installed, these menus are set so as not to be displayed.
-To display a hidden menu, restore the menu from Management Console --> Role/Menu Binding Management. For details, refer to "".
-# Usage Procedure
-This section describes the usage procedure for each Terraform CLI menu.
+The Terraform CLI driver executes work (Plan/Apply) and retrieves execution logs against a Terraform installation on the same host as ITA. For concepts common to Terraform and the Terraform driver, see "Terraform Driver Common."
 
-## Terraform CLI Work Flow
-The standard work flow for each Terraform CLI menu is as follows.
--  **Work flow details and references**
-1. **Registering the submitted operation name**
-1. **Registering the interface information**
-Configures the work execution information.
-1. **Registering and linking a Workspace**
-Registers the Workspace information used by Terraform.
-1. **Registering a Movement**
-Registers a Movement for the work.
-1. **Registering a Module material**
-Registers the Module file to be executed for the work.
-1. **Specifying a Module material for a Movement**
-Specifies a Module material for the registered Movement.
-1. **Setting the maximum iteration count (if necessary)**
-Sets the maximum iteration count of member variables.
-1. **Creating a parameter sheet**
-1. **Registering data in the parameter sheet**
-1. **Automatic Assignment Value Registration Setting**
-1. **Executing work**
-1. **Checking work status**
-1. **Checking work history**
-# Function and Operation Description
-This chapter describes the functions of each menu used by Terraform CLI driver.
+## Menu Structure
 
-## Basic Console
-Operation list
--*****************
-In Basic Console --> Operation List, you manage the operations to be executed by the orchestrator. Work is selected from within the Basic Console menu.
-For details on the registration method, refer to "" in the related manual.
+Basic Console:
 
-## Terraform CLI driver Menu
-This section describes operations in the Terraform CLI driver menus.
--*******************
-1. In Terraform CLI --> Interface Information, you can maintain (view/update) the work execution information.
-If the interface information is unregistered, or if multiple records are registered, an unexpected error occurs when work is executed.
-- Item
-           - Description
-           - Required
-           - Input format
-           - Constraints
-- NULL Linkage
-           - | Sets whether, when the concrete value of the parameter sheet is NULL (blank) in the Automatic Assignment Value Registration Setting, the registration to Assignment Value Management is performed with a NULL (blank) value.
-This value is applied when "NULL Linkage" in the Automatic Assignment Value Registration Setting menu is blank.
-If "Enabled", registration to Assignment Value Management is performed regardless of the value in the parameter sheet.
-If "Disabled", registration to Assignment Value Management is performed only when a value is entered in the parameter sheet.
-           - o
-           - List selection
-           - -
-- Status Monitoring Interval (in milliseconds)
-           - | Enter the refresh interval of the log displayed in "".
-           - o
-           - Manual input
-           - Minimum value 1000 milliseconds
-- Progress Status Display Line Count
-           - | Enter the maximum number of lines to display for the progress log/error log in "".
-           - o
-           - Manual input
-           - -
-- Remarks
-           - A free-text field.
-           - -
-           - Manual input
-           - Maximum length 4000 bytes
-Workspace Management
--*************
-1. In Terraform CLI --> Workspace Management, you maintain (view/register/update/discontinue - resource deletion) the Workspaces used by Terraform.
-When executing work targeting the same Workspace, the state file generated by Terraform is managed per Workspace, and idempotency is maintained.
--*Item**                          | **Description**                     | **Required\   | **Input method** | **Constraints**    |
-Resources configured and managed per\      |           |              |                 |
-Movement list
--***********
-1. In Terraform CLI --> Movement List, you maintain (view/register/update/discontinue) Movement names.
-Because a Movement must be linked to a Workspace as Terraform usage information, you must first register the target in "".
-Movement name            | Mov\      | o         | Manual input  | Maximum length\   |
-Registered in \ |           |           |           |
--***********
-1. In Terraform CLI --> Module Material Collection, you maintain (view/register/update/discontinue) Modules created by the user.
-1. The item list of the Module Material Collection is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Module material name
-        - Enter the Module material name to be managed by ITA.
-        - o
-        - Manual input
-        - Maximum length 255 bytes
-- Module material
-        - Upload the created Module material.
-        - o
-        - File selection
-        - Maximum size 100 megabytes
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-**Timing for extracting variables defined within a Module file (a file with the .tf extension)**
-Variables defined within a registered Module file (a file with the .tf extension) are extracted by internal processing.
-Extracted variables can then have their concrete values registered in "".
-Because the extraction timing is not real-time, it **may take time** before the variables can be used in "".
-Movement-Module Link
--******************
-1. In Terraform CLI --> Movement-Module Link, you maintain (view/register/update/discontinue) the link between Movements registered in "" and Module materials registered in "".
-When a Movement is executed, the linked Module material is applied.
-Multiple Module materials can be linked to a Movement.
-1. The item list of Movement-Module Link is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Movement name
-        - | Select a Movement name registered in "".
-        - o
-        - List selection
-        - -
-- Module material
-        - | Select a Module material registered in "".
-        - o
-        - List selection
-        - -
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-Variable Nesting Management
--*************
-1. In Terraform CLI --> Variable Nesting Management, if the type of a variable defined in a tf file registered in the Module Material Collection is list or set, and that variable contains a list, set, tuple, or object defined within it, you can view and update the maximum iteration count of the member variables.
-Because this menu manages records via internal functions based on the Module Material Collection, registration, discontinuation, and restoration cannot be performed.
-For an example of the Variable Nesting Management flow, refer to "".
-1. The item list of Variable Nesting Management is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Variable name
-        - Displays the variable used in the Module material registered in "".
-        - -
-        - Not enterable
-        - -
-- Member variable name (repeating)
-        - If the Variable Nesting Management target is a member variable, the member variable name is displayed. The member variable name is displayed with the variables at each level concatenated by ".".
-        - -
-        - Not enterable
-        - -
-- Maximum iteration count
-        - | Enter the maximum iteration count of the array, in the range 1 to 1024.
-The upper limit of the maximum iteration count can be changed within the range 1 to 1024 via the setting value of identification ID "MAXIMUM_ITERATION_TERRAFORM-CLI" from "Management Console - ".
-The initial value is set to the iteration count obtained from the value described in the default of the tf file.
-If the tf file has no default description, 1 is set.
-If the last updater is not the "Terraform CLI Variable Update Function", the value will not be changed by an update of the Module material.
-        - o
-        - Manual input
-        - Input value 1 to 1,024 (varies according to the setting value of "")
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-※Because the initial registration and update of the iteration count are not real-time, it **may take time** before the variables can be used in "".
-Automatic Assignment Value Registration Setting
--*****************
-1. In Terraform CLI --> Automatic Assignment Value Registration Setting, you link the parameter sheet (with operation) created by the parameter sheet creation function with the variables of a Movement.
-The registered information is reflected in "" via internal processing when work is executed.
--*Item**                          | **Description**                     | **Required\   | **Input method** | **Constraints**    |
-Parameter Sheet\ | Menu Group\ | An item of a parameter sheet\  | o         | List selection   | -              |
-(From)        | : Menu : Item\ | (with operation) created\  |           |              |                 |
-              | by the parameter sheet creation function\  |           |              |                 |
-The parameter sheet is\          |           |              |                 |
-a parameter sheet (with operation)\    |           |              |                 |
-created at Parameter Sheet Creation -->\  |           |              |                 |
-Parameter Sheet Definition/Creation\          |           |              |                 |
-              |        |              |                 |
-Assignment Order        | Of the bundle sheet\  | ※1        | Manual input     | Integer from 1\  |
-registered for the parameter sheet (with operation)\  |           |              | to 2147483647          |
-created by the parameter sheet creation function\  |           |              |                 |
-the assignment order registered\  |           |              |                 |
-Registration Method                          | Whether to use a Value type: item setting value\  | o         | List selection   | -              |
-as the concrete value of the linked variable\  |           |              |                 |
-or select a concrete value of the variable\  |           |              |                 |
-Movement Name                        | The Movements registered in "" are\ |           |              |                 |
-displayed.     |           |              |                 |
-IaC Variable (To)     | Movement name : Variable\| The member variable is displayed according to\       | ※2        | List selection   | -              |
-Name : Member Variable | the format of the variable used in the material registered\  |           |              |                 |
-via "terraform_cli_movement_module_link".\  |           |              |                 |
-              |  |           |              |                 |
-              |         |           |              |                 |
-Select the variable.           |           |              |                 |
-Assignment Order        | Required for variable names\  | ※3        | Manual input     | Blank or\ |
-and member variables for which multiple\  |           |              | integer from\|
-NULL Linkage                          | Sets whether to register\  | -        | List selection   | -              |
-the concrete value of the parameter sheet to\  |           |              |                 |
-Assignment Value Management with a NULL (blank)\       |           |              |                 |
-value.       |           |              |                 |
-even if\  |           |              |                 |
-registration to Assignment Value Management is performed only if\  |           |              |                 |
-set in "rmation".\  |           |              |                 |
-※1: Required only if the parameter sheet bundle is enabled.
-※2: Required if a member variable exists for the selected "Movement name: variable name", and only if "HCL Setting" is "False".
-※3: Required only if the selected "Movement name: variable name" and "Movement name: variable name: member variable" are of a format that requires an assignment order.
-**For a parameter sheet with bundle enabled**
-When linking an item of a parameter sheet with bundle enabled to a variable of a Movement, you must enter the assignment order of the Parameter Sheet (From) in Terraform CLI --> Automatic Assignment Value Registration Setting.
-      Automatic Assignment Value Registration Setting registration method when using a parameter sheet with bundle enabled
-**About setting the member variable of IaC Variable (To)**
-This must be set if the variable type is object or tuple.
-When setting a member variable, also set the concrete values of all other member variables within the same variable.
-The default value is not used for other member variables for which an assignment value was not set.
-For details and specific examples, refer to "※1 ... Member variable target" in "".
-**About the assignment order of IaC Variable (To)**
-This must be set if the variable type is list or set.
-**About HCL Setting**
-By setting HCL Setting to True, you can set the input value (concrete value) of the parameter sheet 1:1 without regard to the variable type.
-Also, if the variable type is map, it can only be registered with True.
-For the items subject to linkage in Automatic Assignment Value Registration Setting, refer to "".
--*******
-1. **Specifying the scheduled date/time**
-Only a future date/time can be registered in "Scheduled Date/Time".
-1. **Specifying the Movement**
-Select a Movement registered in "".
-1. **Specifying the operation**
-Select an operation registered in "".
-1. **Execution**
-1. **Plan check**
-1. **Checking parameters**
-When work using a Module material that includes an Output block is executed from a Conductor, the content written in the Output block is saved as a json format file in the Conductor work directory path.
-By using this file, values output by Terraform can be used by another Movement in the same Conductor.
--*File path**
-[Conductor work directory path]/[Conductor instance ID]/terraform_output_[work No.].json
-Conductor work directory path ... The Conductor work directory path for Ansible ITA's proprietary variable data linkage
-Conductor instance ID ... The conductor instance ID of ""
--***********
-1. **Execution status display**
-For "Execution Type", "Plan Check" is set for a Plan check, "Resource Deletion" is set for the deletion of resources configured and managed per Workspace (executed from ""), and "Normal" is set otherwise.
-If the status ends in an unexpected error, if the cause is a registration deficiency in "" or another Web content registration deficiency, a message is displayed in the error log.
-"Calling Conductor" displays which Conductor the work was executed from. It is left blank if executed directly from Terraform CLI driver.
-※If "Execution Type" is "Resource Deletion", the following items are not set.
-   - Calling Conductor
-   - Movement
-   - Operation
-   - Submitted Data
-1. **Checking assignment values**
-1. **Emergency stop/canceling a reservation**
-1. **Displaying execution logs**
-1. **Log search**
-The refresh display interval and maximum number of display lines for the execution log and error log can be set in "Status Monitoring Interval (in milliseconds)" and "Progress Status Display Line Count" in "".
-1. **Submitted data**
-You can download a zip format file containing a file obtained in json format of the list of executed Module materials and the assignment values that were set.
-- Folder name
-        - File name
-        - Description
-- -
-        - | (Submitted Module material file name)
-        - | All submitted Module material files are stored directly under the zip file.
-- -
-        - | terraform.tfvars
-        - | A file describing the "variable name (key)" and "concrete value (value)" for each set assignment value.
-Targets with Secure Setting set to True are not described.
-1. **Result data**
-- Folder name
-        - File name
-        - Description
-- -
-        - | init.log
-        - | A log file describing the content output by the execution log (init.log).
-- -
-        - | plan.log
-        - | A log file describing the content output by the execution log (plan.log).
-- -
-        - | apply.log
-        - | A log file describing the content output by the execution log (apply.log).
-- -
-        - | error.log
-        - | A log file describing the content output to the error log.
-- -
-        - | result.txt
-        - | A file that records the progress status used internally by internal functions during work execution.
-- -
-        - | .terraform.lock.hcl
-        - | A file generated by Terraform. It describes information about providers and modules.
-- -
-        - | terraform.tfstate
-        - | The state file generated by Terraform.
-- -
-        - | terraform.tfstate.backup
-        - | A backup of the state file generated by Terraform.
-Work Management
--*******
-1. In Terraform CLI --> Work Management, you can view work history.
--*Item**                          | **Description**                                                                  |
-"Normal", "Plan Check", and "Parameter Sheet Check" are available.                  |
-Registration Date/Time                          | The date/time when the work was registered is displayed.                                        |
-Movement        | ID              | The ID of the Movement is displayed.                                              |
-Name            | The name of the Movement is displayed.                                            |
-Delay Timer    | The delay timer value set for the Movement is displayed.                        |
-Terraf\| Work\  | The ID of the Terraform Workspace set for the Movement is displayed.                 |
-Worksp\| The name of the Terraform Workspace set for the Movement is displayed.               |
-Operation  | No.             | The No. of the operation is displayed.                                       |
-Name            | The name of the operation is displayed.                                      |
-Assignment Value Management
--*********
-1. In Terraform CLI --> Assignment Value Management, you can view the concrete values assigned to the variables of the Module material used by the Movement linked to the operation.
--*Item**                          | **Description**                                                                  |
-Operation                    | The operation selected at work execution time is displayed.                        |
-Movement Name                        | The Movement selected at work execution time is displayed.                              |
-Movement Name:Variable Name                 | The variable name\      |
-attached to the Movement selected in "" is displayed.                |
-HCL Setting                           | The HCL Setting "False" or "True"\      |
-selected in "" is displayed.              |
-Also, for variables with a hierarchical structure in which "member variable" and "assignment order" have been entered\     |
-Movement Name:Variable Name:Member Variable    | The member variable name\      |
-attached to the Movement selected in "" is displayed.        |
-For the variable name and member variable attached to the Movement selected in ""\     |
-Concrete Value          | Sensitive Setting   | "True" or "False" is displayed.                                   |
-Value              | The concrete value of the variable used by the operation/Movement is displayed.             |
+| No | Menu Group | Menu/Screen | Description |
+|---|---|---|---|
+| 1 | Basic Console | Operation List | Maintain (view/register/update/decommission) the operation list. |
+
+Terraform CLI:
+
+| No | Menu/Screen | Description |
+|---|---|---|
+| 1 | Interface Information | Manages information for work execution. |
+| 2 | Workspace Management | Manages Terraform Workspace information. |
+| 3 | Movement List | Manages the list of Movements. |
+| 4 | Module Materials | Manages Module files. |
+| 5 | Movement-Module Linkage | Manages the association between a Movement and Module materials. |
+| 6 | Variable Nesting Management | When a variable's type is list/set and contains a nested list/set/tuple/object, manages the maximum repeat count of the member variables. |
+| 7 | Auto Value-Assignment Settings | Links parameter sheet fields/values to Movement variables. |
+| 8 | Work Execution | Select the Movement and operation to execute and instruct execution. |
+| 9 | Work Management | Manages work execution history. |
+| 10 | Work Status Check | Displays the work execution status. |
+| 11 | Assigned Value Management | Manages the assigned concrete values of variables. |
+| 12-15 | Module-Variable Linkage / Member Variable Management / Movement-Variable Linkage / Movement-Member Variable Linkage (hidden menus) | Menus used internally to register/update data. To display them, restore access via "Management Console → Role-Menu Linkage Management." |
+
+## Work Flow
+
+1. Register the target operation name in the Basic Console's Operation List.
+2. Register Interface Information.
+3. Register a Workspace.
+4. Register a Movement (must be linked to a Workspace).
+5. Register Module materials.
+6. Link Module materials to the Movement.
+7. If needed, set the maximum repeat count for member variables in Variable Nesting Management.
+8. Create a parameter sheet and register data.
+9. Link the parameter sheet's values to the Movement's variables in Auto Value-Assignment Settings.
+10. Select the Movement and target operation on the Work Execution screen and execute.
+11. Monitor the status and logs in real time on Work Status Check.
+12. Check the history in Work Management.
+
+## Interface Information
+
+Maintain (view/update) information for work execution. If this is unregistered, or if multiple records are registered, an unexpected error occurs during work execution.
+
+| Field | Description | Constraints |
+|---|---|---|
+| NULL Linkage | Applied when "NULL Linkage" in Auto Value-Assignment Settings is blank. If "Enabled," the parameter sheet value is registered regardless of its content; if "Disabled," it is registered only when a value is present. | Required |
+| Status Monitoring Interval (ms) | The refresh interval for logs on Work Status Check. Recommended around 3000 ms. | Min 1000 ms |
+| Progress Display Line Count | Maximum number of lines shown for progress/error logs (applies while status is Not Executed/Preparing/Executing/Executing (Delayed); full logs are output for completed statuses). Recommended around 1000 lines. | - |
+| Remarks | Free text | Max 4000 bytes |
+
+## Workspace Management
+
+Maintain (view/register/update/decommission/delete resources) the Workspace used as the directory in which Terraform commands are run. Work executed against the same Workspace has its state file managed per Workspace, preserving idempotency. The "Delete Resources" button navigates to Work Status Check and runs `terraform destroy` for the target Workspace.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Workspace Name | Alphanumeric characters and `_-` only | Max 90 bytes |
+| Remarks | Free text | Max 4000 bytes |
+
+## Movement List
+
+Maintain (view/register/update/decommission) Movement names. Since a Movement must be linked to a Workspace, the Workspace must be registered first.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Movement Name | Arbitrary name | Max 256 bytes |
+| Orchestrator | Auto-filled with "Terraform CLI" | - |
+| Delay Timer | Displays a warning if the Movement is delayed beyond the specified period (1 minute or more). No warning if left blank. | Unit: minutes |
+| Terraform Usage Info (Workspace) | Select a registered Workspace | Required |
+| Remarks | Free text | Max 4000 bytes |
+
+## Module Materials
+
+Maintain (view/register/update/decommission) Modules created by the user.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Module Material Name | Arbitrary name | Max 255 bytes |
+| Module Material | Upload the created Module material (.tf file) | Max 100MB |
+| Remarks | Free text | Max 4000 bytes |
+
+Variables within the Module file are extracted internally, but since this extraction is not real-time, it may take some time before the variables become available in Auto Value-Assignment Settings.
+
+## Movement-Module Linkage
+
+Maintain (view/register/update/decommission) the linkage between a registered Movement and Module materials. The linked Module materials are applied when the Movement is executed, and multiple Module materials can be linked to a single Movement.
+
+## Variable Nesting Management
+
+When a variable type defined in a .tf file in Module Materials is list/set and contains a nested list/set/tuple/object, view and update the maximum repeat count of the member variables (this menu cannot register, decommission, or restore records, since they are managed internally).
+
+| Field | Description | Constraints |
+|---|---|---|
+| Variable Name | The variable used in the Module material (not editable) | - |
+| Member Variable Name (repeating) | Displays the variable at each level joined by "." (not editable) | - |
+| Maximum Repeat Count | The maximum repeat count of the array. The initial value is taken from the `default` value in the .tf file (1 if not specified). If the last updater was something other than the "Terraform CLI variable update function," the value is not changed by a Module material update. The upper limit can be changed within the range 1-1024 via the Management Console identification ID "MAXIMUM_ITERATION_TERRAFORM-CLI." | 1-1024 (varies by configuration) |
+| Remarks | Free text | Max 4000 bytes |
+
+Since initial registration and repeat-count updates are also not real-time, it may take some time before the variables become available in Auto Value-Assignment Settings.
+
+## Auto Value-Assignment Settings
+
+Links a parameter sheet (with operation) created by the parameter sheet creation feature to a Movement's variables. The registered information is reflected in Assigned Value Management at work execution time.
+
+| Field | Description | Required |
+|---|---|---|
+| Parameter Sheet (From) Menu:Field | Select a field of the parameter sheet (with operation) | Yes |
+| Parameter Sheet (From) Assignment Order | When bundling is enabled, enter the parameter sheet's assignment order | Only when bundling is enabled |
+| Registration Method | Value type (uses the field's set value as the concrete value) / Key type (uses the field's name as the concrete value) | Yes |
+| Movement Name | A registered Movement | Yes |
+| IaC Variable (To) Movement Name:Variable Name | Select the variable to link | Yes |
+| IaC Variable (To) HCL Setting | True/False. If True, the input value can be set 1:1 regardless of variable type (in this case, member variables and assignment order cannot be entered). map type can only be registered with this set to True. If the operation, Movement, and variable name match another record, the HCL Setting value must be consistent. | Yes |
+| IaC Variable (To) Movement Name:Variable Name:Member Variable | Select the member variable (required for object/tuple types when HCL Setting is False) | Conditionally required |
+| IaC Variable (To) Assignment Order | The assignment order (1 or higher) when setting multiple concrete values for a list/set type | Conditionally required |
+| NULL Linkage | If left blank, the Interface Information setting is applied | - |
+| Remarks | Free text | Max 4000 bytes |
+
+When setting a member variable, the concrete values of all other member variables within the same variable must also be set (default values are not used for unset ones).
+
+## Work Execution
+
+Select the Movement and operation, then use the "Execute" button to navigate to Work Status Check where execution occurs.
+
+- **Scheduled Date/Time**: Specifying a future date/time allows scheduling execution or plan confirmation.
+- **Execute**: Terraform Apply runs automatically after Terraform Plan completes.
+- **Plan Confirmation**: Runs only Terraform Plan; Apply is not executed.
+- **Parameter Confirmation**: Only checks the input parameter values (neither Plan nor Apply is executed).
+
+If a Module material containing an Output block is executed from a Conductor, the output is saved to `[Conductor work directory path]/[Conductor instance ID]/terraform_output_[work no.].json` and can be referenced by other Movements in the same Conductor.
+
+## Work Status Check
+
+Monitors the work execution status. "Execution Type" is one of Plan Confirmation / Delete Resources / Normal. For an unexpected error, if it is caused by a configuration issue such as incomplete Interface Information registration, it is shown in the error log; otherwise, check the application log. "Calling Conductor" is set only when executed via a Conductor (for Delete Resources, the calling Conductor, Movement, operation, and input data are not set).
+
+- Execution log types: init.log (Terraform Init), plan.log (Terraform Plan), apply.log (Terraform Apply)
+- Logs can be filtered. The display interval and maximum line count follow the Interface Information settings.
+- "Input Data" allows downloading the Module material and `terraform.tfvars` (excluding values with Secure Setting True) as a zip file.
+- "Result Data" allows downloading init.log/plan.log/apply.log/error.log/result.txt/`.terraform.lock.hcl`/the encrypted `terraform.tfstate` and its backup as a zip file.
+- The "Emergency Stop" button stops execution; before a scheduled execution runs, the "Cancel Reservation" button can cancel it.
+
+## Work Management
+
+Displays a filterable list of work execution history. Fields: Work No. (36-digit auto-numbered), Execution Type (Normal/Plan Confirmation/Parameter Sheet Confirmation), Status (Not Executed/Not Executed (Scheduled)/Preparing/Executing/Executing (Delayed)/Completed/Completed (Abnormal)/Unexpected Error/Emergency Stopped/Reservation Cancelled), Executing User, Registration Date/Time, Movement (ID/Name/Delay Timer/Workspace ID and Name), Operation (No./Name), Input Data and Result Data (zip download), Work Status (Scheduled Date/Time/Start Date/Time/End Date/Time), and Remarks.
+
+## Assigned Value Management
+
+View the concrete values of variables used by the Module materials of the Movement linked to an operation. Fields: Work No., Operation, Movement Name, Movement Name:Variable Name, HCL Setting (automatically True for variables with a nested structure where a member variable and assignment order have been entered), Movement Name:Variable Name:Member Variable, Assignment Order, Concrete Value (Sensitive Setting True/False—if True, the value is excluded from Input Data—and the value itself), and Remarks.

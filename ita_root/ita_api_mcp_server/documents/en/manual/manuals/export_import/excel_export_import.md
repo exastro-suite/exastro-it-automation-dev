@@ -1,141 +1,39 @@
-# Excel Bulk Export/Import
-# Introduction
-This document describes the functions and operation methods of the Excel Bulk Export/Import function in ITA.
-# Overview of Excel Bulk Export/Import
+# Excel Bulk Export/Import Feature
 
-## Details of Excel Bulk Export/Import
+Excel Bulk Export/Import bundles the downloadable Excel files from each menu into a zip file for bulk export/import. Menus eligible for export are those whose "Link" is "View only" or "Maintainable" in Role/Menu Link Management and that have an editable Excel file. Menus eligible for import are limited to those that are "Maintainable" and have an editable Excel file.
 
-### About the Function
-Excel Bulk Export/Import bundles the downloadable Excel files found in each menu into a zip file and performs export/import of them all at once. For information on the downloadable files, refer to "  ".
-The menus that can be exported are limited to menus for which the "Association" item is set to "View Only" or "Maintainable" in the Role-Menu Association Management menu, and which have an editable Excel file.
-The menus that can be imported are limited to menus for which the "Association" item is set to "Maintainable" in the Role-Menu Association Management menu, and which have an editable Excel file.
-# Menus and Screen Configuration of Excel Bulk Export/Import
+## Menu structure
 
-## Menu List
-The menus of Excel Bulk Export/Import are shown below.
-.. list-table:: ITA Menu List
-- No.
-     - Description
-- 1
-     - Excel Bulk Export
-     - Bundles the downloadable files in each menu into a zip file and exports them.
-- 2
-     - Excel Bulk Import
-     - Imports a zip file containing the bundled downloadable files.
-- 3
-     - Excel Bulk Export/Import Management
-     -  Manages the status of exports executed from the Excel Bulk Export menu and imports executed from the Excel Bulk Export menu.
-# Function and Operation Method Description
+| Menu/Screen | Description |
+|---|---|
+| Excel Bulk Export | Bundles the downloadable files of each menu into a zip and exports it. |
+| Excel Bulk Import | Imports a zip bundling downloadable files. |
+| Excel Bulk Export/Import Management | Manages the status of executed exports/imports. |
 
 ## Excel Bulk Export
-Bundles the downloadable files in each menu into a zip file and exports them.
-- Name
-     - Description
-- All Records
-     - Exports all data.
-- Excluding Discontinued
-     - Exports data excluding data in the discontinued state.
-- Discontinued Only
-     - Exports only data in the discontinued state.
-(2) Select the menus to export
-The menus displayed are limited to menus for which the "Association" item is set to "Maintainable" or "View Only" in the Role-Menu Association Management menu, and which have an editable Excel file.
-The execution No. of the export process is displayed, so check the status of the process in the Excel Bulk Export/Import Management menu.
-   └─ 101_Management Console …③
-       └─ System Settings_20210708235959.xlsx …④
-- No.
-     - Name
-     - Extension
-     - Description
-- 1
-     - File name
-     - File
-     - The file name is "ITA_FILES_YYYYMMDDhhmmss.zip".
-- 2
-     - MENU_LIST.txt
-     - txt
-     - A list of the exported menu REST names and file names is output.
-- 3
-     - Menu group folder
-     - Folder
-     - | Created for each menu group.
-The folder name is "menu group ID_menu group name".
-- 4
-     - Downloaded file
-     - xlsx
-     - | Output as an Excel file.
-Placed under the menu group folder to which it belongs.
+
+Select the discard-status scope to export (all records / excluding discarded / discarded only) and the menus, then run "Export". An execution number is shown, and you check the status in the management menu.
+
+Export file structure: inside `ITA_FILES_YYYYMMDDhhmmss.zip` there is a `MENU_LIST.txt` (a list of the exported menu REST names and file names) and a folder per menu group (folder name "menu group ID_menu group name"; if it exceeds 200 characters, only the first 200 are output), with the editable Excel files (xlsx) placed under each folder.
 
 ## Excel Bulk Import
-Edit the data exported from the Excel Bulk Export menu, and import it.
-1. Create the list of files to import.
-By editing MENU_LIST.txt in the zip exported from the Excel Bulk Export menu, you can edit the list of files to import.
-MENU_LIST.txt records the menu REST names and file names as of the time of export.
-Menu REST name:File name
-         #Management Console
-         system_settings:System Settings_20230425162004.xlsx
-         operation_list:Operation List_20230425162005.xlsx
-※The menus to import can also be selected in the Excel Bulk Import menu.
-   #. Edit the files to import.
-1.  Bundle the edited files into a zip file.
-1. The contents of the file to import are as follows.
-         └─ 101_Management Console …③
-             └─ System Settings_20210708235959.xlsx …④
-- No.
-           - Name
-           - Extension
-           - Description
-- 1
-           - File name
-           - File
-           - The file name can be anything.
-- 2
-           - MENU_LIST.txt
-           - txt
-           - Records the REST names and file names of the menus to import.
-- 3
-           - Menu group folder
-           - Folder
-           - | Create one for each menu group.
-The folder name is "menu group ID_menu group name".
-- 4
-           - Editable Excel file
-           - xlsx
-           - Place the editable Excel file under the menu group folder.
-The menus whose checkbox is checked are imported.
-For menus that do not need to be imported, uncheck the checkbox.
-The execution No. of the import process is displayed, so check the status of the process in the Excel Bulk Export/Import Management menu.
-1. Specifying two or more of the same menu REST name in MENU_LIST.txt
-2. Specifying the same file name for two or more different menus in MENU_LIST.txt
-4. Specifying a menu REST name in MENU_LIST.txt that does not exist
-8. The menu group folder name does not follow the combination "menu group ID_menu group name".
-9. The logged-in user does not have "Maintainable" permission for the target menu
+
+You can adjust the list of files to import by editing `MENU_LIST.txt` inside the exported zip (lines starting with `#` are comments; the format is `menu REST name:file name`). Files required for import: `MENU_LIST.txt` and the full set of target files (placed under the menu group folders).
+
+Uploading the zip displays the menu list; check the menus you want to import and run "Import" (unchecking excludes it from import). The target menu's checkbox becomes disabled and an error occurs in any of the following cases:
+
+1. The same menu REST name is specified twice or more in `MENU_LIST.txt`.
+2. The same file name is specified for different menus twice or more in `MENU_LIST.txt`.
+3. `MENU_LIST.txt` contains a line that does not follow the required format.
+4. `MENU_LIST.txt` lists a menu REST name that does not exist.
+5. `MENU_LIST.txt` specifies a file that does not exist inside the zip.
+6. Two or more files with the same name exist in different folders.
+7. `MENU_LIST.txt` is not included.
+8. A menu group folder name does not follow the "menu group ID_menu group name" format.
+9. The logged-in user does not have "Maintainable" permission for the target menu.
 
 ## Excel Bulk Export/Import Management
-Manages the status of exports executed from the Excel Bulk Export menu and imports executed from the Excel Bulk Import menu.
-- Item
-     - Description
-- Execution No.
-     - A unique ID is automatically assigned.
-- Status
-     - | Transitions in the order [Not Executed], [Running], [Completed].
-- Process Type
-     - | Export ... Excel Bulk Export
-- Discontinuation Info
-     - [All Records], [Excluding Discontinued], or [Discontinued Only] is displayed.
-- Executing User
-     - The user who executed the export or import process is displayed.
-- File Name
-     - | For an export, once the status becomes [Completed], the exported data is displayed; download and use it.
-- Language
-     - | The language used by the logged-in user is displayed.
-- Result
-     - | A text file describing the import result is displayed.
-   101_Management Console:10101_System Settings
-   Input file: System Settings_20230425155441.xlsx
-   Registered: 0 records
-   202_Ansible-Legacy:20201_Movement List
-   Input file: Movement List_20230425155442.xlsx
-   Registered: 0 records
-   202_Ansible-Legacy:20202_Playbook Material Collection
-   Input file: Playbook Material Collection_20230425155443.xlsx
-   This is not the editable Excel file for this menu.
+
+Manages the execution status of exports/imports. Items: Execution No. (auto-numbered), Status (Not executed → In progress → Completed; Completed (abnormal) on error), Process type (Export/Import), Discard scope (all records / excluding discarded / discarded only), Executing user, File name (downloadable after completion), Language (exported in the logged-in user's language), Result (a text file describing the import result).
+
+The result file reports, per imported file, the counts of "Registered/Updated/Discarded/Restored/Error" and the error details (e.g. `movement_name: ['This is a required item.:(line 12)']`). If the file is not a valid editable Excel file for that menu, it outputs "This is not the editable Excel file for this menu."

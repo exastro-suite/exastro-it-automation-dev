@@ -1,44 +1,24 @@
-# Overview
+# Exastro IT Automation Overview
 
-## What is Exastro IT Automation?
-Exastro IT Automation is an open source framework for digitizing and centrally managing system configuration.
-It can manage information related to system configuration, such as device information, configuration values, and work history, and this information can be output as Excel data.
-It also has functions to manage and execute, as workflows, the system construction and operational configuration of each device, and it can be integrated with a variety of platform construction tools.
+Exastro IT Automation (ITA) is an open-source framework for digitizing and centrally managing system configuration. It manages system configuration information such as device information, configuration values, and work history, and can export this data as Excel files. It also provides functions for managing and executing system construction and operational configuration for each device as workflows, and can integrate with various platform construction tools.
 
 ## Features
-It is equipped with RBAC (Role-based access control), which allows you to define roles such as developer, worker, and operator, and
-:Group and manage the history of parameters:
-you can group and manage the history of the system's parameter information.
-:Analyze IaC and extract variables:
-When Infrastructure as Code (IaC) is uploaded, it is first analyzed to check whether the IaC contains any errors. If there are no errors, the variable names are extracted from the IaC description and managed.
-Because variable names are selected from a list, human errors such as typos do not occur.
-:Manage IaC as modules to improve reusability:
-So that IaC (such as Playbooks) is not used only once and discarded but can continue to be reused, it can be modularized and assembled at the time of work.
-You can connect multiple automation software tools to define a single work flow. It also automatically generates the input data required for the automation software to operate.
-Example (in the case of Ansible): Gather and connect the required Playbooks, and create host_vars from parameters for each node.
-It also thoroughly manages work records, for example by allowing you to download the execution results (work evidence) whenever you need them.
+
+- **Multiple interfaces and RBAC**: Operations can be performed from three types of interfaces (Web, Spreadsheet, REST API). Regardless of which interface is used, "who did what and when" is recorded. RBAC (Role-based access control) allows roles such as developer, worker, and operator to be defined, and permissions (view only / update / execute) can be controlled per role.
+- **Grouping and history management of parameters**: System parameter information can be grouped and managed with history.
+- **Analyze IaC and extract variables**: When Infrastructure as Code (IaC) is uploaded, it is first analyzed for errors. If no errors are found, variable names are extracted from the IaC description and managed. Since variable names are selected from a list, human errors such as typos do not occur.
+- **Modularize IaC to improve reusability**: IaC (Playbooks, etc.) can be modularized and reassembled at work time instead of being used only once, enabling continued reuse.
+- **Chain multiple automation tools together**: Multiple automation tools can be chained together to define a single work flow, and the input data required for the automation tools to operate is automatically generated (e.g., for Ansible: collecting and chaining the required Playbooks, and creating host_vars per node from parameters).
+- **Pioneer mode, the last resort to keep automation from stopping**: If automation cannot be achieved with any Ansible module, inserting a manual step would halve the benefit of automation. As a last resort to keep automation going, ITA provides Pioneer mode—an Ansible module unique to ITA that can interact with a device over either ssh or telnet.
+- **Monitor execution status in real time**: ITA places importance on being able to grasp execution status in real time, comparable to manual work. Execution results (work evidence) can be downloaded whenever needed, so work records are properly managed.
 
 ## Functions
-:Management Console function:
-The management console handles control of the users who use the system (registration/update/deletion) and access control for operation menus (registration/update/deletion).
-It performs import/export of the various data managed by Exastro IT Automation.
-:Build Material Management function:
-Manages the IaC used by automation software (OSS).
-On the backend, it works together with Git, while on the frontend it provides status management for checkout/return.
-:Basic Console function:
-The basic console provides the functions that are commonly required when working with Exastro IT Automation.
-- Registration and management of device information (device list)
-- Creation, management, and execution of Conductors (job flows)
-:Parameter/Host Group function:
-Provides functions for centrally managing and tracking the history of the system configuration (parameters for each host or host group).
-The parameters to be managed can be freely defined.
-Parameter values can be linked to variables in IaC (such as Playbooks).
-Provides an interface for controlling IaC (such as Playbooks) for each automation software.
-The behavior of automation software can be encapsulated in a Movement (a unit of work), and these can be linked together as a Conductor (job flow).
-  - What is a Movement?
-    - | This is the unit of work, such as construction and configuration, performed on each device using a construction tool.
-  - What is a Conductor?
-    - | This is a unit for a series of tasks. It is executed in association with an operation name.
-By combining various parts called Nodes, you create a job flow and perform a series of construction, configuration, and other tasks on multiple devices.
-  - What is an Operation?
-    - | This is a work execution unit. It is possible to manage work schedules, execution history, and other information.
+
+- **Management Console function**: Manages registration/update/deletion of users, controls permissions for operation menus, and imports/exports the various data managed by Exastro IT Automation.
+- **Build Material Management function**: Manages the IaC used by automation software (OSS). It integrates with Git on the backend and provides check-out/check-in status management on the frontend.
+- **Basic Console function**: Provides functions commonly required when working with ITA, such as registering and managing device information (device list) and creating, managing, and executing Conductors (job flows).
+- **Parameter/Host Group function**: Provides centralized and historical management of system configuration (parameters per host or per host group). Managed parameters can be freely defined, and parameter values can be linked to IaC (Playbook, etc.) variables.
+- **Driver group corresponding to each automation software**: Supports multiple automation software products, providing an interface to control each one's IaC (Playbook, etc.). The behavior of the automation software can be encapsulated in a Movement (unit of work), which can be chained together as a Conductor (job flow).
+  - **Movement**: A unit of construction/configuration work performed on each device using a construction tool.
+  - **Conductor**: A unit representing a series of work. It is executed in association with an operation name, combining parts called Nodes to build a job flow that performs a series of construction/configuration tasks against multiple devices.
+  - **Operation**: A unit of work execution. Scheduled work and execution history can be managed.

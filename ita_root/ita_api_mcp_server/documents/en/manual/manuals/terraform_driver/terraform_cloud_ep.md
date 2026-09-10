@@ -1,528 +1,213 @@
-# Terraform Cloud/EP driver
-# Introduction
-This document describes the functions and operation methods of Terraform Cloud/EP driver.
-For an overview of Terraform and Terraform driver, and for functions common to Terraform CLI driver, refer to "".
-# Console Menu Structure
-This chapter describes the menu structure used by Terraform Cloud/EP driver.
+# Terraform Cloud/EP Driver Configuration and Usage
 
-## Menu/Screen List
-1. **Basic Console menus**
-The list of Basic Console menus used by Terraform Cloud/EP driver is described below.
-- No
-        - Menu group
-        - Description
-- 1
-        - Basic Console
-        - Operation list
-        - You can maintain (view/register/update/discontinue) the operation list.
-1. **Terraform Cloud/EP driver menus**
-The list of Terraform Cloud/EP driver menus is described below.
--*N\  | **Menu\  | **Menu\  | **Description**                               |
-Cloud/EP     | Interface Information | Manages the information.                   |
-Organization Management        | Manages the information.                   |
-Management         | Manages the information.                   |
-4     |              | Movement\    | Manages the Movement list.           |
-5     |              | Module\      | Manages Module files.           |
-6     |              | Policy Management   | Manages Policy files.           |
-7     |              | Policy \     | Manages Policy Sets                 |
-Set Management      | A Policy Set manages the relationship\            |
-Set-Policy\  | between Policy and\                         |
-Set-Work\    | Workspace.                         |
-10    |              | Movement-\   | Manages the association\        |
-Module Link   | between Movements and Module materials.                         |
-11    |              | Variable\  | If the type of a variable defined in the tf file\      |
-Nesting Management         | registered in the Module material collection is\        |
-| list or set, and that variable contains a\          |
-| list, set, tuple, or object defined\           |
-| within it, manages the maximum\          |
-| iteration count of the member variables.             |
-12    |              | Automatic Assignment\  | Manages the Movement and variable\      |
-Value Registration Setting     | linked to the item and value of each operation\      |
-| registered in the parameter sheet menu.\          |
-| \                          |
-13    |              | Work Execution     | Executes the Movement and operation\  |
-14    |              | Work Management     | Manages work execution history.             |
-16    |              | Assignment Value Management   | Manages the assignment values of variables.             |
-Terraform\   | Displays the list of registered Organizations, Workspaces,\ |
-Management         | Policies, and Policy Sets, and\     |
-18    |              | Module-Variable\ | Manages the link between\          |
-Link\        | Module variables and Module materials.                         |
-19    |              | Member\    | Manages member variables.             |
-Variable Management\    |                                        |
-20    |              | Movement-\   | Manages the link between Movements and variables.      |
-Variable Link\    |                                        |
-21    |              | Movement-\   | Manages the link between Movements and\           |
-Member\    | member variables.                         |
-Variable Link\    |                                        |
-※1 Hidden menus are menus in which data is registered/updated by internal functions.
-When the Terraform Cloud/EP driver function is installed, these menus are set so as not to be displayed.
-To display a hidden menu, restore the menu from Management Console --> Role/Menu Binding Management. For details, refer to "".
-# Usage Procedure
-This section describes the usage procedure for each Terraform Cloud/EP menu.
+The Terraform Cloud/EP driver creates Organizations/Workspaces, executes work (Plan/PolicyCheck/Apply), and retrieves work logs against a Terraform Cloud or Terraform Enterprise instance registered in ITA. For concepts common to Terraform and the Terraform driver (such as variable handling), see "Terraform Driver Common."
 
-## Terraform Cloud/EP Work Flow
-The standard work flow for each Terraform Cloud/EP driver menu is as follows.
--  **Work flow details and references**
-1. **Registering the submitted operation name**
-1. **Configuring the interface information**
-Registers the information of the Terraform linked with ITA.
-1. **Registering and linking an Organization**
-Registers the Organization information used by Terraform, and performs the linkage with Terraform.
-1. **Registering and linking a Workspace**
-Registers the Workspace information used by Terraform, and performs the linkage with Terraform.
-1. **Registering a Movement**
-Registers a Movement for the work.
-1. **Registering a Module material**
-Registers the Module file to be executed for the work.
-1. **Registering a Policy (if necessary)**
-Registers a Policy file to be executed by the PolicyCheck performed before work execution.
-1. **Registering a Policy set (if necessary)**
-Registers a Policy set for linking with the Workspace to which the Policy is applied.
-1. **Linking a Policy to a Policy set (if necessary)**
-Registers the link between a Policy set and a Policy.
-1. **Linking a Workspace to a Policy set (if necessary)**
-Registers the link between a Policy set and a Workspace.
-1. **Specifying a Module material for a Movement**
-Specifies a Module material for the registered Movement.
-1. **Setting the maximum iteration count (if necessary)**
-Sets the maximum iteration count of variables and member variables.
-1. **Creating a parameter sheet (if necessary)**
-Required when setting concrete values for variables defined in a Module material.
-1. **Registering data in the parameter sheet (if necessary)**
-Required when setting concrete values for variables defined in a Module material.
-1. **Automatic Assignment Value Registration Setting (if necessary)**
-Required when setting concrete values for variables defined in a Module material.
-1. **Executing work**
-1. **Checking work status**
-1. **Checking work history**
-# Applying Policies
+## Menu Structure
 
-## About Linking Policy/PolicySet/Workspace
--*To use the Policy function, the linked Terraform must be Terraform Enterprise or Terraform Cloud with a plan for which the "Policy & Security" function is enabled.**
-To apply a Policy, you must first complete each Policy-related setting registration, and then configure the linking settings.
-First, link the Policy registered at "" with the Policy set registered at "".
-Next, link the Terraform Workspace registered at "" with the Policy set registered at "".
-At work execution time, the Policy set and the Policy linked to it are applied to the Workspace linked to the Movement.
-# Function and Operation Description
-This chapter describes the functions of each menu used by Terraform Cloud/EP driver.
+Basic Console:
 
-## Basic Console
-Operation list
--*****************
-In Basic Console --> Operation List, you manage the operations to be executed by the orchestrator. Work is selected from within the Basic Console menu.
-For details on the registration method, refer to "" in the related manual.
+| No | Menu Group | Menu/Screen | Description |
+|---|---|---|---|
+| 1 | Basic Console | Operation List | Maintain (view/register/update/decommission) the operation list. |
 
-## Terraform Cloud/EP Menu
-This section describes operations in the Terraform Cloud/EP driver menus.
--*******************
-1. In Terraform Cloud/EP --> Interface Information, you can maintain (view/update) the information of the Terraform linked with ITA.
-If the interface information is unregistered, or if multiple records are registered, an unexpected error occurs when work is executed.
--*Item**                          | **Description**                     | **Required\   | **Input method** | **Constraints**    |
-For the method of issuing a User Token, refer to\      |           |              |                 |
-Set this if required for\    |           |              |                 |
-NULL Linkage                          | Sets whether, when the parameter\  | o         | List selection   | -              |
-value's concrete value is NULL\  |           |              |                 |
-(blank) in the Automatic Assignment Value Registration Setting, the registration to Assignment Value Management\  |           |              |                 |
-is performed with a NULL (blank) value.\  |           |              |                 |
-This value is applied when "NULL\  |           |              |                 |
-Organization Management
--***************
-1. In Terraform Cloud/EP --> Organization Management, you maintain (view/register/update/discontinue) Organizations used by Terraform.
-You can also link (register/update/delete) an Organization registered in ITA to Terraform.
-If work is executed while an Organization is not linked (registered) to Terraform, \ **the work execution results in an unexpected error**\ .
-If the "Hostname" and "User Token" registered in "6.2.1 Interface Information" are incorrect, the linkage with Terraform fails, and the following message is displayed in the linkage status.
-      Terraform linkage (Organization Management)
--*Item**                          | **Description**                     | **Required\   | **Input method** | **Constraints**    |
-Workspace Management
--************
-1. In Terraform Cloud/EP --> Workspace Management, you maintain (view/register/update/discontinue) Workspaces used by Terraform.
-You can also link (register/update/delete) a Workspace registered in ITA to Terraform, and perform resource deletion (terraform destroy).
-If work is executed while a Workspace is not linked (registered) to Terraform, \ **the work execution results in an unexpected error**\ .
-If the "Hostname" and "User Token" registered in "6.2.1 Interface Information" are incorrect, the linkage with Terraform fails, and the following message is displayed in the linkage status.
-The same message is also displayed if the selected Organization is not linked (registered) to Terraform.
-      Terraform linkage (Workspace Management)
--*Item**                          | **Description**                     | **Required\   | **Input method** | **Constraints**    |
-The registered Organization name is\    |           |              |                 |
-The latest version at the time of linkage\  |           |              |                 |
-Resources configured and managed per Workspace\   |           |              |                 |
-Movement list
--***********
-1. In Terraform Cloud/EP --> Movement List, you maintain (view/register/update/discontinue) Movement names.
-Because a Movement must be linked to an Organization:Workspace as Terraform usage information, you must first register the target in "" "".
-Movement name            | Mov\      | o         | Manual input  | Maximum length\   |
-Registered in \ |           |           |           |
--***********
-1. In Terraform Cloud/EP --> Module Material Collection, you maintain (view/register/update/discontinue) Modules created by the user.
-1. The item list of the Module Material Collection is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Module material name
-        - Enter the Module material name to be managed by ITA.
-        - o
-        - Manual input
-        - Maximum length 255 bytes
-- Module material
-        - Upload the created Module material.
-        - o
-        - File selection
-        - Maximum size 100 megabytes
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-**Timing for extracting variables defined within a Module file (a file with the .tf extension)**
-Variables defined within a registered Module file (a file with the .tf extension) are extracted by internal processing.
-Extracted variables can then have their concrete values registered in "".
-Because the extraction timing is not real-time, it **may take time** before the variables can be used in "".
-Policy Management
--*********
-1. In Terraform Cloud/EP --> Policy Management, you maintain (view/register/update/discontinue) Policies created by the user.
-1. The item list of Policy Management is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Policy name
-        - | Enter the Policy name to be managed by ITA.
-        - o
-        - Manual input
-        - Maximum length 255 bytes
-- Policy material
-        - Upload the created Policy file.
-        - o
-        - File selection
-        - Maximum size 100 megabytes
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-Policy Set Management
--*************
-1. In Terraform Cloud/EP --> Policy set Management, you maintain (view/register/update/discontinue) Policy sets.
-1. The item list of Policy set Management is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Policy set name
-        - | Enter the Policy set name to be managed by ITA.
-        - o
-        - Manual input
-        - Maximum length 255 bytes
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
--********************
-1. In Terraform Cloud/EP --> Policy set-Policy Link, you maintain (view/register/update/discontinue) the link between Policy sets registered in "" and Policies registered in "".
-1. The item list of Policy set-Policy Link is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Policy set name
-        - | Select a Policy set name registered in "".
-        - o
-        - List selection
-        - -
-- Policy name
-        - | Select a Policy name registered in "".
-        - o
-        - List selection
-        - -
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
--**********************
-1. In Terraform Cloud/EP --> Policy set-Workspace Link, you maintain (view/register/update/discontinue) the link between Policy sets registered in "" and Workspaces registered in "".
-1. The item list of Policy set-Workspace Link is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Policy set name
-        - | Select a Policy set name registered in "".
-        - o
-        - List selection
-        - -
-- Workspace name
-        - | Select a Workspace name (linked to an Organization) registered in "".
-        - o
-        - List selection
-        - -
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-Movement-Module Link
--******************
-1. In Terraform Cloud/EP --> Movement-Module Link, you maintain (view/register/update/discontinue) the link between Movements registered in "" and Module materials registered in "".
-When a Movement is executed, the linked Module material is applied.
-Multiple Module materials can be linked to a Movement.
-1. The item list of Movement-Module Link is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Movement name
-        - | Select a Movement name registered in "".
-        - o
-        - List selection
-        - -
-- Module material
-        - | Select a Module material registered in "".
-        - o
-        - List selection
-        - -
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-Variable Nesting Management
--*************
-1. In Terraform Cloud/EP --> Variable Nesting Management, if the type of a variable defined in a tf file registered in the Module Material Collection is list or set, and that variable contains a list, set, tuple, or object defined within it, you can view and update the maximum iteration count of the member variables.
-Because this menu manages records via internal functions based on the Module Material Collection, registration, discontinuation, and restoration cannot be performed.
-For an example of the Variable Nesting Management flow, refer to "".
-1. The item list of Variable Nesting Management is as follows.
-- Item
-        - Description
-        - Required
-        - Input method
-        - Constraints
-- Variable name
-        - Displays the variable used in the Module material registered in "".
-        - -
-        - Not enterable
-        - -
-- Member variable name (repeating)
-        - If the Variable Nesting Management target is a member variable, the member variable name is displayed. The member variable name is displayed with the variables at each level concatenated by ".".
-        - -
-        - Not enterable
-        - -
-- Maximum iteration count
-        - | Enter the maximum iteration count of the array, in the range 1 to 1024.
-The upper limit of the maximum iteration count can be changed within the range 1 to 1024 via the setting value of identification ID "MAXIMUM_ITERATION_TERRAFORM-CLOUD-EP" from "Management Console - ".
-The initial value is set to the iteration count obtained from the value described in the default of the tf file.
-If the tf file has no default description, 1 is set.
-If the last updater is not the "Terraform Cloud/EP Variable Update Function", the value will not be changed by an update of the Module material.
-        - o
-        - Manual input
-        - Input value 1 to 1,024 (varies according to the setting value of "")
-- Remarks
-        - A free-text field.
-        - -
-        - Manual input
-        - Maximum length 4000 bytes
-※Because the initial registration and update of the iteration count are not real-time, it **may take time** before the variables can be used in "".
-Automatic Assignment Value Registration Setting
--*****************
-1. In Terraform Cloud/EP --> Automatic Assignment Value Registration Setting, you link the parameter sheet (with operation) created by the parameter sheet creation function with the variables of a Movement.
-The registered information is reflected in "" via internal processing when work is executed.
--*Item**                          | **Description**                     | **Required\   | **Input method** | **Constraints**    |
-Parameter Sheet\ | Menu Group\ | An item of a parameter sheet\  | o         | List selection   | -              |
-(From)        | : Menu : Item\ | (with operation) created\  |           |              |                 |
-              | by the parameter sheet creation function\  |           |              |                 |
-The parameter sheet is\          |           |              |                 |
-a parameter sheet (with operation)\    |           |              |                 |
-created at Parameter Sheet Creation -->\  |           |              |                 |
-Parameter Sheet Definition/Creation\          |           |              |                 |
-              |        |              |                 |
-Assignment Order        | Of the bundle sheet\  | ※1        | Manual input     | Integer from 1\  |
-registered for the parameter sheet (with operation)\  |           |              | to 2147483647          |
-created by the parameter sheet creation function\  |           |              |                 |
-the assignment order registered\  |           |              |                 |
-Registration Method                          | Whether to use a Value type: item setting value\  | o         | List selection   | -              |
-as the concrete value of the linked variable\  |           |              |                 |
-or select a concrete value of the variable\  |           |              |                 |
-Movement Name                        | The Movements registered in "" are\ |           |              |                 |
-displayed.     |           |              |                 |
-IaC Variable (To)     | Movement name : Variable\| The member variable is displayed according to\       | ※2        | List selection   | -              |
-Name : Member Variable | the format of the variable used in the material registered\  |           |              |                 |
-via "terraform_cloud_ep_movement_module_link".\  |           |              |                 |
-              |  |           |              |                 |
-              |         |           |              |                 |
-Select the variable.           |           |              |                 |
-Assignment Order        | Required for variable names\  | ※3        | Manual input     | Blank or\ |
-and member variables for which multiple\  |           |              | integer from\|
-NULL Linkage                          | Sets whether to register\  | -        | List selection   | -              |
-the concrete value of the parameter sheet to\  |           |              |                 |
-Assignment Value Management with a NULL (blank)\       |           |              |                 |
-value.       |           |              |                 |
-even if\  |           |              |                 |
-registration to Assignment Value Management is performed only if\  |           |              |                 |
-set in "rmation".\  |           |              |                 |
-※1: Required only if the parameter sheet bundle is enabled.
-※2: Required if a member variable exists for the selected "Movement name: variable name", and only if "HCL Setting" is "False".
-※3: Required only if the selected "Movement name: variable name" and "Movement name: variable name: member variable" are of a format that requires an assignment order.
-**For a parameter sheet with bundle enabled**
-When linking an item of a parameter sheet with bundle enabled to a variable of a Movement, you must enter the assignment order of the Parameter Sheet (From) in Terraform Cloud/EP --> Automatic Assignment Value Registration Setting.
-      Automatic Assignment Value Registration Setting registration method when using a parameter sheet with bundle enabled
-**About setting the member variable of IaC Variable (To)**
-This must be set if the variable type is object or tuple.
-When setting a member variable, also set the concrete values of all other member variables within the same variable.
-The default value is not used for other member variables for which an assignment value was not set.
-For details and specific examples, refer to "※1 ... Member variable target" in "".
-**About the assignment order of IaC Variable (To)**
-This must be set if the variable type is list or set.
-For the items subject to linkage in Automatic Assignment Value Registration Setting, refer to "".
--*******
-1. **Specifying the scheduled date/time**
-Only a future date/time can be registered in "Scheduled Date/Time".
-1. **Specifying the Movement**
-Select a Movement registered in "".
-1. **Specifying the operation**
-Select an operation registered in "".
-1. **Execution**
-1. **Plan check**
-1. **Checking parameters**
-When work using a Module material that includes an Output block is executed from a Conductor, the content written in the Output block is saved as a json format file in the Conductor work directory path.
-By using this file, values output by Terraform can be used by another Movement in the same Conductor.
--*File path**
-[Conductor work directory path]/[Conductor instance ID]/terraform_output_[work No.].json
-Conductor work directory path ... The Conductor work directory path for Ansible ITA's proprietary variable data linkage
-Conductor instance ID ... The conductor instance ID of ""
--***********
-1. **Execution status display**
-For "Execution Type", "Plan Check" is set for a Plan check, "Resource Deletion" is set for the deletion of resources configured and managed per Workspace (executed from ""), and "Normal" is set otherwise.
-If the status ends in an unexpected error, if the cause is a registration deficiency in "", the linkage (registration) with Terraform not having been performed in "" "", or another Web content registration deficiency, a message is displayed in the error log.
-"Calling Conductor" displays which Conductor the work was executed from. It is left blank if executed directly from Terraform Cloud/EP driver.
-The "RUN-ID" displayed in "Terraform Usage Information" is the ID of the execution management managed on the Terraform side, and is used during the internal linkage processing with Terraform.
-※If "Execution Type" is "Resource Deletion", the following items are not set.
-   - Calling Conductor
-   - Movement
-   - Operation
-   - Submitted Data
-1. **Checking assignment values**
-1. **Emergency stop/canceling a reservation**
-1. **Displaying execution logs**
-1. **Log search**
-The refresh display interval and maximum number of display lines for the execution log and error log can be set in "Status Monitoring Interval (in milliseconds)" and "Progress Status Display Line Count" in "".
-1. **Submitted data**
-You can download a zip format file containing a file obtained in json format of the list of executed Module materials, Policy materials, and the assignment values that were set.
-- Folder name
-        - File name
-        - Description
-- -
-        - | (Submitted Module material file name)
-        - | All submitted Module material files are stored directly under the zip file.
-- -
-        - | (Submitted Policy file name)
-        - | All submitted Module material files are stored directly under the zip file.
-- variables
-        - | variables.json
-        - | A file obtained in json format that describes the setting values of "variable name (key)", "concrete value (value)", "HCL Setting", and "Sensitive Setting" for each set assignment value.
-If Sensitive Setting is ON (true), the concrete value is set to null.
-1. **Result data**
-- Folder name
-        - File name
-        - Description
-- -
-        - | plan.log
-        - | A log file describing the content output by the execution log (plan.log).
-- -
-        - | policyCheck.log
-        - | A log file describing the content output by the execution log (policyCheck.log).
-- -
-        - | apply.log
-        - | A log file describing the content output by the execution log (apply.log).
-- -
-        - | error.log
-        - | A log file describing the content output to the error log.
-- -
-        - | sv-XXXXXX.tfstate
-        - | The state file generated by Terraform. Because the file name is created by Terraform, it differs for each execution.
-Work Management
--*******
-1. In Terraform Cloud/EP --> Work Management, you can view work history.
--*Item**                          | **Description**                                                                  |
-"Normal", "Plan Check", and "Parameter Sheet Check" are available.                  |
-Registration Date/Time                          | The date/time when the work was registered is displayed.                                        |
-Movement        | ID              | The ID of the Movement is displayed.                                              |
-Name            | The name of the Movement is displayed.                                            |
-Delay Timer    | The delay timer value set for the Movement is displayed.                        |
-Terraf\| Work\  | The ID of the Terraform Workspace set for the Movement is displayed.                 |
-Organi\| The name of the Terraform Workspace (linked to a Terraform Organization) set for the Movement is displayed.  |
-RUN-ID | The ID of the RUN managed by the linked Terraform is displayed.                        |
-Operation  | No.             | The No. of the operation is displayed.                                       |
-Name            | The name of the operation is displayed.                                      |
-Assignment Value Management
--*********
-1. In Terraform Cloud/EP --> Assignment Value Management, you can view the concrete values assigned to the variables of the Module material used by the Movement linked to the operation.
--*Item**                          | **Description**                                                                  |
-Operation                    | The operation selected at work execution time is displayed.                        |
-Movement Name                        | The Movement selected at work execution time is displayed.                              |
-Movement Name:Variable Name                 | The variable name\ |
-attached to the Movement selected in "" is displayed.                |
-HCL Setting                           | The HCL Setting "False" or "True"\ |
-selected in "" is displayed.              |
-Also, for variables with a hierarchical structure in which "member variable" and "assignment order" have been entered\     |
-If "True", the HCL setting of the Variables registered in the linked Terraform is enabled\      |
-Movement Name:Variable Name:Member Variable    | The member variable name\ |
-attached to the Movement selected in "" is displayed.        |
-For the variable name and member variable attached to the Movement selected in ""\     |
-Concrete Value          | Sensitive Setting   | "True" or "False" is displayed.                                   |
-If "True", the Sensitive Setting of the Variables registered in the linked Terraform is\    |
-Value              | The concrete value of the variable used by the operation/Movement is displayed.             |
-Linked Terraform Management
--*******************
-1. In Terraform Cloud/EP --> Linked Terraform Management, based on the information registered in "", ITA connects to Terraform and can display the lists of Organizations/Workspaces/Policies/Policy sets registered in Terraform.
-From the displayed lists, you can delete from Terraform a target that is registered in ITA.
-You can also perform deletion of resources configured and managed per Workspace.
-※Operations performed on this page have no effect on the registration targets on the ITA side.
-1. The item list displayed for each list retrieval is as follows.
-   .. list-table:: Item list (Organization Registration Management)
-- Item
-        - Description
-- Organization Name
-        - The name of the Organization registered in Terraform.
-- Email address
-        - The Email address registered for the Organization.
-- ITA Registration Status
-        - If the target Organization Name is registered in "", "Registered" is displayed. If not registered, "Unregistered" is displayed.
-- Delete
-   .. list-table:: Item list (Workspace Registration Management)
-- Item
-        - Description
-- Organization Name
-        - The name of the Organization linked to the target Workspace.
-- Workspace Name
-        - The name of the Workspace registered in Terraform.
-- ITA Registration Status
-        - If the target Organization Name is registered in "", "Registered" is displayed. If not registered, "Unregistered" is displayed.
-- Resource Deletion
-- Delete
-   .. list-table:: Item list (Policy Registration Management)
-- Item
-        - Description
-- Organization Name
-        - The name of the Organization linked to the target Policy.
-- Policy Name
-        - The name of the Policy registered in Terraform.
-- ITA Registration Status
-        - If the target Policy Name is registered in "", "Registered" is displayed. If not registered, "Unregistered" is displayed.
-- Download Policy Code
-- Delete
-    Item list (PolicySet Registration Management)
--*Item**                          | **Description**                                                                  |
-ITA Registration Status   | If the target Policy Set Name and Workspace Name are registered in "", "Registered" is displayed.\  |
-If not registered, "Unregistered" is displayed.                          |
-ITA Registration Status   | If the target Policy Set Name and Policy Name are registered in "", "Registered" is displayed.\     |
-If not registered, "Unregistered" is displayed.                          |
-ITA Registration Status                     | If the target Policy Set Name is\    |
-registered in "", "Registered" is displayed. If not registered,\   |
-"Unregistered" is displayed.                                                |
+Terraform Cloud/EP:
+
+| No | Menu/Screen | Description |
+|---|---|---|
+| 1 | Interface Information | Manages the Terraform information that ITA integrates with. |
+| 2 | Organization Management | Manages Organization information used by Terraform. |
+| 3 | Workspace Management | Manages Workspace information used by Terraform. |
+| 4 | Movement List | Manages the list of Movements. |
+| 5 | Module Materials | Manages Module files. |
+| 6 | Policy Management | Manages Policy files. |
+| 7 | Policy Set Management | A Policy Set is linked to Policies and Workspaces, enabling the Policy to be enforced on the target Workspace during work execution. |
+| 8 | Policy Set-Policy Linkage | Manages the linkage between Policy Sets and Policies. |
+| 9 | Policy Set-Workspace Linkage | Manages the linkage between Policy Sets and Workspaces. |
+| 10 | Movement-Module Linkage | Manages the association between a Movement and Module materials. |
+| 11 | Variable Nesting Management | When a variable's type is list/set and contains a nested list/set/tuple/object, manages the maximum repeat count of the member variables. |
+| 12 | Auto Value-Assignment Settings | Links parameter sheet fields/values to Movement variables. |
+| 13 | Work Execution | Select the Movement and operation to execute and instruct execution. |
+| 14 | Work Management | Manages work execution history. |
+| 15 | Work Status Check | Displays the work execution status. |
+| 16 | Assigned Value Management | Manages the assigned concrete values of variables. |
+| 17 | Linked Terraform Management | Displays and deletes the list of Organizations, Workspaces, Policies, and Policy Sets registered on the linked Terraform. |
+| 18-21 | Module-Variable Linkage / Member Variable Management / Movement-Variable Linkage / Movement-Member Variable Linkage (hidden menus) | Menus used internally to register/update data. To display them, restore access via "Management Console → Role-Menu Linkage Management." |
+
+## Work Flow
+
+1. Register the target operation name in the Basic Console's Operation List.
+2. Configure Interface Information (Hostname, User Token, etc. of the linked Terraform).
+3. Register an Organization and link it with Terraform.
+4. Register a Workspace and link it with Terraform.
+5. Register a Movement.
+6. Register Module materials.
+7. If needed, register Policy / Policy Set / Policy Set-Policy Linkage / Policy Set-Workspace Linkage.
+8. Link Module materials to the Movement.
+9. If needed, set the maximum repeat count in Variable Nesting Management.
+10. If needed, create a parameter sheet, register data, and link it to the Movement's variables in Auto Value-Assignment Settings.
+11. Select the Movement and target operation on the Work Execution screen and execute.
+12. Monitor the status and logs in real time on Work Status Check.
+13. Check the history in Work Management.
+
+## Applying Policies
+
+To use the Policy feature, the linked Terraform must be Terraform Enterprise, or Terraform Cloud on a plan with the "Policy & Security" feature enabled. Application procedure:
+
+1. Link a registered Policy and Policy Set via "Policy Set-Policy Linkage."
+2. Link a registered Workspace and Policy Set via "Policy Set-Workspace Linkage."
+3. During work execution, the Policy Set—and the Policies linked to it—linked to the Movement's Workspace is applied.
+
+## Interface Information
+
+Maintain (view/update) the Terraform information that ITA integrates with. The target Hostname and a User Token issued by a Terraform user are required. If this is unregistered, or if multiple records are registered, an unexpected error occurs during work execution.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Linked Terraform Protocol | http/https (normally https) | Required |
+| Linked Terraform Hostname | Hostname of the linked Terraform | Required, max 256 bytes |
+| Linked Terraform Port | Normally left blank | Min 1, max 65535 |
+| Linked Terraform User Token | Issued from Terraform's User Settings | Max 1024 bytes |
+| Proxy Address / Port | Set if needed for connectivity to Terraform when ITA is behind a proxy | - |
+| NULL Linkage | How to register into Assigned Value Management when the parameter sheet's concrete value is NULL in Auto Value-Assignment Settings. Applied when "NULL Linkage" in the Auto Value-Assignment Settings menu is blank. | Required |
+| Status Monitoring Interval (ms) | The refresh interval for logs on Work Status Check. Recommended around 1000 ms. | Min 1000 ms, required |
+| Progress Display Digit Count | Maximum number of lines shown for progress/error logs (applies while status is Not Executed/Preparing/Executing/Executing (Delayed); full logs are output for completed statuses). Recommended around 1000 lines. | Required |
+| Remarks | Free text | Max 4000 bytes |
+
+## Organization Management
+
+Maintain (view/register/update/decommission) Terraform Organizations, and link (register/update/delete) Organizations registered in ITA to Terraform. The "Status Check" button checks the linkage status, and the "Register," "Update," and "Delete" buttons in the "Terraform Linkage" column group perform each operation. Executing work while an Organization is not linked (registered) results in an unexpected error. An incorrect Hostname/User Token displays "Failed to connect to Terraform. Please check the Interface Information." Deletion cannot be undone, and any Workspaces under it are also deleted.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Organization Name | Alphanumeric characters and `_-` only | Required, max 40 bytes |
+| Email Address | The Organization's email address | Required, max 128 bytes |
+| Remarks | Free text | Max 4000 bytes |
+
+## Workspace Management
+
+Maintain (view/register/update/decommission) Terraform Workspaces, link (register/update/delete) Workspaces registered in ITA to Terraform, and execute resource deletion (terraform destroy). The "Delete Resources" button navigates to Work Status Check where it is executed. If a Workspace is deleted, resource deletion can no longer be executed, and the deletion cannot be undone.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Organization Name | Select a registered Organization name | Required, max 40 bytes |
+| Project Name | If blank, linked to "Default Project" | Max 40 bytes |
+| Workspace Name | Alphanumeric characters and `_-` only | Required, max 90 bytes |
+| Terraform Version | If blank, the latest version is automatically applied at link (registration) time | Required, max 128 bytes |
+| Remarks | Free text | Max 4000 bytes |
+
+## Movement List
+
+Maintain (view/register/update/decommission) Movement names. Since a Movement must be linked to an Organization:Workspace, the Organization and Workspace must be registered first.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Movement Name | Arbitrary name | Required, max 256 bytes |
+| Orchestrator | Auto-filled with "Terraform Cloud/EP" | - |
+| Delay Timer | Displays a warning if delayed beyond the specified period (1 minute or more). No warning if left blank. | Unit: minutes |
+| Terraform Usage Info (Organization:Workspace) | Select a registered Workspace (linked to an Organization) | Required |
+| Remarks | Free text | Max 4000 bytes |
+
+## Module Materials
+
+Maintain (view/register/update/decommission) Modules created by the user.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Module Material Name | Arbitrary name | Required, max 255 bytes |
+| Module Material | Upload the Module material file | Required, max 100MB |
+| Remarks | Free text | Max 4000 bytes |
+
+Variables within the Module file are extracted internally, but since this is not real-time, it may take some time before the variables become available in Auto Value-Assignment Settings.
+
+## Policy Management
+
+Maintain (view/register/update/decommission) Policy files written in Sentinel language.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Policy Name | Alphanumeric characters and `_-` only | Required, max 255 bytes |
+| Policy Material | Upload the Policy file | Required, max 100MB |
+| Remarks | Free text | Max 4000 bytes |
+
+## Policy Set Management
+
+Maintain (view/register/update/decommission) Policy Sets. By linking a Policy Set to Policies and Workspaces via Policy Set-Policy Linkage and Policy Set-Workspace Linkage, the Policy is applied to the Workspace during work execution.
+
+| Field | Description | Constraints |
+|---|---|---|
+| Policy Set Name | Alphanumeric characters and `_-` only | Required, max 255 bytes |
+| Remarks | Free text | Max 4000 bytes |
+
+## Policy Set-Policy Linkage / Policy Set-Workspace Linkage
+
+Maintain (view/register/update/decommission) the linkage between a registered Policy Set and a Policy, or between a Policy Set and a Workspace. The fields are "Policy Set Name," "Policy Name (or Workspace Name)," and "Remarks" (all selected from a list; required).
+
+## Movement-Module Linkage
+
+Maintain (view/register/update/decommission) the linkage between a registered Movement and Module materials. The linked Module materials are applied when the Movement is executed, and multiple Module materials can be linked to a single Movement.
+
+## Variable Nesting Management
+
+When a variable type defined in a .tf file in Module Materials is list/set and contains a nested list/set/tuple/object, view and update the maximum repeat count of the member variables (registration, decommissioning, and restoration are not available since these records are managed internally).
+
+| Field | Description | Constraints |
+|---|---|---|
+| Variable Name / Member Variable Name (repeating) | The variable used in the Module material (not editable). Member variable names are shown with each level joined by "." | - |
+| Maximum Repeat Count | The initial value is taken from the `default` value in the .tf file (1 if not specified). If the last updater was something other than the "Terraform Cloud/EP variable update function," the value is not changed by a Module material update. The upper limit can be changed within the range 1-1024 via the Management Console identification ID "MAXIMUM_ITERATION_TERRAFORM-CLOUD-EP." | Required, 1-1024 (varies by configuration) |
+| Remarks | Free text | Max 4000 bytes |
+
+Since initial registration and repeat-count updates are also not real-time, it may take some time before the variables become available in Auto Value-Assignment Settings.
+
+## Auto Value-Assignment Settings
+
+Links a parameter sheet (with operation) to a Movement's variables. The registered information is reflected in Assigned Value Management at work execution time.
+
+| Field | Description | Required |
+|---|---|---|
+| Parameter Sheet (From) Menu:Field | Select a field of the parameter sheet (with operation) | Yes |
+| Parameter Sheet (From) Assignment Order | When bundling is enabled, enter the parameter sheet's assignment order | Only when bundling is enabled |
+| Registration Method | Value type (uses the set value as the concrete value) / Key type (uses the field name as the concrete value) | Yes |
+| Movement Name | A registered Movement | Yes |
+| IaC Variable (To) Movement Name:Variable Name | Select the variable to link | Yes |
+| IaC Variable (To) HCL Setting | True/False. If True, the input value can be set 1:1 regardless of variable type (member variables and assignment order cannot be entered). map type can only be registered with this set to True. If the operation, Movement, and variable name match another record, the HCL Setting value must be consistent. | Yes |
+| IaC Variable (To) Movement Name:Variable Name:Member Variable | Select the member variable (required for object/tuple types when HCL Setting is False) | Conditionally required |
+| IaC Variable (To) Assignment Order | The assignment order (1 or higher) when setting multiple concrete values for a list/set type | Conditionally required |
+| NULL Linkage | If left blank, the Interface Information setting is applied | - |
+| Remarks | Free text | Max 4000 bytes |
+
+When setting a member variable, the concrete values of all other member variables within the same variable must also be set (default values are not used for unset ones).
+
+## Work Execution
+
+Select the Movement and operation, then use the "Execute" button to navigate to Work Status Check where execution occurs.
+
+- **Scheduled Date/Time**: Specifying a future date/time allows scheduling execution or plan confirmation.
+- **Execute**: Terraform Apply runs automatically after Terraform Plan completes.
+- **Plan Confirmation**: Runs only Terraform Plan; Apply is not executed.
+- **Parameter Confirmation**: Only checks the input parameter values (neither Plan nor Apply is executed).
+
+If a Module material containing an Output block is executed from a Conductor, the output is saved to `[Conductor work directory path]/[Conductor instance ID]/terraform_output_[work no.].json` and can be referenced by other Movements in the same Conductor.
+
+## Work Status Check
+
+Monitors the work execution status. "Execution Type" is one of Plan Confirmation / Delete Resources / Normal. For an unexpected error, if it is caused by an issue such as incomplete Interface Information or Organization/Workspace linkage (registration), it is shown in the error log; otherwise, check the application log. "Calling Conductor" is set only when executed via a Conductor. The "RUN-ID" under "Terraform Usage Info" is the execution management ID on the Terraform side (for Delete Resources, the calling Conductor, Movement, operation, and input data are not set).
+
+- Execution log types: plan.log (Terraform Plan), policyCheck.log (Policy Check), apply.log (Terraform Apply)
+- Logs can be filtered. The display interval and maximum line count follow the Interface Information settings.
+- "Input Data" allows downloading the Module material, Policy material, and `variables.json` (variable name/concrete value/HCL setting/Sensitive setting—if Sensitive is ON, the concrete value is null) as a zip file.
+- "Result Data" allows downloading plan.log/policyCheck.log/apply.log/error.log and the encrypted `sv-XXXXXX.tfstate` (filename differs per execution) as a zip file.
+- The "Emergency Stop" button stops execution; before a scheduled execution runs, the "Cancel Reservation" button can cancel it.
+
+## Work Management
+
+Displays a filterable list of work execution history. Fields: Work No. (36-digit auto-numbered), Execution Type (Normal/Plan Confirmation/Parameter Sheet Confirmation), Status (Not Executed/Not Executed (Scheduled)/Preparing/Executing/Executing (Delayed)/Completed/Completed (Abnormal)/Unexpected Error/Emergency Stopped/Reservation Cancelled), Executing User, Registration Date/Time, Movement (ID/Name/Delay Timer/Workspace ID and Organization:Workspace Name and RUN-ID from Terraform Usage Info), Operation (No./Name), Input Data and Result Data (zip download), Work Status (Scheduled Date/Time/Start Date/Time/End Date/Time), and Remarks.
+
+## Assigned Value Management
+
+View the concrete values of variables used by the Module materials of the Movement linked to an operation. Fields: Work No., Operation, Movement Name, Movement Name:Variable Name, HCL Setting (True if the HCL Setting is enabled for the corresponding Variable on the linked Terraform), Movement Name:Variable Name:Member Variable, Assignment Order, Concrete Value (Sensitive Setting True/False—True if the Sensitive Setting is enabled for the corresponding Variable on the linked Terraform—and the value itself), and Remarks.
+
+## Linked Terraform Management
+
+Connects to Terraform based on the Interface Information settings and displays the list of Organizations/Workspaces/Policies/Policy Sets registered on Terraform. From this list, targets registered in ITA can be deleted from Terraform, and resource deletion per Workspace, as well as unlinking Workspaces/Policies from a Policy Set, are also possible. Operations here do not affect the corresponding registrations on the ITA side.
+
+The "ITA Registration Status" column in each list shows "Registered" or "Unregistered," indicating whether the item is registered in the corresponding ITA menu (Organization Management / Workspace Management / Policy Management / Policy Set Management and its linkage menus). The "Delete" operation cannot be undone, and "Delete Resources" for a Workspace also cannot be undone.

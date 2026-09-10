@@ -1,32 +1,27 @@
-# Basic Console
-# Introduction
-This document describes the functions and operation methods of the ITA Basic Console.
-# Overview of the ITA Basic Console
-This chapter describes the functions and operation methods of the Basic Console menu.
-The Basic Console provides the following functions, which are commonly required when performing work using ITA.
-# ITA Basic Console Menus and Screen Layout
+# Basic Console Configuration and Usage
 
-## List of ITA Basic Console Menus
-The menus of the ITA common/Basic Console are shown below.
-1        | ITA Basic Console               | Operation list         | You can maintain\           |
-| (view/register/update/discontinue) the list of submitted operations. |
-2        |                                 | Movement list               | You can view the list of registered Movements.  |
-# Function and Operation Description
+The Basic Console provides functions commonly required when working with ITA.
 
-## ITA Basic Console
+## Menu Structure
 
-#### Operation list
-#. From :guilabel:`+Register`, register operation information.
--*Item**  | **Description**                       | **Required**     | **Input format**      | **Constraints**               |
-Operation\ | Registers a unique operation name\  | \-               | Automatic\             |                            |
-name  | that identifies the operation |                  | input              | Max 256 bytes                |
-※For operations linked to\           |                  |                   |                            |
-an operation for which a scheduled execution date and time is set\|                  |                   |                            |
-Conductor\                     |                  |                   |                            |
-By selecting and executing this operation\|                  |                   |                            |
-operations that are scheduled soonest\        |                  |                   |                            |
-Environment      | Registers the environment\| \-               | Automatic\             |                            |
-that was registered when the workspace was created.             |                  | input              |                            |
+| Menu Group | Menu Screen | Description |
+|---|---|---|
+| ITA Basic Console | Operation List | Maintain (view/register/update/decommission) the list of registered operations. |
+| ITA Basic Console | Movement List | View the list of registered Movements (view only). |
 
-#### Movement list
-For the actual registration of Movements, refer to the usage manual for each Driver and perform the registration from the console menu of the ITA driver for each orchestrator.
+## Operation List
+
+Manages operations (e.g. "Service addition work") to be executed against target hosts by the orchestrator.
+
+| Item | Description | Required | Constraints |
+|---|---|---|---|
+| Operation ID | Automatically assigned unique ID | - | - |
+| Operation Name | Any operation name | Yes | Max 256 bytes |
+| Scheduled Date/Time | The scheduled date/time of the operation. Processing is not actually executed at this date/time. Work history records associated with an operation that has this date/time set are automatically deleted after the configured retention period. The actual date/time on which this operation was selected and executed via a Conductor run or a driver's work execution is displayed here. | Yes | - |
+| Last Execution Date/Time | The most recent execution date/time (display only, blank if never executed) | - | - |
+| Environment | Automatically populated with the environment registered when the workspace was created (used for integration with Exastro OASE and Exastro EPOCH) | - | - |
+| Remarks | Free text | - | - |
+
+## Movement List
+
+Lets you view (read-only) the association between Movements and orchestrators when using the orchestrator. Movements themselves are registered from the ITA driver console menu of each orchestrator, following the usage manual for each driver.

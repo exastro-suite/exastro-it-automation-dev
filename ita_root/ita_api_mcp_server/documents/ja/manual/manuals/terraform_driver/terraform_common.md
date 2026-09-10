@@ -1,252 +1,46 @@
-# Terraform driver 共通
-# はじめに
-本書では、「」「」（以下、Terraform driver）における共通の機能について説明します。
-# 概要
+# Terraform driver 共通機能（変数の取り扱い・構築コード）
 
-## Terraformについて
-また、Terraform CloudおよびTerraform EnterpriseではPolicy as Codeによるアクセスポリシーをコード化して管理することが可能です。
+## 概要
 
-## Terrform driverについて
-Terraform driverはITAの機能として、Teraformへの実行および実行ログの取得を行うことができます。
-作業の実行（Plan /Apply）に利用するModuleファイルや、PolicyCheckを行うためのPolicyファイルをITA上で部品化し、再利用できるよう管理することができます。
--  | **Terraform Cloud/EP driver**
-ITAで登録した Terraform Cloud もしくは Terraform Enterprise に対し、Organizationの作成、Workspaceの作成、作業の実行（Plan/ PolicyCheck / Apply）および作業ログの取得を行うことができます。
-操作方法等については「」を参照してください。
--  | **Terraform CLI driver**
-操作方法等については「」を参照してください。
-# 変数の取り扱い
+Terraformは HashiCorp社が提供するインフラストラクチャオーケストレーションツールで、HCL（HashiCorp Configuration Language）でコード化したインフラ構成の実行計画を生成し構築を実行します。Terraform CloudおよびTerraform EnterpriseではPolicy as Codeによるアクセスポリシー管理も可能です。
 
-## 変数の種類
-※設定方法の詳細は、「 -> 」「 -> 」を参照してください。
-Moduleファイルの中のVariableブロックに定義した対象を変数として扱えます。
-通常変数 | 変数名に対して具体値を定義できる変数です。               |
-Module内の変数は HCL（HashiCorp Configuration Language）\|
-この場合「xxx」がModuleから変数として抜出されます。      |
-また、typeとdefault値を設定することができます。          |
-typeとdefaultの設定は必須ではありません。                |
+Terraform driverはITAの機能として、Terraformへの実行および実行ログ取得を行います。作業実行（Plan/Apply）に使うModuleファイルと、PolicyCheckに使うPolicyファイルをITA上で部品化・再利用可能に管理できます。また、Module中の変数を画面から設定できます。
 
-## 変数の抜出および具体値登録
-ITAにアップロードされたModule素材から変数を抜出して具体値を登録できます。
-抜出した変数の具体値は「 -> 」「 -> 」にて、パラメータシートと連携させることで具体値を登録します。
-Terraform Cloud/EP driverでは、登録された変数と具体値は作業実行時に連携先TerraformのWorkspaceで管理するVariablesに対し、「変数名」が「Key」、「具体値」が「Value」として登録されます。
-Terraform CLI driverでは、登録された変数と具体値は、作業実行時に生成されるterraform.tfvarsファイルに「変数名」が「Key」、「具体値」が「Value」として記載され、作業実行で使用されます。
+Terraform driverには2種類あります。
 
-## 変数のタイプについて
-変数内でtypeを設定することができます。
-Module内の変数は HCL（HashiCorp ConfigurationLanguage）の変数ルールに従い記述してください。
-ITA内で扱う変数は以下の通りです。
-.. list-table:: 変数タイプ
-- type
-     - 詳細
-     - | メンバー変数対象
-     - | 代入順序対象
-     - typeの記述例
-     - defaultの記述例
-- string
-     - 文字列型。
-     - ×
-     - ×
-     - string
-     - あいう
-- number
-     - 数字型。
-     - ×
-     - ×
-     - number
-     - 123
-- bool
-     - Boolean型（trueまたはfalse）。
-     - ×
-     - ×
-     - bool
-     - true
-- list
-     - 配列型。
-     - ×
-     - 〇
-     - list(string)
-     - ["あ", "い", "う"]
-- set
-     - | 配列型。ユニークな値の設定が求められる。
-     - ×
-     - 〇
-     - set(number)
-     - [1, 2, 3]
-- tuple
-     - | 配列型。予めn番目にどのtypeを設定するか決めておく必要があります。
-値の入力数が決められているため、ITシステムA上ではメンバー変数としてプルダウンで選択します。
-     - 〇
-     - ×
-     - tuple([string, number])
-     - ["あいう", 2023]
-- map
-     - | key-value（連想配列）型。ITA上ではmap型が一つ以上含まれているtypeを設定した場合、type情報からkey値を特定できないため、代入値自動登録設定をする場合はHCL設定をONする必要があります。
-HCL設定については「」を参照してください。
-     - ×
-     - ×
-     - map(string)
-     - {"test_key" = "test_value"}
-- object
-     - | key-value（連想配列）型。ITA上ではkey名をメンバー変数として扱います。key名に日本語は含まないでください。
-     - 〇
-     - ×
-     - object({test_key = string})
-     - {"test_key" = "test_value"}
-- any
-     - すべてに適合する型ですが、ITA上ではstring型と同じ扱いになります。
-     - ×
-     - ×
-     - any
-     - あいう
-- 記載なし
-     - typeを記載しなかった場合、ITA上では string型と同じ扱いになります。
-     - ×
-     - ×
-     -
-     - あいう
--  | **※1 …メンバー変数対象**
-変数がkey-value型である場合のkey名です。
-変数のタイプがobjectの場合、<KEY> = <TYPE> の <KEY> をメンバー変数とします。
-変数のタイプがtupleの場合、tuple内に定義した変数を先頭から[0],[1],[2]…と採番してメンバー変数となります。
-変数のタイプが変数ネスト管理メニューの登録対象の場合、最大繰返数をもとに[0],[1],[2]…と採番してメンバー変数となります。
-変数ネストに関しては「 -> 」「 -> 」を参照してください。
-      - | **例: 変数タイプがobjectの場合**
-1. tfファイルと登録値
-1. 代入値例(代入値自動登録設定)
-- 項番
-              - 変数名
-              - メンバー変数
-              - 代入順序
-              - パラメータシートの入力値
-- 1
-              -  VAR_hoge
-              -  NAME
-              -  入力不可
-              -  my_machine
-- 2
-              - VAR_hoge
-              - IP
-              - 入力不可
-              - 192.168.100.1
-1. Terraformに送信される値
-      -  | **例: 変数のタイプがtupleの場合**
-1. tfファイルと登録値
-1. 代入値例(代入値自動登録設定)
-- 項番
-              - 変数名
-              - メンバー変数
-              - 代入順序
-              - パラメータシートの入力値
-- 1
-              -  VAR_hoge
-              -  [0]
-              -  入力不可
-              -  def
-- 2
-              -  VAR_hoge
-              -  [1]
-              -  入力不可
-              -  2024
-1. Terraformに送信される値
-      -  | **例: 変数のタイプがネスト管理対象の場合**
-1. tfファイルと登録値
-1. 代入値例(代入値自動登録設定)
-- 項番
-              - 変数名
-              - メンバー変数
-              - 代入順序
-              - パラメータシートの入力値
-- 1
-              -  VAR_hoge
-              -  [0]
-              -  1
-              -  あああ
-- 2
-              -  VAR_hoge
-              -  [0]
-              -  2
-              -  いいい
-- 3
-              - VAR_hoge
-              - [1]
-              - 1
-              - ううう
-- 4
-              - VAR_hoge
-              - [1]
-              - 2
-              - えええ
-1. Terraformに送信される値
--  | **※2 …代入順序対象**
-変数に複数具体値を設定する際の先頭から代入する順序です。
-変数または階層構造の変数の最下層の変数のタイプがlist,setの場合、「 -> 」「 -> 」にて設定可能です。
-      -  | **例: 変数タイプがlistの場合**
-1. tfファイルと登録値
-1. 代入値例(代入値自動登録設定)
-- 項番
-              - 変数名
-              - メンバー変数
-              - 代入順序
-              - パラメータシートの入力値
-- 1
-              -  VAR_hoge
-              -  入力不要
-              -  1
-              -  あいう
-- 2
-              - VAR_hoge
-              - 入力不要
-              - 2
-              - かきく
-1. Terraformに送信される値
-      -  | **例: 階層構造の変数の最下層の変数タイプがsetの場合**
-1. tfファイルと登録値
-1. 代入値例(代入値自動登録設定)
-- 項番
-              - 変数名
-              - メンバー変数
-              - 代入順序
-              - パラメータシートの入力値
-- 1
-              -  VAR_hoge
-              -  key
-              -  1
-              -  1
-- 2
-              - VAR_hoge
-              - key
-              - 2
-              - 2
-1. Terraformに送信される値
-# 構築コード記述方法
-Policyについては Terraform Cloud/EP driver のみ有効な機能です。
+- **Terraform Cloud/EP driver**: ITAで登録したTerraform Cloud/EnterpriseへOrganization/Workspaceの作成、作業実行（Plan/PolicyCheck/Apply）、作業ログ取得を行う。
+- **Terraform CLI driver**: ITAと同一環境内にインストールしたTerraformへ、作業実行（Plan/Apply）と作業ログ取得を行う。
 
-## Moduleの記述
+## 変数の取り扱い
 
-## Policyの記述
-# 付録
+Terraform driverでは、Module中の変数の具体値をITAの設定画面から設定できます。ModuleファイルのVariableブロックに定義した対象が変数として扱われます。
 
-## Module素材「Variableブロック」記入例・登録例
-Module素材の「Variableブロック」の記入例と、代入値自動登録設定への登録例を、変数のタイプ毎に記載します。
-1. **シンプルなパターン**
-1. string型
-1. number型
-1. bool型
-1. list型
-1. set型
-1. tuple型
-1. map型
-1. object型
-1. any型
-1. typeの記載がない
-1. **複雑なパターン**
-1. list型の中にlist型
-1. list型の中にobject型
-1. object型の中のlist型の中にobject型
-1. **特殊なパターン**
-1. list型の中にmap型
+- **通常変数**: 変数名に対して具体値を定義する変数。HCLのVariableブロック（`variable "xxx" { type = ○○  default = △△ }`）のルールに従って記述し、typeとdefaultの設定は必須ではありません。
 
-## 変数ネスト管理フロー例
-変数ネスト管理の操作例を記載します。
-1. **最大繰返数を増加させる**
-1. **最大繰返数を減少させる**
+ITAにアップロードされたModule素材から変数を抜出し、具体値をパラメータシートと連携させて登録します。Terraform Cloud/EP driverでは連携先TerraformのWorkspace管理Variablesに「変数名」がKey、「具体値」がValueとして登録されます。Terraform CLI driverでは作業実行時に生成される`terraform.tfvars`ファイルに同様に記載されます。
+
+### 変数タイプ
+
+| type | 詳細 | メンバー変数対象 | 代入順序対象 | typeの記述例 | defaultの記述例 |
+|---|---|---|---|---|---|
+| string | 文字列型 | × | × | string | あいう |
+| number | 数字型 | × | × | number | 123 |
+| bool | Boolean型（true/false） | × | × | bool | true |
+| list | 配列型 | × | 〇 | list(string) | ["あ","い","う"] |
+| set | 配列型（ユニーク値。ITA上ではユニーク判定は行われない） | × | 〇 | set(number) | [1,2,3] |
+| tuple | 配列型（n番目の型が固定。ITA上ではプルダウン選択） | 〇 | × | tuple([string, number]) | ["あいう", 2023] |
+| map | key-value型。map型を含むtypeは代入値自動登録設定でHCL設定をONにする必要あり | × | × | map(string) | {"test_key"="test_value"} |
+| object | key-value型。key名をメンバー変数として扱う（日本語不可） | 〇 | × | object({test_key=string}) | {"test_key"="test_value"} |
+| any | ITA上ではstring型と同様の扱い | × | × | any | あいう |
+| 記載なし | ITA上ではstring型と同様の扱い | × | × | - | あいう |
+
+**メンバー変数対象**（key-value型の場合のkey名）: object型は`<KEY>=<TYPE>`のKEY、tuple型は先頭から`[0],[1],[2]...`と採番。変数ネスト管理の登録対象は最大繰返数をもとに`[0],[1],[2]...`と採番。
+
+例（object型 `VAR_hoge { type = object({NAME=string, IP=string}) }`）: メンバー変数`NAME`に`my_machine`、`IP`に`192.168.100.1`を登録すると、Terraformには `{ NAME="my_machine" IP="192.168.100.1" }` が送信される。tuple型（`type = tuple([string,number])`）は `[0]`に`def`、`[1]`に`2024`を登録すると `["def", 2024]` が送信される。ネスト管理対象（`type = list(set(string))`）は`[0]`の1,2番目、`[1]`の1,2番目に値を登録すると `[["あああ","いいい"],["ううう","えええ"]]` のように送信される。
+
+**代入順序対象**（複数具体値を設定する際の先頭からの代入順序）: 変数または階層構造の最下層の変数タイプがlist/setの場合に設定可能。例えば`list(string)`型に代入順序1,2で値`あいう`,`かきく`を登録すると`["あいう","かきく"]`が送信される。`object({key=set(number)})`型でkeyに順序1,2の値`1,2`を登録すると`{key=[1,2]}`が送信される。
+
+## 構築コード記述方法
+
+- **Module**: HCL（HashiCorp Configuration Language）で記述します。詳細はTerraformの製品マニュアルを参照してください。
+- **Policy**: Sentinel languageで記述します（Terraform Cloud/EP driverのみ有効な機能）。詳細はTerraformの製品マニュアルを参照してください。

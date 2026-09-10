@@ -1,528 +1,213 @@
-# Terraform Cloud/EP driver
-# はじめに
-本書では、Terraform Cloud/EP driver 機能および操作方法について説明します。
-Terraform や Terraform driverの概要および、Terraform CLI driver と共通の機能については「」を参照してください。
-# コンソールメニュー構成
-本章では、Terraform Cloud/EP driverで利用するのメニュー構成について説明します。
+# Terraform Cloud/EP driverの設定と利用方法
 
-## メニュー/画面一覧
-1. **基本コンソールのメニュー**
-Terraform Cloud/EP driverで利用する基本コンソールのメニュー一覧を以下に記述します。
-- No
-        - メニューグループ
-        - 説明
-- 1
-        - 基本コンソール
-        - オペレーション一覧
-        - オペレーション一覧をメンテナンス(閲覧/登録/更新/廃止)できます。
-1. **Terraform Cloud/EP driverのメニュー**
-Terraform Cloud/EP driverのメニュー一覧を以下に記述します。
--*N\  | **メニュー\  | **メニュー\  | **説明**                               |
-Cloud/EP     | フェース情報 | の情報を管理します。                   |
-n管理        | の情報を管理します。                   |
-管理         | の情報を管理します。                   |
-4     |              | Movement\    | Movementの一覧を管理します。           |
-5     |              | Module\      | Moduleファイルを管理します。           |
-6     |              | Policy管理   | Policyファイルを管理します。           |
-7     |              | Policy \     | Policy Setを管理します                 |
-set管理      | Policy SetはPolicyおよび。\            |
-set-Policy\  | を管理します。                         |
-set-Work\    | を管理します。                         |
-10    |              | Movement-\   | MovementとModule素材の関連付け\        |
-Module紐付   | を管理します。                         |
-11    |              | 変数ネスト\  | Module素材集で登録したtfファイル\      |
-管理         | で定義されている変数のタイプが\        |
-| list,setかつ、その変数の中で\          |
-| list,set,tuple,objectが定義\           |
-| されている場合、メンバー変数\          |
-| の最大繰返数を管理します。             |
-12    |              | 代入値自動\  | パラメータシートのメニューに登録\      |
-登録設定     | されているオぺレーション毎の項目\      |
-| や値を紐付けるMovementと変数\          |
-| を管理します。                         |
-13    |              | 作業実行     | 作業実行するMovementとオペレーション\  |
-14    |              | 作業管理     | 作業実行履歴を管理します。             |
-16    |              | 代入値管理   | 変数の代入値を管理します。             |
-Terraform\   | 登録されているOrganization, Workspace\ |
-管理         | ,Policy,PolicySetの一覧表示および\     |
-18    |              | Module-変数\ | Module変数とModule素材の紐付\          |
-紐付\        | を管理します。                         |
-19    |              | メンバー\    | メンバー変数を管理します。             |
-変数管理\    |                                        |
-20    |              | Movement-\   | Movmentと変数の紐付を管理します。      |
-変数紐付\    |                                        |
-21    |              | Movement-\   | Movmentとメンバー変数の紐付\           |
-メンバー\    | を管理します。                         |
-変数紐付\    |                                        |
-※1 非表示メニューは、内部機能でデータの登録・更新を行うメニューです。
-Terraform Cloud/EP driver機能をインストールした状態では表示されないメニューに設定されています。
-非表示メニューを表示するには、管理コンソール-->ロール・メニュー紐付管理 で各メニューの復活処理を行います。詳細は  を参照してください。
-# 利用手順
-各Terraform Cloud/EP メニューの利用手順について説明します
+Terraform Cloud/EP driverは、ITAで登録したTerraform CloudまたはTerraform Enterpriseに対し、Organization/Workspaceの作成、作業実行（Plan/PolicyCheck/Apply）、作業ログ取得を行う機能です。TerraformおよびTerraform driver共通の概念（変数の取り扱いなど）は「Terraform driver 共通」を参照してください。
 
-## Terraform Cloud/EP 作業フロー
-Terraform Cloud/EP driver の各メニューにおける標準的な作業フローは以下のとおりです。
--  **作業フロー詳細と参照先**
-1. **投入オペレーション名の登録**
-1. **インターフェース情報の設定**
-ITAと連携するTerraformの情報を登録します。
-1. **Organizationの登録と連携**
-Terraformで利用するOrganizationの情報を登録し、Terraformとの連携を行います。
-1. **Workspaceの登録と連携**
-Terraformで利用するWorkspaceの情報を登録し、Terraformとの連携を行います。
-1. **Movementの登録**
-作業用のMovementを登録します。
-1. **Module素材の登録**
-作業で実行するModuleファイルを登録します。
-1. **Policyの登録（必要に応じて実施）**
-作業実行前に行うPolicyCheckで実行するPolicyファイルを登録します。
-1. **Policy setの登録（必要に応じて実施）**
-Policyを適用するWorkspaceと紐付けるためのPolicy setを登録します。
-1. **Policy setにPolicyを紐付け（必要に応じて実施）**
-Policy setとPolicyの紐付けを登録します。
-1. **Policy setにWorkspaceを紐付け（必要に応じて実施）**
-Policy setとWorkspaceの紐付けを登録します。
-1. **MovementにModule素材を指定**
-登録したMovementにModule素材を指定します。
-1. **最大繰返数の設定（必要に応じて実施）**
-変数およびメンバー変数の最大繰返数を設定します。
-1. **パラメータシートの作成（必要に応じて実施）**
-Module素材に定義した変数に具体値を設定する際に必要となります。
-1. **パラメータシートにデータを登録（必要に応じて実施）**
-Module素材に定義した変数に具体値を設定する際に必要となります。
-1. **代入値自動登録設定（必要に応じて実施）**
-Module素材に定義した変数に具体値を設定する際に必要となります。
-1. **作業実行**
-1. **作業状態確認**
-1. **作業履歴確認**
-# Policyの適用
+## メニュー構成
 
-## Policy/PolicySet/Workspaceの紐付けについて
--*Policy機能の利用は、連携先Terraformが Terraform Enterprise もしくは Terraform Cloudで「Policy & Security」機能が有効なプランである必要があります。**
-Policyを適用させるために、Policyに関する各設定登録をした後に紐付設定をする必要があります。
-最初に  で登録したPolicyと  で登録したPolicy setを
-次に  で登録したTerraform Workspaceと  で登録したPolicy setを
-作業実行時にMovementに紐付いたWorkspaceに対し、Policy setとそれに紐付けられたPolicyが適用されます。
-# 機能・操作方法説明
-本章では、Terraform Cloud/EP driver で利用する各メニューの機能について説明します。
+基本コンソール:
 
-## 基本コンソール
-オペレーション一覧
--*****************
-基本コンソール-->オペレーション一覧 では、オーケストレータで実行するオペレーションを管理します。作業は基本コンソール内メニューより選択します。
-登録方法の詳細は、関連マニュアルの  を参照してください。
+| No | メニューグループ | メニュー/画面 | 説明 |
+|---|---|---|---|
+| 1 | 基本コンソール | オペレーション一覧 | オペレーション一覧をメンテナンス（閲覧/登録/更新/廃止）できます。 |
 
-## Terraform Cloud/EP メニュー
-本節では、Terraform Cloud/EP driver のメニューでの操作について記載します。
--*******************
-1. Terraform Cloud/EP-->インターフェース情報 では、ITAと連携するTerraformの情報をメンテナンス（閲覧/更新）することができます。
-インタフェース情報が未登録または、複数レコード登録されている状態で作業実行した場合、作業実行は想定外エラーとなります。
--*項目**                          | **説明**                     | **入力\   | **入力方法** | **制約事項**    |
-User Tokenの発行方法は\      |           |              |                 |
-のために設定が必要な場合\    |           |              |                 |
-NULL連携                          | 代入値自動登録設定でパラメ\  | ○         | リスト選択   | ー              |
-(空白)の場合に、代入値管理\  |           |              |                 |
-への登録をNULL(空白)の値で\  |           |              |                 |
-行うか設定します。代入値自\  |           |              |                 |
-動登録設定メニューの「NULL\  |           |              |                 |
-Organization管理
--***************
-1. Terraform Cloud/EP-->Organization管理 では、Terraformで利用するOrganizationについてのメンテナンス（閲覧/登録/更新/廃止）を行います。
-また、ITAに登録したOrganizationをTerraformへの連携（登録/更新/削除）をすることができます。
-OrganizationがTerraformに連携（登録）されていない状態で作業実行した場合、\ **作業実行は想定外エラーとなります**\ 。
-「6.2.1インターフェース情報」で登録した「Hostname」および「UserToken」に誤りがあると、Terraformとの連携が失敗し、連携状態に以下のメッセージが表示されます。
-      Terraform連携（Organization管理）
--*項目**                          | **説明**                     | **入力\   | **入力方法** | **制約事項**    |
-Workspace管理
--************
-1. Terraform Cloud/EP-->Workspace管理 では、Terraformで利用するWorkspaceについてのメンテナンス（閲覧/登録/更新/廃止）を行います。
-また、ITAに登録したWorkspaceをTerraformへの連携（登録/更新/削除）とリソース削除（terraform destroy）を実行することができます。
-WorkspaceがTerraformに連携（登録）されていない状態で作業実行した場合、\ **作業実行は想定外エラーとなります**\ 。
-「6.2.1インターフェース情報」で登録した「Hostname」および「UserToken」に誤りがあると、Terraformとの連携が失敗し、連携状態に以下のメッセージが表示されます。
-また、選択したOrganizationがTerraformに連携（登録）されていない場合も同様のメッセージが表示されます。
-      Terraform連携（Workspace管理）
--*項目**                          | **説明**                     | **入力\   | **入力方法** | **制約事項**    |
-登録したOrganization名を\    |           |              |                 |
-（登録）時に最新のバージョ\  |           |              |                 |
-aceごとに構成・管理された\   |           |              |                 |
-Movement一覧
--***********
-1. Terraform Cloud/EP-->Movement一覧 では、Movement名についてのメンテナンス（閲覧/登録/更新/廃止）を行います。
-MovementはTerraform利用情報としてOrganization:Workspaceと紐付ける必要があるため、先に「」「」にて対象を登録しておく必要があります。
-Movement名            | Mov\      | ○         | 手動入力  | 最大長\   |
-にて登録\ |           |           |           |
--***********
-1. Terraform Cloud/EP-->Module素材集 ではユーザーが作成したModuleのメンテナンス（閲覧/登録/更新/廃止）を行います。
-1. Module素材集の項目一覧は以下のとおりです。
-- 項目
-        - 説明
-        - 入力必須
-        - 入力方式
-        - 制約事項
-- Module素材名
-        - ITAで管理するModule素材名を入力します。
-        - ○
-        - 手動入力
-        - 最大長255バイト
-- Module素材
-        - 作成したModule素材をアップロードします。
-        - ○
-        - ファイル選択
-        - 最大サイズ100メガバイト
-- 備考
-        - 自由記述欄です。
-        - ー
-        - 手動入力
-        - 最大長4000バイト
-**Moduleファイル（.tf拡張子のファイル）内に定義した変数を取り出すタイミング**
-内部の処理で登録したModuleファイル（.tf拡張子のファイル）内に定義している変数を抜出します。
-抜出した変数は、「」で具体値の登録が可能になります。
-抜出するタイミングはリアルタイムではありませんので、「」で変数が扱えるまでに **時間がかかる** 場合があります。
-Policy管理
--*********
-1. Terraform Cloud/EP-->Policy管理 ではユーザーが作成したPolicyのメンテナンス（閲覧/登録/更新/廃止）を行います。
-1. Policy管理の項目一覧は以下のとおりです。
-- 項目
-        - 説明
-        - 入力必須
-        - 入力方式
-        - 制約事項
-- Policy名
-        - | ITAで管理するPolicy名を入力します。
-        - ○
-        - 手動入力
-        - 最大長255バイト
-- Policy素材
-        - 作成したPolicyファイルをアップロードします。
-        - ○
-        - ファイル選択
-        - 最大サイズ100メガバイト
-- 備考
-        - 自由記述欄です。
-        - ー
-        - 手動入力
-        - 最大長4000バイト
-Policy Set管理
--*************
-1. Terraform Cloud/EP-->Policy set管理 ではPolicy setのメンテナンス（閲覧/登録/更新/廃止）を行います。
-1. Policy set管理の項目一覧は以下のとおりです。
-- 項目
-        - 説明
-        - 入力必須
-        - 入力方式
-        - 制約事項
-- Policy set名
-        - | ITAで管理するPolicy set名を入力します。
-        - ○
-        - 手動入力
-        - 最大長255バイト
-- 備考
-        - 自由記述欄です。
-        - ー
-        - 手動入力
-        - 最大長4000バイト
--********************
-1. Terraform Cloud/EP-->Policy set-Policy紐付 では、「」にて登録したPolicy setと「」にて登録したPolicyの紐付けについてメンテナンス（閲覧/登録/更新/廃止）を行います。
-1. Policy set-Policy紐付の項目一覧は以下のとおりです。
-- 項目
-        - 説明
-        - 入力必須
-        - 入力方式
-        - 制約事項
-- Policy set名
-        - | 「」にて登録したPolicy set名を選択します。
-        - ○
-        - リスト選択
-        - ー
-- Policy名
-        - | 「」にて登録したPolicy名を選択します。
-        - ○
-        - リスト選択
-        - ー
-- 備考
-        - 自由記述欄です。
-        - ー
-        - 手動入力
-        - 最大長4000バイト
--**********************
-1. Terraform Cloud/EP-->Policy set-Workspace紐付 では、「」にて登録したPolicy setと「」にて登録したWorkspaceの紐付けについてメンテナンス（閲覧/登録/更新/廃止）を行います。
-1. Policy set-Workspace紐付の項目一覧は以下のとおりです。
-- 項目
-        - 説明
-        - 入力必須
-        - 入力方式
-        - 制約事項
-- Policy set名
-        - | 「」にて登録したPolicy set名を選択します。
-        - ○
-        - リスト選択
-        - ー
-- Workspace名
-        - | 「」にて登録した（Organizationと紐付く）Workspace名を選択します。
-        - ○
-        - リスト選択
-        - ー
-- 備考
-        - 自由記述欄です。
-        - ー
-        - 手動入力
-        - 最大長4000バイト
-Movement-Module紐付
--******************
-1. Terraform Cloud/EP-->Movement-Module紐付 では、「」にて登録したMovementと「」にて登録したModule素材の紐付けについてメンテナンス（閲覧/登録/更新/廃止）を行います。
-Movementを実行する際、紐付けたModule素材が適用されます。
-Movementに対して複数のModule素材を紐付けることが可能です。
-1. Movement-Module紐付の項目一覧は以下のとおりです。
-- 項目
-        - 説明
-        - 入力必須
-        - 入力方式
-        - 制約事項
-- Movement名
-        - | 「」にて登録したMovement名を選択します。
-        - ○
-        - リスト選択
-        - ー
-- Module素材
-        - | 「」にて登録したModule素材を選択します。
-        - ○
-        - リスト選択
-        - ー
-- 備考
-        - 自由記述欄です。
-        - ー
-        - 手動入力
-        - 最大長4000バイト
-変数ネスト管理
--*************
-1. Terraform Cloud/EP-->変数ネスト管理 では、Module素材集で登録したtfファイルで定義されている変数のタイプがlist,setかつ、その変数の中でlist,set,tuple,objectが定義されている場合、メンバー変数の最大繰返数を閲覧及び更新できます。
-本メニューはModule素材集を元に内部機能がレコードを管理するため、登録・廃止・復活はできません。
-変数ネストの管理フロー例については「」をご参照ください。
-1. 変数ネスト管理の項目一覧は以下のとおりです。
-- 項目
-        - 説明
-        - 入力必須
-        - 入力方式
-        - 制約事項
-- 変数名
-        - 「」にて登録したModule素材で使用している変数が表示されます。
-        - ー
-        - 入力不可
-        - ー
-- メンバー変数名（繰返し有）
-        - 変数ネスト管理対象がメンバー変数である場合、メンバー変数名が表示されます。メンバー変数名は各階層の変数を「.」で連結して表示します。
-        - ー
-        - 入力不可
-        - ー
-- 最大繰返数
-        - | 配列の最大繰返数を1～1024の範囲で入力します。
-最大繰返数の上限値は「管理コンソール - 」より識別ID「MAXIMUM_ITERATION_TERRAFORM-CLOUD-EP」の設定値にて、1～1024の範囲内で変更することが可能です。
-初期値はtfファイルのdefaultに記載されている値から取得した繰返数が設定されます。
-tfファイルにdefaultの記載がない場合、1が設定されます。
-最終更新者が「Terraform Cloud/EP変数更新機能」でない場合はModule素材の更新により値が変更されることはありません。
-        - 〇
-        - 手動入力
-        - 入力値1～1,024(「」の設定値により変動)
-- 備考
-        - 自由記述欄です。
-        - ー
-        - 手動入力
-        - 最大長4000バイト
-※初期登録および繰返数の更新はリアルタイムではないので、「」で変数が扱えるまでに **時間がかかる** 場合があります。
-代入値自動登録設定
--*****************
-1. Terraform Cloud/EP-->代入値自動登録設定 では、パラメータシート作成機能で作成したパラメータシート（オペレーションあり）と、Movementの変数を紐付けます。
-登録した情報は内部の処理により作業実行時に「」に反映されます。
--*項目**                          | **説明**                     | **入力\   | **入力方法** | **制約事項**    |
-パラメータシー\ | メニューグルー\ | パラメータシート作成機能で\  | ○         | リスト選択   | ー              |
-ト(From)        | プ:メニュー:項\ | 作成したパラメータシート（\  |           |              |                 |
-目              | オペレーションあり）の項目\  |           |              |                 |
-パラメータシートは\          |           |              |                 |
-パラメータシート作成 -->\    |           |              |                 |
-パラメータシート定義・作成\  |           |              |                 |
-パラメータシート（\          |           |              |                 |
-オペレーションあり）\        |           |              |                 |
-で作成したパラメータシート\  |           |              |                 |
-代入順序        | パラメータシート作成機能で\  | ※1        | 手動入力     | 1～2147483647\  |
-作成したパラメータシート（\  |           |              | の整数          |
-オペレーションあり）のバン\  |           |              |                 |
-タシートで登録している代入\  |           |              |                 |
-登録方式                          | Value型:項目の設定値を紐付\  | ○         | リスト選択   | ー              |
-けた変数の具体値とする場合\  |           |              |                 |
-変数の具体値とする場合に選\  |           |              |                 |
-Movement名                        | 「」で登録した\ |           |              |                 |
-Movementが表示されます。     |           |              |                 |
-IaC変数(To)     | Movement名:変数\| 「terraform_cloud_ep\  | ※2        | リスト選択   | ー              |
-名:メンバー変数 | _movement_module_link`」で\  |           |              |                 |
-登録した資材で使用している\  |           |              |                 |
-変数の形式により、メンバー\  |           |              |                 |
-変数が表示されます。         |           |              |                 |
-変数を選択します。           |           |              |                 |
-代入順序        | 複数具体値が設定できる変数\  | ※3        | 手動入力     | ブランクまたは\ |
-名およびメンバー変数の場合\  |           |              | 1～2147483647の\|
-NULL連携                          | パラメータシートの具体値が\  | ー        | リスト選択   | ー              |
-管理への登録をNULL(空白)の\  |           |              |                 |
-値で行うか設定します。       |           |              |                 |
-でも代入値管理への登録が行\  |           |              |                 |
-場合のみ代入値管理への登録\  |           |              |                 |
-rmation`」で設定されている\  |           |              |                 |
-※1:パラメータシートのバンドルが有効の場合のみ必須。
-※2:選択した「Movement名:変数名」のメンバー変数が存在する場合は必須し、かつ「HCL設定」が「False」の場合のみ必須。
-※3:選択した「Movement名:変数名」および「Movement名:変数名:メンバー変数」が代入順序を必要とする形式である場合のみ必須。
-**バンドルが有効なパラメータシートの場合**
-バンドルが有効なパラメータシートの項目とMovementの変数を紐付ける場合、 Terraform Cloud/EP-->代入値自動登録設定 でパラメータシート(From) の代入順序を入力する必要があります。
-      バンドルが有効なパラメータシート使用時の代入値自動登録設定登録方法
-**IaC変数(To)のメンバー変数の設定について**
-変数のタイプがobject, tupleの場合に設定する必要があります。
-メンバー変数を設定する場合は、同じ変数内のメンバー変数の具体値も全て設定してください。
-代入値を設定しなかった他のメンバー変数でもデフォルト値が使用されることはありません。
-詳細及び具体例は「」の「※1 …メンバー変数対象」を参照してください。
-**IaC変数(To)の代入順序について**
-変数のタイプがlist, setの場合に設定する必要があります。
- 代入値自動登録設定の連携対象項目については、 を参照してください。
--*******
-1. **予約日時の指定**
-「予約日時」には、未来の日時のみ登録可能です。
-1. **Movementの指定**
-「 」で登録したMovementを選択します。
-1. **オペレーションの指定**
-「」で登録したオペレーションを選択します。
-1. **実行**
-1. **Plan確認**
-1. **パラメータ確認**
-Outputブロックを含むModule素材を利用した作業ががConductorから実行された場合、Outputブロックに書かれた内容がConductor作業ディレクトリパスにjson形式ファイルで保存されます。
-このファイルを使用することにより、同一Conductorの別のMovementでTerraformが出力した値を使用することができます。
--*ファイルパス**
-[Conductor作業ディレクトリパス]/[ConductorインスタンスID]/terraform_output_[作業No.].json
-Conductor作業ディレクトリパス・・・Ansible ITA独自変数のデータ連携のConductor作業ディレクトリパス
-ConductorインスタンスID・・・「」のconductorインスタンスID
--***********
-1. **実行状態表示**
-「実行種別」にはPlan確認の場合には「Plan確認」、Workspaceごとに構成・管理されたリソースの削除（「」から実行されます。）の場合は「リソース削除」、それ以外の場合には「通常」が入ります。
-ステータスが想定外エラーで終了した場合、「」の登録不備や、「」「」でのTerraformとの連携（登録）がされていない、あるいはその他のWebコンテンツの登録不備が原因であれば、エラーログにメッセージが表示されます。
-「呼出元Conductor」には、どのConductorから実行されたかを表示します。Terraform Cloud/EP driver から直接実行した場合は空欄になります。
-「Terraform利用情報」に表示される「RUN-ID」はTerraform側で管理する実行管理のIDで、内部機能によるTerraformとの連携処理の際に利用されます。
-※「実行種別」が「リソース削除」の場合は下記の項目が設定されません。
-   - 呼出元Conductor
-   - Movement
-   - オペレーション
-   - 投入データ
-1. **代入値確認**
-1. **緊急停止/予約取り消し**
-1. **実行ログ表示**
-1. **ログ検索**
-実行ログ、エラーログのリフレッシュ表示間隔と最大表示行数を、「」の「状態監視周期（単位ミリ秒）」と「進行状態表示行数」で設定できます。
-1. **投入データ**
-実行したModule素材、Policy素材および設定した代入値の一覧をjson形式で取得したファイルを格納したzip形式ファイルをダウンロードすることができます。
-- フォルダ名
-        - ファイル名
-        - 説明
-- ー
-        - | （投入したModule素材ファイル名）
-        - | 投入したModule素材ファイルがzipファイルの直下にすべて格納されます。
-- ー
-        - | （投入したPolicyファイル名）
-        - | 投入したModule素材ファイルがzipファイルの直下にすべて格納されます。
-- variables
-        - | variables.json
-        - | 設定した各代入値についての「変数名(key)」「具体値(value)」「HCL設定」「Sensitive設定」の設定値をjson形式で取得したファイルです。
-Sensitive設定がON(true)の場合は具体値にはnullが設定されます。
-1. **結果データ**
-- フォルダ名
-        - ファイル名
-        - 説明
-- ー
-        - | plan.log
-        - | 実行ログ(plan.log)出力された内容を記載したlogファイルです。
-- ー
-        - | policyCheck.log
-        - | 実行ログ(policyCheck.log)出力された内容を記載したlogファイルです。
-- ー
-        - | apply.log
-        - | 実行ログ(apply.log)出力された内容を記載したlogファイルです。
-- ー
-        - | error.log
-        - | エラーログ出力された内容を記載したlogファイルです。
-- ー
-        - | sv-XXXXXX.tfstate
-        - | Terraformが生成したstateファイルです。ファイル名はTerraformが作成するため、実行毎に異なります。
-作業管理
--*******
-1. Terraform Cloud/EP-->作業管理 では作業の履歴を閲覧できます。
--*項目**                          | **説明**                                                                  |
-「通常」「Plan確認」「パラメータシート確認」があります。                  |
-登録日時                          | 作業を登録した日時が表示されます。                                        |
-Movement        | ID              | MovementのIDが表示されます。                                              |
-名称            | Movementの名称が表示されます。                                            |
-遅延タイマー    | Movementに設定した遅延タイマーの値が表示されます。                        |
-Terraf\| Work\  | Movementに設定したTerraform WorkspaceのIDが表示されます。                 |
-Organi\| Movementに設定した（Terraform Organizationに紐づく）Terraform Workspace\  |
-RUN-ID | 連携先Terraformで管理されるRUNのIDが表示されます。                        |
-オペレーション  | No.             | オペレーションのNo.が表示されます。                                       |
-名称            | オペレーションの名称が表示されます。                                      |
-代入値管理
--*********
-1. Terraform Cloud/EP-->代入値管理 では、オペレーションに紐付くMovementで利用されるModule素材の変数に代入する具体値を閲覧できます。
--*項目**                          | **説明**                                                                  |
-オペレーション                    | 作業実行時に選択したオペレーションが表示されます。                        |
-Movement名                        | 作業実行時に選択したMovementが表示されます。                              |
-Movement名:変数名                 | 「\ |
-」で選択されたMovementにアタッチした変数名が表示されます。                |
-HCL設定                           | 「\ |
-」で選択されたHCL設定「False」または「True」が表示されます。              |
-また、「メンバー変数」「代入順序」を入力した階層構造となっている変数\     |
-「True」の場合、連携先Terraformに登録されるVariablesのHCL設定が有効\      |
-Movement名:変数名:メンバー変数    | 「\ |
-」で選択されたMovementにアタッチしたメンバー変数名が表示されます。        |
-」で選択されたMovementにアタッチした変数名およびメンバー変数に対する\     |
-具体値          | Sensitive設定   | 「True」または「False」が表示されます。                                   |
-「True」の場合、連携先Terraformに登録されるVariablesのSensitive設定が\    |
-値              | オペレーション/Movementで使用する変数の具体値が表示されます。             |
-連携先Terrraform管理
--*******************
-1. Terraform Cloud/EP-->連携先Terrraform管理 では「」に登録した情報をもとにTerraformへ接続し、Terraformに登録されているOrganizaiton/Workspace/Policy/ Policy setの一覧をそれぞれ表示できます。
-表示された一覧からITAに登録されている対象を、Terraformから削除することができます。
-Workspaceごとに構成・管理されたリソースの削除を実行することができます。
-※このページ上で行う操作について、ITA側の登録対象に影響はありません。
-1. 各一覧取得により表示される項目一覧は以下の通りです。
-   .. list-table:: 項目一覧（Organization登録管理）
-- 項目
-        - 説明
-- Organization Name
-        - Terraformに登録されているOrganizationの名前です。
-- Email address
-        - Organizationに登録されているEmail addressです。
-- ITAの登録状態
-        - 対象のOrganization Nameが「」に登録されている場合は「登録済み」と表示されます。登録されていない場合は「未登録」と表示されます。
-- 削除
-   .. list-table:: 項目一覧（Workspace登録管理）
-- 項目
-        - 説明
-- Organization Name
-        - 対象のWorkspaceと紐付いているOrganizationの名前です。
-- Workspace Name
-        - Terraformに登録されているWorkspaceの名前です。
-- ITAの登録状態
-        - 対象のOrganization Nameが「」に登録されている場合は「登録済み」と表示されます。登録されていない場合は「未登録」と表示されます。
-- リソース削除
-- 削除
-   .. list-table:: 項目一覧（Policy登録管理）
-- 項目
-        - 説明
-- Organization Name
-        - 対象のPolicyと紐付いているOrganizationの名前です。
-- Policy Name
-        - Terraformに登録されているPolicyの名前です。
-- ITAの登録状態
-        - 対象のPolicy Nameが「」に登録されている場合は「登録済み」と表示されます。登録されていない場合は「未登録」と表示されます。
-- Policy Codeをダウンロード
-- 削除
-    項目一覧（PolicySet登録管理）
--*項目**                          | **説明**                                                                  |
-ITAの登録状態   | 対象のPolicy Set NameとWorkspace Nameが「」に登録されている場合は「登録済み」と表示されます。\  |
-登録されていない場合は「未登録」と表示されます。                          |
-ITAの登録状態   | 対象のPolicy Set NameとPolicy Nameが「」に登録されている場合は「登録済み」と表示されます。\     |
-登録されていない場合は「未登録」と表示されます。                          |
-ITAの登録状態                     | 対象のPolicy Set Nameが「」に\    |
-登録されている場合は「登録済み」と表示されます。登録されていない場合は\   |
-「未登録」と表示されます。                                                |
+Terraform Cloud/EP:
+
+| No | メニュー・画面 | 説明 |
+|---|---|---|
+| 1 | インターフェース情報 | ITAと連携するTerraformの情報を管理します。 |
+| 2 | Organization管理 | Terraformで利用するOrganizationの情報を管理します。 |
+| 3 | Workspace管理 | Terraformで利用するWorkspaceの情報を管理します。 |
+| 4 | Movement一覧 | Movementの一覧を管理します。 |
+| 5 | Module素材集 | Moduleファイルを管理します。 |
+| 6 | Policy管理 | Policyファイルを管理します。 |
+| 7 | Policy set管理 | Policy SetはPolicyおよびWorkspaceと紐づけることで、作業実行時に対象のWorkspaceに対してPolicyを有効にします。 |
+| 8 | Policy set-Policy紐付 | Policy setとPolicyの紐付けを管理します。 |
+| 9 | Policy set-Workspace紐付 | Policy setとWorkspaceの紐付けを管理します。 |
+| 10 | Movement-Module紐付 | MovementとModule素材の関連付けを管理します。 |
+| 11 | 変数ネスト管理 | 変数タイプがlist/setかつ内部にlist/set/tuple/objectを含む場合、メンバー変数の最大繰返数を管理します。 |
+| 12 | 代入値自動登録設定 | パラメータシートの項目・値をMovementの変数に紐付けます。 |
+| 13 | 作業実行 | 実行するMovementとオペレーションを選択し実行を指示します。 |
+| 14 | 作業管理 | 作業実行履歴を管理します。 |
+| 15 | 作業状態確認 | 作業実行状態を表示します。 |
+| 16 | 代入値管理 | 変数の代入値を管理します。 |
+| 17 | 連携先Terraform管理 | 連携先Terraformに登録されているOrganization, Workspace, Policy, PolicySetの一覧表示・削除を行います。 |
+| 18〜21 | Module-変数紐付／メンバー変数管理／Movement-変数紐付／Movement-メンバー変数紐付（非表示メニュー） | 内部機能でデータの登録・更新を行うメニュー。表示するには「管理コンソール→ロール・メニュー紐付管理」で復活処理が必要。 |
+
+## 作業フロー
+
+1. 基本コンソールのオペレーション一覧に投入オペレーション名を登録。
+2. インターフェース情報（連携先TerraformのHostname/UserTokenなど）を設定。
+3. Organizationを登録し、Terraformと連携。
+4. Workspaceを登録し、Terraformと連携。
+5. Movementを登録。
+6. Module素材を登録。
+7. 必要に応じてPolicy／Policy set／Policy set-Policy紐付／Policy set-Workspace紐付を登録。
+8. MovementにModule素材を紐付ける。
+9. 必要に応じて変数ネスト管理で最大繰返数を設定。
+10. 必要に応じてパラメータシートを作成しデータを登録、代入値自動登録設定でMovementの変数と紐付ける。
+11. 作業実行画面でMovementと投入オペレーションを選択し実行。
+12. 作業状態確認でリアルタイムに状態・ログを監視。
+13. 作業管理で履歴を確認。
+
+## Policyの適用
+
+Policy機能の利用には、連携先TerraformがTerraform Enterprise、またはTerraform Cloudで「Policy & Security」機能が有効なプランである必要があります。適用手順:
+
+1. 登録したPolicyとPolicy setを「Policy set-Policy紐付」で紐付ける。
+2. 登録したWorkspaceとPolicy setを「Policy set-Workspace紐付」で紐付ける。
+3. 作業実行時、Movementに紐付いたWorkspaceに対しPolicy setとそれに紐付けられたPolicyが適用される。
+
+## インターフェース情報
+
+ITAと連携するTerraformの情報をメンテナンス（閲覧/更新）します。連携対象のHostnameと、TerraformのUserが発行したUser Tokenが必要です。未登録または複数レコード登録された状態で作業実行すると想定外エラーになります。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| 連携先Terraform Protocol | http/https（通常https） | 必須 |
+| 連携先Terraform Hostname | 連携先TerraformのHostname | 必須、最大256バイト |
+| 連携先Terraform Port | 通常空欄 | 最小1、最大65535 |
+| 連携先Terraform User Token | TerraformのUser Settingsより発行 | 最大1024バイト |
+| Proxy Address / Port | ITAがプロキシ環境下にある場合、Terraformまでの疎通に必要な場合設定 | - |
+| NULL連携 | 代入値自動登録設定でパラメータシートの具体値がNULLの場合の代入値管理への登録方法。代入値自動登録設定メニューの「NULL連携」が空白の場合に適用 | 必須 |
+| 状態監視周期（単位ミリ秒） | 作業状態確認でのログのリフレッシュ間隔。推奨1000ミリ秒程度 | 最小1000ミリ秒、必須 |
+| 進行状態表示桁数 | 進行ログ・エラーログの最大表示行数（未実行/準備中/実行中/実行中(遅延)時に適用。完了系ステータスでは全ログ出力）。推奨1000行程度 | 必須 |
+| 備考 | 自由記述 | 最大4000バイト |
+
+## Organization管理
+
+TerraformのOrganizationをメンテナンス（閲覧/登録/更新/廃止）し、ITAに登録したOrganizationをTerraformへ連携（登録/更新/削除）できます。「状態チェック」ボタンで連携状態を確認、カラムグループ「Terraform連携」の「登録」「更新」「削除」ボタンで各操作を実行します。Organizationが連携（登録）されていない状態で作業実行すると想定外エラーになります。Hostname/UserTokenの誤りがあると「Terraformとの接続に失敗しました。インターフェース情報を確認して下さい。」と表示されます。削除すると元に戻せず、配下のWorkspaceも削除されます。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| Organization名 | 半角英数字と`_-`のみ | 必須、最大40バイト |
+| Email address | OrganizationのEmail address | 必須、最大128バイト |
+| 備考 | 自由記述 | 最大4000バイト |
+
+## Workspace管理
+
+TerraformのWorkspaceをメンテナンス（閲覧/登録/更新/廃止）し、ITAに登録したWorkspaceをTerraformへ連携（登録/更新/削除）、リソース削除（terraform destroy）を実行できます。「リソース削除」ボタンで作業状態確認に遷移し実行されます。Workspaceを削除するとリソース削除は実行不可、削除は元に戻せません。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| Organization名 | 登録したOrganization名を選択 | 必須、最大40バイト |
+| Project名 | 空欄の場合「Default Project」に紐づく | 最大40バイト |
+| Workspace名 | 半角英数字と`_-`のみ | 必須、最大90バイト |
+| Terraform version | 空欄の場合、連携（登録）時に最新版が自動適用 | 必須、最大128バイト |
+| 備考 | 自由記述 | 最大4000バイト |
+
+## Movement一覧
+
+Movement名をメンテナンス（閲覧/登録/更新/廃止）します。MovementはOrganization:Workspaceと紐付ける必要があるため、先にOrganization・Workspaceの登録が必要です。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| Movement名 | 任意の名称 | 必須、最大256バイト |
+| オーケストレータ | 「Terraform Cloud/EP」が自動入力される | - |
+| 遅延タイマー | 指定期間（1分〜）遅延時に警告表示。未入力なら警告なし | 単位:分 |
+| Terraform利用情報（Organization:Workspace） | 登録した（Organizationに紐づく）Workspaceを選択 | 必須 |
+| 備考 | 自由記述 | 最大4000バイト |
+
+## Module素材集
+
+ユーザーが作成したModuleをメンテナンス（閲覧/登録/更新/廃止）します。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| Module素材名 | 任意の名称 | 必須、最大255バイト |
+| Module素材 | Module素材ファイルをアップロード | 必須、最大100MB |
+| 備考 | 自由記述 | 最大4000バイト |
+
+内部処理でModuleファイル内の変数を抜出しますが、リアルタイムではないため、代入値自動登録設定で変数が扱えるまで時間がかかる場合があります。
+
+## Policy管理
+
+Sentinel languageで記述したPolicyファイルをメンテナンス（閲覧/登録/更新/廃止）します。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| Policy名 | 半角英数字と`_-`のみ | 必須、最大255バイト |
+| Policy素材 | Policyファイルをアップロード | 必須、最大100MB |
+| 備考 | 自由記述 | 最大4000バイト |
+
+## Policy set管理
+
+Policy setをメンテナンス（閲覧/登録/更新/廃止）します。Policy set-Policy紐付・Policy set-Workspace紐付でPolicyおよびWorkspaceと紐付けることで、作業実行時にWorkspaceへPolicyを適用します。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| Policy set名 | 半角英数字と`_-`のみ | 必須、最大255バイト |
+| 備考 | 自由記述 | 最大4000バイト |
+
+## Policy set-Policy紐付 / Policy set-Workspace紐付
+
+それぞれ登録済みのPolicy setとPolicy、またはPolicy setとWorkspaceの紐付けをメンテナンス（閲覧/登録/更新/廃止）します。項目は「Policy set名」「Policy名（またはWorkspace名）」「備考」（いずれもリスト選択、必須）です。
+
+## Movement-Module紐付
+
+登録したMovementとModule素材の紐付けをメンテナンス（閲覧/登録/更新/廃止）します。Movement実行時に紐付けたModule素材が適用され、1つのMovementに複数のModule素材を紐付け可能です。
+
+## 変数ネスト管理
+
+Module素材集のtfファイルで定義された変数タイプがlist/setかつ、内部にlist/set/tuple/objectが定義されている場合、メンバー変数の最大繰返数を閲覧・更新します（内部機能がレコード管理するため登録・廃止・復活不可）。
+
+| 項目 | 説明 | 制約事項 |
+|---|---|---|
+| 変数名 / メンバー変数名（繰返し有） | Module素材で使用している変数（入力不可）。メンバー変数名は各階層を「.」で連結して表示 | - |
+| 最大繰返数 | 初期値はtfファイルのdefault値から取得（記載なしなら1）。最終更新者が「Terraform Cloud/EP変数更新機能」以外の場合、Module素材更新で値は変更されない。上限は管理コンソールの識別ID「MAXIMUM_ITERATION_TERRAFORM-CLOUD-EP」で1〜1024の範囲で変更可能。 | 必須、1〜1024（設定により変動） |
+| 備考 | 自由記述 | 最大4000バイト |
+
+初期登録・繰返数更新もリアルタイムではないため、代入値自動登録設定で変数が扱えるまで時間がかかる場合があります。
+
+## 代入値自動登録設定
+
+パラメータシート（オペレーションあり）とMovementの変数を紐付けます。登録情報は作業実行時に「代入値管理」に反映されます。
+
+| 項目 | 説明 | 必須 |
+|---|---|---|
+| パラメータシート(From) メニュー:項目 | パラメータシート（オペレーションあり）の項目を選択 | 〇 |
+| パラメータシート(From) 代入順序 | バンドル有効時、パラメータシートの代入順序を入力 | バンドル有効時のみ |
+| 登録方式 | Value型（設定値を具体値とする）／Key型（項目名称を具体値とする） | 〇 |
+| Movement名 | 登録したMovement | 〇 |
+| IaC変数(To) Movement名:変数名 | 紐付けたい変数を選択 | 〇 |
+| IaC変数(To) HCL設定 | True/False。Trueにすると変数タイプを考慮せず入力値を1:1で設定可能（メンバー変数・代入順序は入力不可）。map型はTrueでのみ登録可能。他レコードでオペレーション・Movement・変数名一致時はHCL設定値の統一が必要。 | 〇 |
+| IaC変数(To) Movement名:変数名:メンバー変数 | メンバー変数を選択（object/tuple型で必須、HCL設定Falseの場合） | 条件付き必須 |
+| IaC変数(To) 代入順序 | list/set型で複数具体値を設定する場合の代入順序（1〜） | 条件付き必須 |
+| NULL連携 | 空白の場合はインターフェース情報の設定値が適用される | - |
+| 備考 | 自由記述 | 最大4000バイト |
+
+メンバー変数を設定する場合、同じ変数内の他のメンバー変数の具体値もすべて設定する必要があります（未設定分にデフォルト値は使用されません）。
+
+## 作業実行
+
+Movementとオペレーションをそれぞれ選択し「作業実行」ボタンで作業状態確認に遷移し実行されます。
+
+- **予約日時**: 未来日時を指定すると実行・Plan確認を予約可能。
+- **実行**: Terraform Plan完了後にTerraform Applyが自動実行される。
+- **Plan確認**: Terraform Planのみ実行し、Applyは実行しない。
+- **パラメータ確認**: 投入パラメータの値のみ確認（Plan/Applyは実行しない）。
+
+Outputブロックを含むModule素材をConductorから実行した場合、出力内容が `[Conductor作業ディレクトリパス]/[ConductorインスタンスID]/terraform_output_[作業No.].json` に保存され、同一Conductorの別Movementで参照できます。
+
+## 作業状態確認
+
+作業の実行状態を監視します。「実行種別」はPlan確認/リソース削除/通常のいずれか。想定外エラーの場合、インターフェース情報やOrganization/Workspaceの連携（登録）不備等が原因であればエラーログに表示、それ以外はアプリケーションログを確認します。「呼出元Conductor」はConductor経由実行時のみ設定。「Terraform利用情報」の「RUN-ID」はTerraform側の実行管理IDです（リソース削除時は呼出元Conductor・Movement・オペレーション・投入データが設定されない）。
+
+- 実行ログ種別: plan.log（Terraform Plan）、policyCheck.log（Policy Check）、apply.log（Terraform Apply）
+- ログはフィルタリング可能。表示間隔・最大行数はインターフェース情報の設定に従う。
+- 「投入データ」はModule素材・Policy素材と`variables.json`（変数名/具体値/HCL設定/Sensitive設定。Sensitive設定ONの場合具体値はnull）をzip形式でダウンロード可能。
+- 「結果データ」はplan.log/policyCheck.log/apply.log/error.logと暗号化された`sv-XXXXXX.tfstate`（ファイル名は実行毎に異なる）をzip形式でダウンロード可能。
+- 「緊急停止」ボタンで停止、予約実行前なら「予約取消」ボタンで取消可能。
+
+## 作業管理
+
+作業実行履歴を一覧表示し、フィルタ検索できます。項目: 作業No.（36桁自動採番）、実行種別（通常/Plan確認/パラメータシート確認）、ステータス（未実行/未実行(予約)/準備中/実行中/実行中(遅延)/完了/完了(異常)/想定外エラー/緊急停止/予約取り消し）、実行ユーザ、登録日時、Movement（ID/名称/遅延タイマー/Terraform利用情報のWorkspace ID・Organization:Workspace名・RUN-ID）、オペレーション（No./名称）、投入データ・結果データ（zipダウンロード）、作業状況（予約日時/開始日時/終了日時）、備考。
+
+## 代入値管理
+
+オペレーションに紐付くMovementで利用されるModule素材の変数の具体値を閲覧します。項目: 作業No.、オペレーション、Movement名、Movement名:変数名、HCL設定（Trueの場合、連携先TerraformのVariablesのHCL設定が有効）、Movement名:変数名:メンバー変数、代入順序、具体値（Sensitive設定True/False、Trueの場合連携先TerraformのVariablesのSensitive設定が有効、値）、備考。
+
+## 連携先Terraform管理
+
+インターフェース情報の設定をもとにTerraformへ接続し、Terraformに登録されているOrganization/Workspace/Policy/Policy setの一覧を表示します。表示された一覧からITAに登録されている対象をTerraformから削除でき、Workspaceごとのリソース削除、Policy setに紐付いたWorkspace・Policyの紐付け解除も可能です。ここでの操作はITA側の登録対象に影響しません。
+
+各一覧の「ITAの登録状態」列は、対応するITAメニュー（Organization管理／Workspace管理／Policy管理／Policy set管理・紐付メニュー）に登録済みかどうかを「登録済み」「未登録」で表示します。「削除」操作は元に戻せず、Workspaceの「リソース削除」も元に戻せません。

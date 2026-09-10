@@ -1,258 +1,87 @@
-# About API access (authentication)
-For the endpoints, parameters, and details of the API you intend to use, please refer to the「」and「」for each user.
-   - The language information from the last login is referenced.
-   - Since settings have not been configured after the first login, an authentication error will occur.
-# Examples of executing the registration/edit API and related APIs
-Below are examples of executing the registration/edit API and related APIs.
-- -  
-How to check the menu name used in the API endpoint
-   - Check the record of the relevant menu from「Admin Console --> Menu Management」and use the value of「Menu Name (rest)」.
-Supplementary information on JSON data and FORM data used in parameters
-Format and specification method when specifying parameters
-Please respond appropriately according to the content type, the parameter specification method, the curl execution environment, etc.
-    - Save the JSON data as a JSON file and specify the JSON file as the parameter
-    - If a single quote「'」cannot be used in the JSON data, change the notation to use double quotes「"」instead, and escape any double quotes used internally
-    - Change the trailing「\\」and「^」to whatever is appropriate for your environment
-For details on how to specify parameters depending on the content type, refer to「」below.
-       -H "Authorization: Basic dXNlcl9pZDpwYXNzd29yZA==" \
-       -H "Content-Type: application/json" \
-       --data-raw [ { \"file\": { \"playbook_file\": \"LSBuYW1lOiBydW4gImVjaG8iCiAgY29tbWFuZDogZWNobyB7eyBWQVJfU1RSXzEgfX0=\" }, \"parameter\": { \"discard\": \"0\", \"item_no\": null, \"playbook_name\": \"echo\", \"playbook_file\": \"echo.yml\", \"remarks\": null, \"last_update_date_time\": null, \"last_updated_user\": null }, \"type\": \"Register\" } ]
-       -H "Authorization: Basic dXNlcl9pZDpwYXNzd29yZA==" \
-       -H "Content-Type: application/json" \
-       -d @playbook_files_sample.json
-       -H "Authorization: Basic dXNlcl9pZDpwYXNzd29yZA==" \
-       -F "json_parameters=[{\"parameter\":{\"discard\":\"0\",\"item_no\":null,\"playbook_name\":\"echo\",\"playbook_file\":\"echo.yml\",\"remarks\":null,\"last_update_date_time\":null,\"last_updated_user\":null},\"type\":\"Register\"}] " \
-       -F "0.playbook_file=@echo.yml"
+# Record Operations and Parameter Application via the ITA REST API
 
-## List retrieval (Menu Filter: retrieving records)
-    BASE64_BASIC=$(echo -n "Set your username:Set your password" | base64)
-      -H "Authorization: Basic ${BASE64_BASIC}" \
-      -H "Authorization: Basic ${BASE64_BASIC}" \
-      -H "Content-Type: application/json" \
-      --data-raw "{\"discard\":{\"LIST\":[\"0\"]}}"
-The search methods available for specifying conditions are described below.
-- **Option**
-       - **Description**
-       - **Setting example**
-       - **Constraints**
-- NORMAL
-       - | Performs a fuzzy search.
-       - {"target key":{"NORMAL":"search condition"}}
-       -
-- LIST
-       - | Performs an exact match search.
-       - {"target key":{"LIST":["search condition"]}}
-       -
-- RANGE
-       - | Performs a search using a range specification.
-       - {"target key":{"RANGE":{"START":"search condition","END":"search condition"}}}
-       -
-Example of search parameters with specified conditions for the device list:
-  - Not including discarded records
-  - Host name contains "host"
-  - Last update date/time is between "2023/01/01 00:00:00" and "2023/12/31 00:00:00"
-   - | Refers to the logical deletion status of a record.
-   - | The discard value of each record indicates the logical deletion status of that record.
-- "0": Valid record
-- "1": Discarded record
-   - Records in a discarded state are not included in validation.
-   - File data is output as a base64-encoded string. Please base64-decode it as needed for use.
-   - Some items, such as passwords, are stored in encrypted form.
-   - Values output by the list retrieval API will be null, and the registered values will not be output.
-※For items stored in encrypted form, please refer to the manual for each menu.
+## About API access (authentication)
 
-## Registration/edit (Menu Maintenance: bulk operation of All records)
-The following Content-Types can be selected as the parameter specification method for the registration/edit API.
-- application/json format
-  - Parameters are sent as JSON data.
-  - File data is written within the parameters as a base64 string and sent.
-- multipart/form-data format
-  - Parameters and files are sent as form data.
-  - The key for the file's form data is constructed by connecting the index of the parameter's JSON data and the target key with a ".".
-The following samples use Basic authentication to call the record operation APIs for「Ansible Common --> Device List」and「Ansible-Legacy --> Playbook Material Collection」.
-- About validation during registration/edit
-   - For validation of each item, please refer to the manual for each menu.
+For endpoint and parameter details of each API, refer to the user manuals (for operators / for system managers). To use Bearer authentication, the authentication method must be changed first. The language used when executing an API is taken from the language setting at the last login. If a newly created user uses Basic authentication before completing the initial post-login setup, an authentication error (`401-00002`) occurs.
 
-### Differences in parameter structure by Content-Type
-The following explains the parameter structure for each Content-Type.
-For how to obtain and check the target keys used in parameters, refer to「」.
-- Content-Type: application/json
-- Content-Type: multipart/form-data
-Examples of parameters for registration and update are described below.
-- Sample registration for「Ansible-Legacy --> Playbook Material Collection」
-- Sample update for「Ansible-Legacy --> Playbook Material Collection」
-   - For last_update_date_time, use the value of the latest corresponding record obtained via FILTER.
-   - If it does not match the latest value, the record will not be updated.
-   - | How to register/update a file
-Specify the value to register or update in the designated key under parameter and file.
-   - | How to change a file name
-   - | How to delete a file
-   - | How to register/update a file
-Specify the value to register or update in the designated key under parameter.
-   - | How to change a file name
-   - | How to delete a file
-   - Change only the value of the target item to be changed under parameter, and update without specifying a file under file or via -F and without including the key of the target item.
-   - For pulldown items, refer to the information obtainable via「 」for the target and available values.
+## Listing records (Menu Filter: retrieving records)
 
-### Ansible Common - Device List
-   BASE64_BASIC=$(echo -n "Set your username:Set your password" | base64)
-     -H "Authorization: Basic ${BASE64_BASIC}" \
-     -H "Content-Type: application/json" \
-     --data-raw "[{ \"file\": {\"ssh_private_key_file\": \"\", \"server_certificate\": \"\"}, \"parameter\": { \"authentication_method\": \"Password authentication\", \"connection_options\": null, \"connection_type\": \"machine\", \"discard\": \"0\", \"host_dns_name\": null, \"host_name\": \"exastro-test\", \"hw_device_type\": null, \"instance_group_name\": null, \"inventory_file_additional_option\": null, \"ip_address\": \"127.0.0.1\", \"lang\": \"utf-8\", \"login_password\": \"password\", \"login_user\": \"root\", \"os_type\": null, \"passphrase\": null, \"port_no\": null, \"protocol\": \"ssh\", \"remarks\": null, \"server_certificate\": null, \"ssh_private_key_file\": null }} ]"
-     -H "Authorization: Basic ${BASE64_BASIC}" \
-     -F 'json_parameters="[ { "parameter": { "discard": "0", "managed_system_item_number": null, "hw_device_type": null, "host_name": "exastro-test", "host_dns_name": null, "ip_address": "127.0.0.1", "login_user": "root", "login_password": "asdfghjkl", "ssh_private_key_file": "ssh_key_file.pem", "authentication_method": "Password authentication","port_no": null, "server_certificate": "certificate_file.crt", "protocol": "ssh", "os_type": null, "lang": "utf-8", "connection_options": null, "inventory_file_additional_option": null, "instance_group_name": null,"connection_type": "machine", "remarks": null,"last_update_date_time": null, "last_updated_user": null}, "type": "Register" }]"' \
-     -F '0.ssh_private_key_file=@/ssh_key_file.pem' \
-     -F '0.server_certificate=@/certificate_file.crt' \
+Send `POST /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/filter/` with Basic/Bearer authentication and search conditions to retrieve records (GET can also be used to retrieve all records).
 
-### Ansible-Legacy - Playbook Material Collection
-   BASE64_BASIC=$(echo -n "Set your username:Set your password" | base64)
-     -H "Authorization: Basic ${BASE64_BASIC}" \
-     -H "Content-Type: application/json" \
-     --data-raw "[{\"file\":{\"playbook_file\":\"LSBuYW1lOiBydW4gImVjaG8iCiAgY29tbWFuZDogZWNobyB7eyBWQVJfU1RSXzEgfX0=\"},\"parameter\":{\"discard\":\"0\",\"item_no\":null,\"playbook_name\":\"echo\",\"playbook_file\":\"echo.yml\",\"remarks\":null,\"last_update_date_time\":null,\"last_updated_user\":null},\"type\":\"Register\"}]"
-    -H "Authorization: Basic ${BASE64_BASIC}" \
-    -F "json_parameters=[{\"parameter\":{\"discard\":\"0\",\"item_no\":null,\"playbook_name\":\"echo\",\"playbook_file\":\"echo.yml\",\"remarks\":null,\"last_update_date_time\":null,\"last_updated_user\":null},\"type\":\"Register\"}] " \
-    -F "0.playbook_file=@echo.yml"
+Search options for specifying conditions:
 
-## API parameter-related information (Menu Info: retrieving menu information)
-About creating parameters for bulk record operations
-For the structure of parameters and items for bulk record operations, refer to the following.
-- -  
+| Option | Description | Example |
+|---|---|---|
+| NORMAL | Fuzzy match (records containing the specified term) | `{"key":{"NORMAL":"condition"}}` |
+| LIST | Exact match | `{"key":{"LIST":["condition"]}}` |
+| RANGE | Range search (START only = greater than or equal, END only = less than or equal) | `{"key":{"RANGE":{"START":"..","END":".."}}}` |
 
-### Menu information
-You can retrieve the menu's configuration information, column groups, and setting values for the columns used in.
-- | /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/
-     MENU="target menu"
-     BASE64_BASIC=$(echo -n "Set your username:Set your password" | base64)
-       -H "Authorization: Basic ${BASE64_BASIC}" \
-                     "column_name_rest": "", # Item name specified in the API parameter
-About menu item information and setting values related to bulk record operation parameters
-Keys and setting values of the item information (column_info) returned by the menu information retrieval API
-    .. list-table:: Keys and setting values of menu item information
-- **Key**
-         - **Description**
-         - **Setting value**
-- column_name
-         - String
-- column_name_rest
-         - Item name specified in the API parameter
-         - String
-- auto_input
-         - | Auto-input flag
-         - | "0": Not applicable
-- input_item
-         - | Input target flag
-Input target item when executing the registration/edit API
-         - | "0": Not applicable
-- view_item
-         - | Output target flag
-         - | "0": Not applicable
-- required_item
-         - | Required input flag
-Required input item when executing the registration/edit API
-         - | "0": Not applicable
-- unique_item
-         - | Unique constraint flag
-Unique constraint target item when executing the registration/edit API
-         - | "0": Not applicable
-※For validation, please refer to the manual for each menu.
+The `discard` value on a record indicates its logical-deletion state (`"0"` = active, `"1"` = discarded; discarded records are excluded from validation). File data is output as a base64-encoded string. Encrypted items such as passwords are always output as `null` from the listing API (the stored value is never returned).
 
-### Parameter item information
-You can retrieve the parameter information used in.
-If you want to check more detailed settings, also refer to.
-- | /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/column/
-     MENU="target menu"
-     BASE64_BASIC=$(echo -n "Set your username:Set your password" | base64)
-       -H "Authorization: Basic ${BASE64_BASIC}" \
-  - | Example: Response for "Playbook Material Collection"
-             "playbook_file": "Playbook material",
-             "playbook_name": "Playbook material name",
+## Registering and editing (Menu MaintenanceAll: batch record operations)
 
-### List of available values for pulldown items
-- | /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/pulldown/
-     MENU="target menu"
-     BASE64_BASIC=$(echo -n "Set your username:Set your password" | base64)
-       -H "Authorization: Basic ${BASE64_BASIC}" \
-  - | Example: Response for "Device List"
-# Parameter Apply (API)
-This API performs everything from operation generation to parameter application, and executes the Conductor work. It does not, however, confirm the completion of the Conductor work execution. Please check completion from Conductor --> Conductor Work History.
+Use `POST /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/maintenance/all/` to register or edit records. The way parameters are specified depends on the Content-Type.
 
-## Request format
-- Item
-     - Description
-- API category
-     - Apply
-- API name
-     - Parameter Apply
-- URL
-     - /api/{organizaiton_id}/workspaces/{workspace_id}/ita/apply/
-- method
-     - POST
-- headers
-     - | content-type: application/json
-- Request body
-     - | Please refer to Request body.
+- **application/json format**: Send parameters as JSON; file data is specified as a base64 string under `file`.
+- **multipart/form-data format**: Send parameters as form data; the form-data key for a file is "JSON array index + `.` + target key" (e.g. `0.playbook_file=@echo.yml`).
 
-## Request body
-conductor_class_name                   | Conductor name            | ○    | String           | | Specify the Conductor name requesting the work execution.                                                                                 |
-|                  | | For Conductor name, specify a Conductor name registered in Conductor --> Conductor List.|
-|                  | | An error occurs if you specify a Conductor name that is not registered in Conductor --> Conductor List.              |
-operation_name                         | Operation name       |      | String           | | Specify the operation name for the work to be executed.                                                                                |
-|                  | + | Existing operation                                                                                                        |
-|                  |   | Specify an operation name registered in Basic Console --> Operation List.|
-|                  | + | New operation                                                                                                        |
-|                  |   | An operation name not registered in Basic Console --> Operation List \           |
-|                  |   | The specified operation_name will be registered in Basic Console --> Operation List.                      |
-|                  | + | Automatic operation numbering                                                                                                    |
-|                  |   | If operation_name is not specified or is omitted, an operation name is assigned using the following numbering rule and\            |
-|                  |     registered in Basic Console --> Operation List.                                                 |
-schedule_date                          | Scheduled date/time               |      | String           | | Specify the scheduled date/time for the Conductor work execution in yyyy/mm/dd hh:mi:ss format.                                                            |
-parameter_info                         | Parameter information         |      | Array             | | Specify the parameter information for performing register/update/discard/restore operations.                                                                 |
-|                  | | If multiple menus are targeted and order needs to be considered, adjust using the order of the array.                                          |
-|                  | | Omit this if you are only executing the Conductor work.                                                                           |
-※1             | (menu_name_rest)      | Menu name (REST)       |      | Array             | | Specify the Menu Name (Rest) from Admin Console --> Menu Management.                      |
-|                        |      |                  | | For registration: Register                                                                                                       |
-parameter    | Parameter             |      | Dictionary             | | Specify the combination of column keys and values for the target menu.                                                                      |
-|                        |      |                  | | If "New operation" or "Automatic operation numbering" is specified for operation_name, the value corresponding to the operation name\               |
-|                        |      |                  | | Also, if a Conductor name that includes a Conductor call function (hereinafter referred to as a sub-Conductor) is specified for conductor_class_name\    |
-|                        |      |                  |   and it is necessary to explicitly specify an individual operation of the sub-Conductor, specify the corresponding operation name.                 |
+Common parameter structure: each element of the array consists of `file` (base64-encoded string of the uploaded file, keyed by column), `parameter` (column keys and values of the target menu), and `type` (`Register`/`Update`/`Discard`/`Restore`). The same validation rules that apply to screen operations also apply when using the API.
 
-## Specific examples of Request body
+**Note when updating a record**: `last_update_date_time` must be set to the latest value obtained from a FILTER retrieval; if it does not match, the update is not applied.
 
-### Conductor work execution using registered parameters with an existing operation
+**File operations (application/json)**: for register/update, specify the value under the target key in parameter/file. Even when only renaming a file, the file must still be specified under `file` (omitting it excludes that file from the update). To delete a file, set the target key under `parameter` to `""` or `null` (note that `"null"` as a string is treated as a literal file name, not a deletion).
 
-### Conductor scheduled execution using registered parameters with an existing operation
+**File operations (multipart/form-data)**: specify the file name under `parameter`, and pass the file body with `-F` using "index.key". Even when only renaming a file, the file path must still be specified. To delete, set the key under `parameter` to `""` or `null`.
 
-### Conductor work execution with parameter application on an existing operation
-About specifying the operation "operation_name_select"
-For an existing operation, the value to set for the operation "operation_name_select" is specified as "Scheduled Date" (YYYY/MM/DD hh:mm)_"Operation Name" of the relevant operation.
+To update only some items without changing files or other items, include only the target item's key in `parameter` and omit `file` entirely. Selectable values for pulldown items can be checked via the "Pulldown Item Information" API.
 
-### Conductor work execution with parameter application on a new operation
-About specifying the operation "operation_name_select"
-For a new operation, specifying the operation "operation_name_select" is not required.
+## API parameter reference information (Menu Info)
 
-### Conductor scheduled execution with parameter application using automatic operation numbering
-About specifying the operation "operation_name_select"
-For automatic operation numbering, specifying the operation "operation_name_select" is not required.
+- `GET /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/`: retrieves menu configuration information (column_group_info, column_info, custom_menu, menu_info). Main keys under column_info: `column_name` (display name), `column_name_rest` (API parameter name), `auto_input` (auto-input flag, 0/1), `input_item` (input-target flag, 0 = not applicable/1 = applicable/2 = hidden), `view_item` (output-target flag, 0/1), `required_item` (required flag, 0/1), `unique_item` (unique-constraint flag, 0/1).
+- `GET /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/column/`: retrieves parameter item information (mapping between the item name (rest) and the display name).
+- `GET /api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/pulldown/`: retrieves the list of selectable values for pulldown items (e.g. `authentication_method`, `connection_type`, `hw_device_type`, `lang`, `protocol`, etc. in the device list).
 
-### Conductor work execution with parameter application for multiple records across multiple menus
+## Parameter Application API (Apply)
 
-### Conductor work execution with parameter application by explicitly specifying an individual operation of a sub-Conductor
+An API that generates an operation, applies parameters, and executes the Conductor work (completion must be checked via the Conductor work history — this API does not check for completion).
 
-## response body
-     Example of an error occurring due to an invalid character count in the value specified for key: column_1 of the 1st record (0-origin) of menu name (REST): sample_menu_001 specified in the Request body
-             "1": {                                                                                    The record number of the menu name (REST) is displayed starting from 0.
-                "column_1": [ "Character length error (threshold: value<=8byte, value: 30byte), menu : sample_menu_001"]  Key: REST name of the item that caused the error, Value: error content, menu: menu name (REST) that caused the error
+- URL: `POST /api/{organization_id}/workspaces/{workspace_id}/ita/apply/`
+- headers: `content-type: application/json`, `Authorization: Basic or Bearer authentication`
 
-## Points to note
-This API can apply parameters to menus that are updatable in ITA.
+### Request body
 
-### Applying parameters to a host group
-When parameters are applied to "Host Group Management", the Conductor work execution is performed in a state where host analysis for the specified host group has not been processed.
-For applying parameters to "Host Group Management", please register in advance using the record operation API below.
+| Key | Item | Required | Type | Description |
+|---|---|---|---|---|
+| conductor_class_name | Conductor name | Yes | String | Name of a Conductor already registered in the Conductor list. An error occurs if it is not registered. |
+| operation_name | Operation name | - | String | Specify an existing operation name, or a new operation is registered under this name if it does not exist. If omitted, a name is auto-generated in the form `yyyymmddhhmissffffffN`. |
+| schedule_date | Scheduled date/time | - | String | Format `yyyy/mm/dd hh:mi:ss`. If omitted, executed immediately. |
+| parameter_info | Parameter information | - | Array | Parameter information for register/update/discard/restore. If there are multiple menus and order matters, adjust via the array order. Can be omitted if only Conductor execution is needed. |
+| parameter_info[].(menu_name_rest) | Menu name (REST) | - | Array | Specify the "Menu Name (Rest)" shown in Menu Management in the Management Console. |
+| ...[].type | Record operation type | - | String | `Register`/`Update`/`Discard`/`Restore` |
+| ...[].file | Uploaded file | - | Dict | Combination of column key and base64-encoded string |
+| ...[].parameter | Parameter | - | Dict | Combination of the target menu's column keys and values. For a new or auto-numbered operation, the key corresponding to the operation name is not needed. To explicitly target an individual operation of a sub-Conductor, specify that operation's name. |
 
-### Applying parameters to menus subject to variable extraction
-When parameters are applied to a menu subject to variable extraction, the Conductor work execution is performed in a state where the variables used within the specified parameters have not been extracted.
-For applying parameters to menus subject to variable extraction, please register in advance using the record operation API below.
-For menus subject to variable extraction, see「 -> 」\
+The structure from `(menu_name_rest)` down to `parameter` is identical to the "Menu MaintenanceAll" API.
 
-### Rollback on error
+### Request body examples
+
+Execute using only parameters already registered on an existing operation:
+```json
+{"conductor_class_name": "sample_conductor", "operation_name": "sample_operation"}
+```
+
+For a scheduled execution, add `schedule_date`. When applying parameters to an existing operation, specify `operation_name_select` (the existing operation's "Scheduled Date (YYYY/MM/DD hh:mm)" + "Operation Name") inside `parameter`. For a new or auto-numbered operation, `operation_name_select` is not needed.
+
+When applying parameters across multiple menus/records, or when explicitly targeting individual operations of a sub-Conductor (Conductor call function), list multiple menus/records inside the `parameter_info` array (each record can specify `operation_name_select` to target an individual sub-Conductor operation).
+
+### Response body
+
+On success: `{"data": {"conductor_instance_id": "assigned ID"}, "message": "SUCCESS", "result": "000-00000", "ts": "processing timestamp"}`
+
+On failure: `{"message": "error message", "result": "error code", "ts": "processing timestamp"}` (example validation error: `{"message": {"1": {"column_1": ["Character length error (threshold: value<=8byte, value: 30byte), menu: sample_menu_001"]}}, "result": "499-00201", "ts": "timestamp"}`. The key in the message is the record number within the menu (0-origin).
+
+### Notes
+
+- **Applying parameters to Host Group Management**: because Conductor executes before host resolution completes, records must first be registered via "Menu MaintenanceAll" or "Menu Maintenance".
+- **Applying parameters to variable-extraction target menus**: because Conductor executes before variable extraction completes, records must similarly be pre-registered (see the Terraform driver common / Ansible driver common documentation for variable-extraction target menus).
+- **Rollback on error**: since this API performs DB updates within a transaction, if the update fails due to an incomplete request body or other issue, all updates within the transaction are rolled back.

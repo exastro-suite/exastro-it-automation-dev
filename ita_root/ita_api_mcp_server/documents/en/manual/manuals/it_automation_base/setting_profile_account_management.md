@@ -1,13 +1,7 @@
-## Account Management
-In Account Management, you can edit your own account, change your password, configure two-factor authentication, and issue tokens.
-1. You can access Account Management by selecting the login user's icon and then selecting Account Management from the menu that is displayed.
-While using Exastro IT Automation, Menu - Account Management is not displayed
+# Account Management
 
-### Editing an Account
-1. From Account editing (Personal info), you can change your email, first name, last name, organization, and description.
+Account Management (accessed from the logged-in user's icon menu) lets you edit your own account, change your password, configure two-factor authentication, and issue tokens. This menu is not displayed while using Exastro IT Automation.
 
-### Changing Password
-1. From [Update], you can change your own password.
-
-### Two-Factor Authentication Settings
-1. From [Set up Authenticator application], you can enter your password to log in and then configure two-factor authentication.
+- **Edit Account**: You can change your email, first name, last name, organization, and description. The username cannot be changed.
+- **Change Password**: You can change your own password from [Account security] > [Signing in] > [Basic authentication].
+- **Two-Factor Authentication Settings**: You can set up two-factor authentication using an authenticator app from [Account security] > [Signing in] > [Two-factor authentication].

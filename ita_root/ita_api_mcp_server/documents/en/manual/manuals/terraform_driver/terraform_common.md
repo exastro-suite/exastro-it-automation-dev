@@ -1,252 +1,46 @@
-# Terraform driver Common
-# Introduction
-This document describes the functions common to "" "" (hereafter, Terraform driver).
-# Overview
+# Terraform Driver Common Features (Variable Handling and Construction Code)
 
-## About Terraform
-Also, with Terraform Cloud and Terraform Enterprise, it is possible to manage access policies as code using Policy as Code.
+## Overview
 
-## About Terraform driver
-Terraform driver, as a function of ITA, can execute Terraform and retrieve execution logs.
-The Module files used to execute work (Plan/Apply) and the Policy files used to perform PolicyCheck can be modularized and managed for reuse on ITA.
--  | **Terraform Cloud/EP driver**
-For the Terraform Cloud or Terraform Enterprise registered in ITA, you can create Organizations, create Workspaces, execute work (Plan/PolicyCheck/Apply), and retrieve work logs.
-For details on the operation method, refer to "".
--  | **Terraform CLI driver**
-For details on the operation method, refer to "".
-# Handling Variables
+Terraform is an infrastructure orchestration tool provided by HashiCorp. It generates an execution plan for infrastructure configuration coded in HCL (HashiCorp Configuration Language) and carries out the build. Terraform Cloud and Terraform Enterprise also support access policy management via Policy as Code.
 
-## Types of Variables
-※For details on the setting method, refer to " -> " " -> ".
-Targets defined in a Variable block within a Module file can be treated as variables.
-Normal variable | A variable for which a concrete value can be defined for the variable name.               |
-Variables within a Module must be described according to the variable rules of HCL (HashiCorp Configuration Language)\|
-In this case, "xxx" is extracted from the Module as a variable.      |
-Also, type and default values can be set.          |
-Setting type and default is not mandatory.                |
+As an ITA feature, the Terraform driver executes operations against Terraform and retrieves execution logs. Module files used for work execution (Plan/Apply) and Policy files used for PolicyCheck can be managed as modular, reusable parts within ITA. Variables within a Module can also be configured from the screen.
 
-## Variable Extraction and Concrete Value Registration
-Variables can be extracted from Module materials uploaded to ITA, and concrete values can be registered for them.
-The concrete values of extracted variables are registered by linking them with a parameter sheet at " -> " " -> ".
-In Terraform Cloud/EP driver, the registered variables and concrete values are registered, at work execution time, in the Variables managed by the Workspace of the linked Terraform, with the "variable name" as "Key" and the "concrete value" as "Value".
-In Terraform CLI driver, the registered variables and concrete values are written, at work execution time, into the generated terraform.tfvars file with the "variable name" as "Key" and the "concrete value" as "Value", and are used during work execution.
+There are two types of Terraform driver:
 
-## About Variable Types
-A type can be set within a variable.
-Variables within a Module must be described according to the variable rules of HCL (HashiCorp Configuration Language).
-The variables handled within ITA are as follows.
-.. list-table:: Variable types
-- type
-     - Details
-     - | Member variable target
-     - | Assignment order target
-     - Example of type description
-     - Example of default description
-- string
-     - String type.
-     - x
-     - x
-     - string
-     - abc
-- number
-     - Number type.
-     - x
-     - x
-     - number
-     - 123
-- bool
-     - Boolean type (true or false).
-     - x
-     - x
-     - bool
-     - true
-- list
-     - Array type.
-     - x
-     - o
-     - list(string)
-     - ["a", "b", "c"]
-- set
-     - | Array type. Requires unique values to be set.
-     - x
-     - o
-     - set(number)
-     - [1, 2, 3]
-- tuple
-     - | Array type. The type to be set for the nth position must be decided in advance.
-Because the number of input values is fixed, on the IT System A it is selected as a member variable from a pulldown.
-     - o
-     - x
-     - tuple([string, number])
-     - ["abc", 2023]
-- map
-     - | Key-value (associative array) type. On ITA, when a type is set that includes one or more map types, the key value cannot be identified from the type information, so HCL setting must be turned ON when performing automatic assignment value registration setting.
-For details on HCL setting, refer to "".
-     - x
-     - x
-     - map(string)
-     - {"test_key" = "test_value"}
-- object
-     - | Key-value (associative array) type. On ITA, the key name is treated as a member variable. Do not include Japanese characters in the key name.
-     - o
-     - x
-     - object({test_key = string})
-     - {"test_key" = "test_value"}
-- any
-     - A type that matches anything, but on ITA it is treated the same as the string type.
-     - x
-     - x
-     - any
-     - abc
-- Not specified
-     - If type is not specified, it is treated the same as the string type on ITA.
-     - x
-     - x
-     -
-     - abc
--  | **※1 ... Member variable target**
-This is the key name when the variable is of key-value type.
-If the variable type is object, the <KEY> of <KEY> = <TYPE> becomes the member variable.
-If the variable type is tuple, the variables defined within the tuple are numbered from the beginning as [0],[1],[2]... and become member variables.
-If the variable type is a target registered in the Variable Nesting Management menu, they are numbered as [0],[1],[2]... based on the maximum iteration count and become member variables.
-For details on variable nesting, refer to " -> " " -> ".
-      - | **Example: When the variable type is object**
-1. tf file and registered value
-1. Example assignment value (Automatic Assignment Value Registration Setting)
-- No.
-              - Variable name
-              - Member variable
-              - Assignment order
-              - Parameter sheet input value
-- 1
-              -  VAR_hoge
-              -  NAME
-              -  Not enterable
-              -  my_machine
-- 2
-              - VAR_hoge
-              - IP
-              - Not enterable
-              - 192.168.100.1
-1. Value sent to Terraform
-      -  | **Example: When the variable type is tuple**
-1. tf file and registered value
-1. Example assignment value (Automatic Assignment Value Registration Setting)
-- No.
-              - Variable name
-              - Member variable
-              - Assignment order
-              - Parameter sheet input value
-- 1
-              -  VAR_hoge
-              -  [0]
-              -  Not enterable
-              -  def
-- 2
-              -  VAR_hoge
-              -  [1]
-              -  Not enterable
-              -  2024
-1. Value sent to Terraform
-      -  | **Example: When the variable type is a nesting management target**
-1. tf file and registered value
-1. Example assignment value (Automatic Assignment Value Registration Setting)
-- No.
-              - Variable name
-              - Member variable
-              - Assignment order
-              - Parameter sheet input value
-- 1
-              -  VAR_hoge
-              -  [0]
-              -  1
-              -  aaa
-- 2
-              -  VAR_hoge
-              -  [0]
-              -  2
-              -  bbb
-- 3
-              - VAR_hoge
-              - [1]
-              - 1
-              - ccc
-- 4
-              - VAR_hoge
-              - [1]
-              - 2
-              - ddd
-1. Value sent to Terraform
--  | **※2 ... Assignment order target**
-This is the order, starting from the beginning, in which multiple concrete values are assigned to a variable.
-If the variable, or the lowest-level variable of a hierarchically structured variable, is of type list or set, this can be set at " -> " " -> ".
-      -  | **Example: When the variable type is list**
-1. tf file and registered value
-1. Example assignment value (Automatic Assignment Value Registration Setting)
-- No.
-              - Variable name
-              - Member variable
-              - Assignment order
-              - Parameter sheet input value
-- 1
-              -  VAR_hoge
-              -  Not required
-              -  1
-              -  abc
-- 2
-              - VAR_hoge
-              - Not required
-              - 2
-              - def
-1. Value sent to Terraform
-      -  | **Example: When the lowest-level variable of a hierarchically structured variable is of type set**
-1. tf file and registered value
-1. Example assignment value (Automatic Assignment Value Registration Setting)
-- No.
-              - Variable name
-              - Member variable
-              - Assignment order
-              - Parameter sheet input value
-- 1
-              -  VAR_hoge
-              -  key
-              -  1
-              -  1
-- 2
-              - VAR_hoge
-              - key
-              - 2
-              - 2
-1. Value sent to Terraform
-# How to Write Construction Code
-Policy is a function that is valid only for Terraform Cloud/EP driver.
+- **Terraform Cloud/EP driver**: Creates Organizations/Workspaces on a Terraform Cloud/Enterprise instance registered in ITA, executes work (Plan/PolicyCheck/Apply), and retrieves work logs.
+- **Terraform CLI driver**: Executes work (Plan/Apply) against Terraform installed in the same environment as ITA, and retrieves work logs.
 
-## Writing the Module
+## Variable Handling
 
-## Writing the Policy
-# Appendix
+With the Terraform driver, the concrete values of variables within a Module can be set from the ITA configuration screen. Anything defined in a variable block of the Module file is treated as a variable.
 
-## Examples of Filling In and Registering the Module Material "Variable Block"
-Examples of filling in the "Variable block" of a Module material and examples of registering it into the Automatic Assignment Value Registration Setting are described for each variable type.
-1. **Simple patterns**
-1. string type
-1. number type
-1. bool type
-1. list type
-1. set type
-1. tuple type
-1. map type
-1. object type
-1. any type
-1. No type specified
-1. **Complex patterns**
-1. list type within a list type
-1. object type within a list type
-1. object type within a list type within an object type
-1. **Special patterns**
-1. map type within a list type
+- **Normal variables**: Variables for which a concrete value is defined against the variable name. They are written according to the rules of the HCL variable block (`variable "xxx" { type = ○○  default = △△ }`); specifying `type` and `default` is not required.
 
-## Example Variable Nesting Management Flow
-Describes operation examples for Variable Nesting Management.
-1. **Increasing the maximum iteration count**
-1. **Decreasing the maximum iteration count**
+Variables are extracted from Module materials uploaded to ITA, and their concrete values are registered by linking them with a parameter sheet. With the Terraform Cloud/EP driver, the "variable name" is registered as the Key and the "concrete value" as the Value in the linked Terraform Workspace's Variables management. With the Terraform CLI driver, they are written in the same way to the `terraform.tfvars` file generated at execution time.
+
+### Variable Types
+
+| type | Details | Member Variable Target | Assignment Order Target | Example `type` Notation | Example `default` Notation |
+|---|---|---|---|---|---|
+| string | String type | No | No | string | example |
+| number | Number type | No | No | number | 123 |
+| bool | Boolean type (true/false) | No | No | bool | true |
+| list | Array type | No | Yes | list(string) | ["a","b","c"] |
+| set | Array type (unique values; ITA does not perform uniqueness checks) | No | Yes | set(number) | [1,2,3] |
+| tuple | Array type (the type at each index is fixed; shown as a dropdown selection in ITA) | Yes | No | tuple([string, number]) | ["abc", 2023] |
+| map | Key-value type. Any type containing map must have HCL Setting turned ON in the auto value-assignment settings | No | No | map(string) | {"test_key"="test_value"} |
+| object | Key-value type. Key names are treated as member variables (Japanese characters not allowed) | Yes | No | object({test_key=string}) | {"test_key"="test_value"} |
+| any | Treated the same as string type in ITA | No | No | any | example |
+| (not specified) | Treated the same as string type in ITA | No | No | - | example |
+
+**Member variable target** (key names for key-value types): for object types, the KEY in `<KEY>=<TYPE>`; for tuple types, indices numbered from the start as `[0],[1],[2]...`. For items managed under Variable Nesting Management, indices are numbered as `[0],[1],[2]...` based on the maximum repeat count.
+
+Example (object type `VAR_hoge { type = object({NAME=string, IP=string}) }`): registering `my_machine` for the member variable `NAME` and `192.168.100.1` for `IP` sends `{ NAME="my_machine" IP="192.168.100.1" }` to Terraform. For a tuple type (`type = tuple([string,number])`), registering `def` at `[0]` and `2024` at `[1]` sends `["def", 2024]`. For a nesting-managed type (`type = list(set(string))`), registering values at positions 1 and 2 of `[0]` and positions 1 and 2 of `[1]` sends something like `[["aaa","bbb"],["ccc","ddd"]]`.
+
+**Assignment order target** (the order of assignment from the start when setting multiple concrete values): configurable when the variable, or the lowest-level variable in a nested structure, is of type list/set. For example, registering the values `abc` and `def` at assignment order 1 and 2 for a `list(string)` type sends `["abc","def"]`. For an `object({key=set(number)})` type, registering values `1` and `2` at order 1 and 2 for `key` sends `{key=[1,2]}`.
+
+## How to Write Construction Code
+
+- **Module**: Written in HCL (HashiCorp Configuration Language). See the official Terraform product manual for details.
+- **Policy**: Written in Sentinel language (a feature available only with the Terraform Cloud/EP driver). See the official Terraform product manual for details.

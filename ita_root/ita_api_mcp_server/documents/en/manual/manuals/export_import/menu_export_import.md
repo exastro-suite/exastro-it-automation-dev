@@ -1,190 +1,63 @@
-# Menu Export/Import
-# Introduction
-This document describes the functions and operation methods of Menu Export/Import in ITA.
-# Overview of Menu Export/Import
-This chapter describes Menu Export/Import.
+# Menu Export/Import Feature
 
-## Details of Menu Export/Import
+Menu Export/Import lets you select the ITA menus you want to migrate and overwrite-migrate data on a per-menu basis. When moving data to a different environment, you generally need to migrate all menus in order to preserve consistency.
 
-### About the Function
-Menu Export/Import lets you select the ITA menus you want to migrate, and migrates the data by overwriting it, menu by menu.
+## Modes
 
-### About Modes
-The Menu Export function has two types of modes.
-Exports all data for the specified menus. All data at the import destination is replaced.
+| Mode | Description |
+|---|---|
+| Environment migration | Exports all data of the specified menus; on import, all existing data is deleted and overwritten (replaced). |
+| Time-specified | Exports only data from the specified time onward; if a unique item (ID, No., etc.) conflicts with data at the import destination, the exported data takes precedence on import. |
 
-### Usage Examples
-This function is intended to be used as follows, using two environments, Workspace A and Workspace B.
--*Pattern ①: Duplicating an environment**
-Duplicates all data registered in Workspace A into Workspace B.
-[Procedure]
-#. Export all of Workspace A's data using Environment Migration mode.
-#. Import the data exported in step 1 into Workspace B.
-※After environment migration, data can be registered/updated in Workspace B. Migrating data from Workspace A again afterward may cause inconsistencies, so this is not recommended.
--*Pattern ②: Separating the workspace where data is entered from the workspace where work is executed**
-[Procedure]
-#. Export all of Workspace A's data using Environment Migration mode.
-#. Import the file exported in step 1 into Workspace B.
-#. Every time data is updated in Workspace A, migrate the differential data to Workspace B using Time-Specified mode.
-※If multiple data migrations are expected, registering/updating data in Workspace B may cause data inconsistencies, so this is not recommended. There is no impact if Workspace B is used only for executing work.
+Discard scope: "Including discarded" (all records, including discarded data) / "Excluding discarded". History scope: "With history" / "Without history" (in both cases, the exported data takes precedence on conflict).
 
-### About Resource Limitations During Menu Export/Import Processing
-Resources during Menu Export/Import are controlled using the Resource Plan.
-For configuration and how to apply it, refer to "  ".
-About resource control during Menu Export/Import processing
- In accordance with the Resource Plan values, the input/output of the backend processing for Menu Export/Import is split and processed to control resources.
- Raising the Resource Plan setting value below shortens the processing time, but increases the amount of resources used.
- - ita.organization.menu_export_import.buffer_size
-# Availability of Export/Import Depending on the Environment
+## Usage examples
 
-## About Environment Differences (ITA Version and Installed Drivers)
-- Case
-     - Environment A version
-     - Environment A driver
-     - Environment B version
-     - Environment B driver
-     - | Environment difference
-     - | Environment A → Environment B
-     - Remarks
-- A
-     - 2.5.X
-     - | CI/CD for IaC
-     - 2.5.X
-     - | CI/CD for IaC
-     - No environment difference
-     - 〇
-     -
-- B
-     - 2.5.X
-     - | CI/CD for IaC
-     - 2.5.X
-     - | CI/CD for IaC
-     - Driver difference exists
-     - 〇
-     -
-- C
-     - 2.5.X
-     - | CI/CD for IaC
-     - 2.5.Y
-     - | CI/CD for IaC
-     - Version difference exists
-     - 〇
-     -
-- D
-     - 2.5.X
-     - | CI/CD for IaC
-     - 2.5.Y
-     - | CI/CD for IaC
-     - | Version difference exists (A:2.5.X < B:2.5.Y)
-     - 〇
-     -
-- E
-     - 2.5.X
-     - | CI/CD for IaC
-     - 2.5.X
-     - | CI/CD for IaC
-     - Driver difference exists
-     - △※
-     -
-- F
-     - 2.5.X
-     - | CI/CD for IaC
-     - 2.5.Y
-     - | CI/CD for IaC
-     - | Version difference exists (A:2.5.X < B:2.5.Y)
-     - △※
-     -
-- G
-     - 2.5.Y
-     - | CI/CD for IaC
-     - 2.5.X
-     - | CI/CD for IaC
-     - | Version difference exists (A:2.5.Y > B:2.5.X)
-     - ×
-     -
-- H
-     - 2.5.Y
-     - | CI/CD for IaC
-     - 2.5.X
-     - | CI/CD for IaC
-     - | Version difference exists (A:2.5.Y > B:2.5.X)
-     - ×
-     -
-- I
-     - 2.5.Y
-     - | CI/CD for IaC
-     - 2.5.X
-     - | CI/CD for IaC
-     - | Version difference exists (A:2.5.Y > B:2.5.X)
-     - ×
-     -
-Using the driver install/uninstall function (  ),
-Using the driver install/uninstall function (  ),
-# Menus and Screen Configuration of Menu Export/Import
+**Pattern ① Duplicating an environment**: export all data from workspace A in Environment migration mode and import it into workspace B. Migrating data back to A afterward is not recommended, as it may cause inconsistency; bidirectional migration is likewise not recommended.
 
-## Menu List
-The menus of Menu Export/Import are shown below.
- ITA Menu List
-1      | Export/Impo\| Menu Expo\| Menu dat\  |
-2      |                      | Menu Import | Menu\      |
-3      |                      | Menu Expo\| [Menu Ex\ |
-port/Import Management | port] menu\ |
-| port] menu, and man\ |
-| the status of impo\  |
-# Function and Operation Method Description
+**Pattern ② Separating a data-entry workspace from an execution workspace**: after the initial migration in Environment migration mode, migrate the differences to workspace B using Time-specified mode each time workspace A is updated. If migrating data while work is being executed in workspace B, migrate only the differences using Time-specified mode to avoid affecting the data in use. Registering/updating data directly in workspace B (other than through work execution) is not recommended due to the risk of inconsistency, nor is bidirectional migration.
+
+## About resource limits
+
+Resources used during export/import processing are controlled by the resource plan. Backyard processing splits input/output for processing; raising the resource plan value `ita.organization.menu_export_import.buffer_size` shortens processing time but increases resource usage.
+
+## Availability depending on environment differences (version/driver)
+
+An exported KYM file is backward compatible only if all of the following are satisfied: ① it was exported from ITA version 2.5.0 or later, ② the import destination's ITA version is newer than the export source's, ③ every driver installed at the export source is also installed at the import destination.
+
+| Case | Version difference | Driver difference | Import possible |
+|---|---|---|---|
+| A | None | None | Yes |
+| B | None | Yes (destination has more drivers) | Yes |
+| C | Yes (destination is newer) | None | Yes |
+| D | Yes (destination is newer) | Yes (destination has more drivers) | Yes |
+| E | None | Yes (destination has fewer drivers) | Conditional (possible if you use the driver install/uninstall feature to match the driver configuration, making it equivalent to case A/B) |
+| F | Yes (destination is newer) | Yes (destination has fewer drivers) | Conditional (same as above, making it equivalent to case C/D) |
+| G | Yes (source is newer) | None | No |
+| H, I | Yes (source is newer) | Yes | No |
+
+Import is not possible if the export source's version is newer than the import destination's (cases G/H/I).
+
+## Menu structure
+
+| Menu/Screen | Description |
+|---|---|
+| Menu Export | Exports menu data. |
+| Menu Import | Imports menu data. |
+| Menu Export/Import Management | Manages the status of executed exports/imports. |
 
 ## Menu Export
-Exports the data registered in the ITA system, menu by menu.
-If you are moving data to a different ITA environment, data consistency may be broken unless all menus are included in the move.
-Some menus are not eligible for export. The menus that are not eligible are as follows.
-1      | Export/Import | Menu Export                                  |
-2      |                          | Menu Import                                    |
-3      |                          | Menu Export/Import Management                  |
-6      |                          | Excel Bulk Export/Import Management                |
-7      | Conductor                | Conductor Edit/Execute Work                                |
-8      |                          | Conductor Work History                                     |
-9      |                          | Conductor Work Confirmation                                     |
-10     |                          | Conductor Instance List                             |
-11     |                          | Conductor Node Instance List                         |
-12     | Parameter Sheet Creation     | Parameter Sheet Definition/Creation                            |
-13     |                          | Parameter Sheet Creation History                              |
-18     |                          | Substitution Value Management                                            |
-21     |                          | Work Management                                              |
-23     |                          | Substitution Value Management                                            |
-26     |                          | Work Management                                              |
-28     |                          | Substitution Value Management                                            |
-31     |                          | Work Management                                              |
-35     |                          | Substitution Value Management                                            |
-36     |                          | Linked Terraform Management                                   |
-39     |                          | Work Management                                              |
-40     |                          | Substitution Value Management                                            |
--*Name** | **Description**                                                 |
-Inserts/overwrites based on the menu's unique item (ID, No., etc.). |
--*Name**   | **Description**                                                   |
-- No.
-     - Description
-- 1
-     - With History
-     - Exports including history records.
-- 2
-     - Without History
-     - Exports without including history records.
-When performing an initial environment migration, or when a menu has been newly created using Parameter Sheet Creation, make sure to include the following menus in the export target.
-- Menu Management
-- Menu-Table Association Management
-- Menu-Column Association Management
-- Role-Menu Association Management
+
+Menus excluded from export: export/import-related menus (Menu Export, Menu Import, Menu Export/Import Management, Excel Bulk Export, Excel Bulk Import, Excel Bulk Export/Import Management), Conductor-related work-execution/fulfillment-status menus (Conductor Edit/Work Execution, Conductor Work History, Conductor Work Status Check, Conductor Instance List, Conductor Node Instance List), parameter-sheet-creation-related menus (Parameter Sheet Definition/Creation, Parameter Sheet Creation History, Selection 1, Selection 2), Run Comparison, and each driver's (Ansible-Legacy/Pioneer/LegacyRole, Terraform-Cloud/EP, Terraform-CLI) target host, substitution value management, work execution, work status check, work management, work confirmation, and linked Terraform management menus.
+
+Select the mode, discard scope, and history scope, select the menus, then run "Export"; pressing "Start Export" in the confirmation popup takes you to the Export/Import Management screen where you can check the status.
+
+When menus were created via an initial environment migration or new parameter sheet creation, the following menus must be included in the export target (otherwise the import will finish as Completed (abnormal)): Menu Management, Menu-Table Link Management, Menu-Column Link Management, Role-Menu Link Management.
 
 ## Menu Import
-Imports the data exported from the [Menu Export] menu.
-The menus whose checkbox is checked are subject to import.
-For menus that do not need to be imported, uncheck the checkbox.
-(4) You are automatically taken to [Menu Export/Import Management], where you can check the import status.
+
+Upload the exported file, check the menus to import, and run "Import"; pressing "Start Import" in the confirmation popup lets you check the status on the Export/Import Management screen. While the import status is "In progress", performing another operation right away (such as refreshing the screen or navigating to another menu) may cause a system error depending on the timing of the data swap, so wait a while before doing anything else.
 
 ## Menu Export/Import Management
-Manages the status of exports executed from the [Menu Export] menu and imports executed from the [Menu Import] menu.
--*Item**   | **Description**                                                                                                     |
-Process Type   | | Export ... Menu Export                                                                     |
-Import ... Menu Import                                                                         |
-Cannot be edited because it is automatically registered.                                                                         |
-In Menu Export/Import Management, when Status becomes "Completed (Error)", a link to the file is displayed in Execution Log.
+
+Items: Execution No. (auto-numbered), Status (Not executed → In progress → Completed; Completed (abnormal) on error — if an import finishes as Completed (abnormal), it is automatically rolled back to the pre-import state), Process type (Export/Import), Mode (Environment migration/Time-specified), Discard scope (Including discarded/Excluding discarded), History scope (With history/Without history), Specified time (shown only when mode is Time-specified), File name (downloadable after completion), Executing user, Language (the logged-in user's language at import time; auto-registered and not editable), Execution log (shows a link to the log file when Completed (abnormal); e.g. `No matching file in the KYM file. (T_COMN_MENU_TABLE_LINK_DATA)`).

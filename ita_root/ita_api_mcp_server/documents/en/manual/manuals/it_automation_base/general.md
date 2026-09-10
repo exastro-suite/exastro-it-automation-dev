@@ -1,16 +1,5 @@
-# Login Method
+# How to Log In
 
-## Introduction
-This document describes the method for logging in for the first time immediately after an organization is created.
+For your first login, use the administrator login ID (username or email address) and initial password specified when the organization was created. After the first login, once you update your password and account information, the Workspace management screen is displayed.
 
-## First Login
-1. For the first login, be sure to log in with the following username and password.
-- Item name
-        - Description
-- | Username or email address
-        - | The username or email address specified by the administrator
-- | Password
-        - | The password specified by the administrator
-※For the first login, use the login ID (username, email address) and initial password of the administrator specified in .
-
-## Switching Languages
+You can switch languages from the login screen by selecting the target language.
