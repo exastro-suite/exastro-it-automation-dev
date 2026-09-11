@@ -869,6 +869,8 @@ class SubValueAutoReg():
 
         host_ary = []
         dict_objmenu = {}  # パラシ情報（load_tableの取得結果のキャッシュ）
+        # パラメータシート単位に展開
+        # in_tableNameToSqlList = {'T_CMDB_f7a294e8-...': 'SELECT ... FROM `T_CMDB_f7a294e8-...` TBL_A ...'}
         for table_name, sql in in_tableNameToSqlList.items():
             # トレースメッセージ
             traceMsg = g.appmsg.get_api_message("MSG-10806", [in_tableNameToMenuIdList[table_name]])
@@ -898,6 +900,10 @@ class SubValueAutoReg():
 
             tmp_ary_data = {}
             index = 0
+            # パラメータシートのレコード単位に展開
+            # data_list = [{'OPERATION_ID': 'a1b2...', '__ITA_LOCAL_COLUMN_2__': 1,
+            #               '__ITA_LOCAL_COLUMN_4__': 'e5f6...', 'HOST_ID': 'c9d0...',
+            #               'INPUT_ORDER': 1}, ...]   # 縦メニューはINT / 横メニューは ''
             for row in data_list:
                 # 代入値紐付メニューに登録されているオペレーションIDを確認
                 if row['OPERATION_ID'] is None or len(row['OPERATION_ID']) == 0:
@@ -942,15 +948,25 @@ class SubValueAutoReg():
             # 初期化
             data_list = []
 
+            # tmp_ary_dataのキーは外側ループのtable_nameだけなので、この展開は1回（対象行が全て弾かれた場合は0回）
+            # tmp_ary_data = {'T_CMDB_f7a294e8-...': {0: row, 1: row}}  # rowはdata_listの要素と同形
             for tmp_table_name, tmp_value in tmp_ary_data.items():
                 registered_host_ary = []
+                # パラメータシートのレコード単位に展開
+                # tmp_value = {0: row, 1: row}  # rowはdata_listの要素と同形
                 for row in tmp_value.values():
-                    # パラメータシートごとの処理
                     # if exec_flag is True:は if tmp_table_name == table_name: を満たした時のみのため、全テーブル分開く必要はない
+                    # 代入値自動登録設定をパラメータシートテーブル単位で取得
+                    # ary_col_data = {'DATA_JSON': {0: col_data, 2: col_data}}  # DATA_JSONの要素dictのキーは連番にならないこともある
                     ary_col_data = in_tabColNameToValAssRowList[table_name]
-                    # 代入値自動登録設定をパラメータシートテーブル単位に展開
+                    # 代入値自動登録のレコード単位に展開
+                    # col_data = {'COLUMN_ID': '7b1c...', 'COL_TYPE': '1', 'COLUMN_CLASS': '1',  # COL_TYPEは'1'値／'2'キー
+                    #             'COLUMN_NAME_REST': 'column_a', 'MENU_NAME_REST': 'menu_a', 'COL_GROUP_ID': 'grp-001',                    # Noneなら「項目なし」
+                    #             'COLUMN_ASSIGN_SEQ': 1,                       # 縦メニューはINT／横メニューはNone
+                    #             'REF_TABLE_NAME': None, 'REF_COL_NAME': None,  # プルダウン選択
+                    #             'MOVEMENT_ID': '9a8b...', 'NULL_DATA_HANDLING_FLG': None, ...}
+                    # 使用しているキーのみ記載、全キーはread_val_assign（inout_tabColNameToValAssRowListへの代入箇所）を参照
                     for col_data in ary_col_data[col_name_data_json].values():
-                        # 代入値自動登録のレコードごとの処理
                         col_val = ""
                         exec_flag = False
                         menu_name_rest = col_data["MENU_NAME_REST"]
@@ -961,6 +977,8 @@ class SubValueAutoReg():
                         if menu_name_rest not in dict_objmenu:
                             load_table_count += 1
                             obj_load_table = load_table.loadTable(WS_DB, menu_name_rest)  # noqa: F405
+                            # tmp_result = {'e5f6...': {'uuid': 'e5f6...', 'HOST_ID': 'c9d0...', 'OPERATION_ID': 'a1b2...', 'column_a': 'value1'}}  # 縦メニューでは input_order も付く
+                            # dict_objmenu = {menu_name_rest: tmp_result}  # メニュー単位のキャッシュ
                             tmp_result = self.rest_filter(WS_DB, obj_load_table)
                             dict_objmenu[menu_name_rest] = tmp_result
                         else:
