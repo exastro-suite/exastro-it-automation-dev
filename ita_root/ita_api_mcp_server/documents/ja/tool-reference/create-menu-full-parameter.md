@@ -1,6 +1,6 @@
 # create-menu tool referrence
 - create-menuツールのすべてのパラメータについて説明します
-- 基本パラメータの一覧が記載されている`create-menu.md`を参照し、不足の情報がある場合に本文書を参照してください
+- 基本パラメータの一覧が記載されている`tool-reference/create-menu.md`を参照し、不足の情報がある場合に本文書を参照してください
 
 ## Sheet Types
 ### 1. Parameter Sheet(Host/Operation) [sheet_type_id: "1"]

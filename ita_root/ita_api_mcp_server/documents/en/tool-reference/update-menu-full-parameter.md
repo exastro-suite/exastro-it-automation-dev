@@ -1,15 +1,15 @@
 # update-menu tool referrence
-This section describes all the parameters of the `update-menu` tool.
-Before checking all of these parameters, be sure to refer to `update-menu.md`, which contains the list of basic parameters.
+This section describes all parameters of the `update-menu` tool.
+Before reviewing all of these parameters, be sure to refer to `tool-reference/update-menu.md`, which lists the basic parameters.
 
 ## Sheet Types
 ### 1. Parameter Sheet(Host/Operation) [sheet_type_id: "1"]
 - **Auto-generated columns**: Host (from device_list), Operation (from operation_list)
-- **Use case**: When you need to perform operations on specific hosts
+- **Use case**: When an operation needs to be executed on a specific host
 
 ### 2. Data Sheet [sheet_type_id: "2"]
 - **Auto-generated columns**: None
-- **Use case**: Reference-only data without hosts/operations
+- **Use case**: Reference data without hosts/operations
 
 ## update-menu parameter
 When calling `update-menu`, the `menu_definition` parameter must have the following structure:

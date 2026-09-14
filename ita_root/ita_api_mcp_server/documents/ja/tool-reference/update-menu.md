@@ -1,6 +1,6 @@
 # `update-menu` tool reference
 `update-menu`ツールの基本的なパラメータについて説明します
-より詳細なパラメータが必要な場合は、`update-menu-full-parameter.md`を参照すること
+より詳細なパラメータが必要な場合は、`tool-reference/update-menu-full-parameter.md`を参照すること
 
 ## Important
 - 一部の項目は自動的に追加されるため、`update-menu` を実行した後は、`list-menu-info` を使用して項目のリストを再取得すること

@@ -1,6 +1,6 @@
 # update-menu tool referrence
 このセクションでは、`update-menu`ツールのすべてのパラメータについて説明します。
-これらのパラメータをすべて確認する前に、基本パラメータの一覧が記載されている`update-menu.md`を必ず参照してください。
+これらのパラメータをすべて確認する前に、基本パラメータの一覧が記載されている`tool-reference/update-menu.md`を必ず参照してください。
 
 ## Sheet Types
 ### 1. Parameter Sheet(Host/Operation) [sheet_type_id: "1"]
