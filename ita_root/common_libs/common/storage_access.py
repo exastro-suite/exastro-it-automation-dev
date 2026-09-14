@@ -415,7 +415,7 @@ def retry_remove(file_path, raise_error=True):
             file_path: 削除するファイルパス
             raise_error: リトライを実施してもエラーが発生した際に例外スローするか (True: 例外スロー&ログ出力/ False: ログ出力のみ)
     """
-    g.applogger.debug(f"retry_remove({file_path})")
+    g.applogger.debug(f"sa retry_remove({file_path})")
     try:
         os.listdir(os.path.dirname(file_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         os.remove(file_path)
