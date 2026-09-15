@@ -23,6 +23,9 @@
 let getMessage;
 (function () {
     CommonAuth.onAuthSuccess(() => {
+        // 複数タブ間で共有するキャッシュに接続する
+        fn.cache.init();
+
         const ui = new CommonUi();
         ui.init().then(function(){
             ui.setUi();
