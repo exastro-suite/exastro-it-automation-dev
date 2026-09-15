@@ -970,6 +970,11 @@ sheetType() {
                 mn.$.content.addClass('tabContent');
                 mn.defaultMenu('standard', 'n', false);
             break;
+            // AIアシスタント
+            case '29':
+                mn.$.content.addClass('tabContent');
+                mn.aiAssistant()
+            break;
             // 99 : 独自メニュー
             case '99':
                 mn.customMenu();
@@ -1939,6 +1944,56 @@ eventFlow() {
         ef.setup('#eventFlow');
 
         mn.onReady();
+    });
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//   AIアシスタント
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+aiAssistant() {
+    const mn = this;
+    const assets = [
+        { type: 'js', url: '/_/ita/js/ai_assistant.js'},
+        { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_setting.js'},
+        { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_llm.js'},
+        // 画面専用ツール（ツールごとに定義と動作を1ファイルにまとめている）
+        { type: 'js', url: '/_/ita/js/ai_assistant/tools/ai_assistant_tool_ask_user_choice.js'},
+        { type: 'js', url: '/_/ita/js/ai_assistant/tools/ai_assistant_tool_display_html.js'},
+        // チャット部分
+        { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_chat.js'},
+        // プラットフォームAPIの一覧表示用Table（メッセージ履歴の表示に使う）
+        { type: 'js', url: '/_/ita/js/table_pf.js'},
+        { type: 'css', url: '/_/ita/css/ai_assistant.css'},
+    ];
+    const tabs = [
+        { name: 'ai_assistant_container', title: getMessage.FTE14022, type: 'blank'},
+        { name: 'ai_assistant_conversations', title: getMessage.FTE14023, type: 'blank'},
+        { name: 'ai_assistant_lessons', title: getMessage.FTE14024, type: 'blank'}
+    ];
+    const menuInfo = fn.cv( mn.info.menu_info.menu_info, '', true );
+    mn.onReady();
+    mn.$.content.addClass('nowLoading');
+
+    fn.loadAssets( assets ).then( async () => {
+        mn.$.content.html( mn.commonContainer( mn.title, menuInfo, mn.contentTab( tabs ) ) );
+        mn.setCommonEvents();
+        mn.contentTabEvent('#ai_assistant_container');
+
+        const params = mn.params;
+        params.user = mn.rest.user;
+
+        const aa = new AiAssistant( mn.info, params );
+        await aa.setup();
+    }).catch(function( error ){
+        // 画面が成立しない初期化エラー（スクリプトの読み込み失敗・ユーザ情報の取得失敗など）。
+        // 一部の機能が使えないだけの失敗はAIアシスタント側で画面に表示するため、ここには来ない。
+        window.console.error( error );
+        fn.gotoErrPage( error.message );
+    }).finally(function(){
+        // エラー時も読み込み中の表示を解除する（解除しないと読み込み中のまま止まって見える）
+        mn.$.content.removeClass('nowLoading');
     });
 }
 

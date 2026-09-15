@@ -2577,7 +2577,8 @@ border-bottom-width: 2px;
 .tBodyRowMenu {
 color: var(--mainColor100);
 }
-.tBodyTdNumber {
+.tBodyTdNumber,
+.tbody .tBodyTdNumber .ci {
 text-align: right;
 }
 .tBodyTdMark {
@@ -5975,6 +5976,7 @@ box-shadow: 0 0 4px rgba( 0,0,0,.5 ) inset,
 .icon-sort_asc:before{content:"\e952"}.icon-sort_desc:before{content:"\e953"}.icon-mouse:before{content:"\e954"}.icon-mouse_left:before{content:"\e955"}
 .icon-mouse_right:before{content:"\e959"}.icon-mouse_wheel:before{content:"\e95a"}.icon-compare:before{content:"\e95d"}.icon-export:before{content: "\e95e"}
 .icon-import:before{content: "\e95f"}.icon-rule:before{content: "\e960"}.icon-rhombus:before{content: "\e961"}.icon-send:before{content: "\e962"}.icon-stick:before{content: "\e963"}
+.icon-ai_assistant:before{content: "\e964"}
 
 .caution_head {
   color: red;
