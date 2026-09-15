@@ -503,3 +503,44 @@ content-type: application/json
     }
   }
 }
+
+###
+# @name search_docs
+# ツール "search-docs" を呼び出し、ITAドキュメントをハイブリッド検索(ベクトル検索+キーワードマッチング)します(tools/call)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/mcp
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "search-docs",
+    "arguments": {
+      "query": "how to create a menu",
+      "limit": 3
+    }
+  }
+}
+
+###
+@search_docs_source = {{search_docs.response.body.$.result.structuredContent.results[0].source}}
+
+###
+# ツール "get-document" を呼び出し、search-docsが返したsourceからドキュメントの全文を取得します(tools/call)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/mcp
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "get-document",
+    "arguments": {
+      "source": "{{search_docs_source}}"
+    }
+  }
+}
