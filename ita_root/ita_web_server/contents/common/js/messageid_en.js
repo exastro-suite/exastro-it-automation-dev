@@ -1059,6 +1059,36 @@ export function messageid_en() {
         'FTE14019': 'How may I help you?',
         'FTE14020': 'Copied to clipboard.',
         'FTE14021': 'Failed to copy to the clipboard.',
+
+        'FTE14022': 'AI Assistant',
+        'FTE14023': 'Conversation',
+        'FTE14024': 'Lessons',
+
+        // Conversation history (conversation list)
+        'FTE14025': 'Model',
+        'FTE14026': 'Created',
+        'FTE14028': 'Title',
+        'FTE14029': 'Status',
+        'FTE14030': 'Messages',
+        'FTE14031': 'Tokens',
+        'FTE14032': 'Conversation ID',
+        'FTE14033': 'Resume',
+        'FTE14034': 'Failed to retrieve the list.',
+
+        // Resume conversation
+        'FTE14035': 'The conversation cannot be resumed while the AI is responding.\nPlease wait until the response is finished, or stop it with the stop button, and then try again.',
+        'FTE14036': 'This conversation has no history that can be restored.',
+        'FTE14037': 'Failed to resume the conversation.',
+
+        // Check conversation history
+        'FTE14038': 'Failed to retrieve the history.',
+
+        // Delete conversation history
+        'FTE14039': 'Delete conversation history',
+        'FTE14040': 'The selection includes a conversation for which the AI is responding, so it cannot be deleted.<br>Please wait until the response is finished, or stop it with the stop button, and then try again.',
+        'FTE14041': function( num ){ return `The ${num} selected conversation histories will be deleted.\nDeleted histories cannot be restored.\n\nAre you sure you want to delete them?`},
+        'FTE14042': function( num ){ return `Failed to delete ${num} conversation histories.`},
+
         //gemini
         'FTE14101': 'API KEY',
         'FTE14102': 'Model Selection',
