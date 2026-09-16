@@ -60,6 +60,9 @@ def get_menu_export_list(objdbca, organization_id, workspace_id):
         if hide_menu_id in menu_id_list:
             menu_id_list.remove(hide_menu_id)
 
+    # エクスポートには書き込み権限以上が必要なため、権限のあるメニューのみに絞り込む
+    menu_id_list = _get_write_permission_menu_id_list(objdbca, menu_id_list)
+
     # メニューとメニューグループのデータを処理
     return _create_export_menu_data(objdbca, menu_id_list)
 
@@ -112,6 +115,57 @@ def _get_target_menu_id_list(objdbca):
         menu_id_list.append(record.get('MENU_ID'))
 
     return menu_id_list
+
+
+def _get_write_permission_menu_id_list(objdbca, menu_id_list):
+    """
+        書き込み権限(PRIVILEGE='0' or '1')を持つメニューIDのみに絞り込む
+        ただし、EXPORT_PERMISSION_CHECK_FLG='0' のメニューは権限チェックをスキップ
+        ARGS:
+            objdbca: DB接クラス DBConnectWs()
+            menu_id_list: 絞り込み対象のメニューIDリスト
+        RETURN:
+            menu_id_list: 書き込み権限を持つメニューIDリスト
+    """
+    if not menu_id_list:
+        return []
+
+    t_comn_menu = 'T_COMN_MENU'
+    t_comn_role_menu_link = 'T_COMN_ROLE_MENU_LINK'
+
+    # 変数定義
+    role_id_list = g.get('ROLES')
+
+    # 『メニュー管理』テーブルから EXPORT_PERMISSION_CHECK_FLG を取得
+    ret_menu = objdbca.table_select(t_comn_menu, 'WHERE MENU_ID IN %s AND DISUSE_FLAG = %s', [menu_id_list, 0])
+
+    # FLAG='0' のメニューは無条件で許可（権限チェックスキップ）
+    skip_check_menu_ids = set()
+    check_required_menu_ids = []
+    for record in ret_menu:
+        menu_id = record.get('MENU_ID')
+        export_permission_check_flg = record.get('EXPORT_PERMISSION_CHECK_FLG')
+
+        if export_permission_check_flg == '0':
+            # 権限チェックスキップ（内部メニューや環境移行用メニュー）
+            skip_check_menu_ids.add(menu_id)
+        else:
+            # 権限チェック必要
+            check_required_menu_ids.append(menu_id)
+
+    # 権限チェックが必要なメニューのみ PRIVILEGE を確認
+    permitted_menu_id_list = set(skip_check_menu_ids)
+
+    if check_required_menu_ids:
+        # 『ロール-メニュー紐付管理』テーブルから対象のデータを取得
+        # 自分のロールが「メンテナンス可＋削除可」,「メンテナンス可」
+        ret_role_menu_link = objdbca.table_select(t_comn_role_menu_link, 'WHERE MENU_ID IN %s AND ROLE_ID IN %s AND PRIVILEGE IN %s AND DISUSE_FLAG = %s ORDER BY MENU_ID', [check_required_menu_ids, role_id_list, ['0', '1'], 0])
+
+        for record in ret_role_menu_link:
+            permitted_menu_id_list.add(record.get('MENU_ID'))
+
+    # 引数の順序を維持したまま絞り込む
+    return [menu_id for menu_id in menu_id_list if menu_id in permitted_menu_id_list]
 
 
 def _create_export_menu_data(objdbca, menu_id_list):
@@ -189,6 +243,128 @@ def _create_export_menu_data(objdbca, menu_id_list):
     }
 
     return menus_data
+
+
+def check_export_menu_permission(objdbca, menu_rest_list):
+    """
+        エクスポート対象メニューの書き込み権限チェック
+        全メニューに対して、現在のユーザーが書き込み権限以上(PRIVILEGE='0' or '1')を持っているかチェック
+
+        ARGS:
+            objdbca:DB接クラス  DBConnectWs()
+            menu_rest_list: エクスポート対象メニューのMENU_NAME_RESTリスト
+        RETURN:
+            なし（権限がない場合は例外を発生）
+    """
+    if not menu_rest_list:
+        return
+
+    t_common_menu = 'T_COMN_MENU'
+
+    # 変数定義
+    lang = g.get('LANGUAGE')
+
+    # 『メニュー管理』テーブルからエクスポート対象メニューを取得
+    # 存在しないメニューは別のバリデーションでエラーになるため、ここでは対象外とする
+    ret_menu = objdbca.table_select(t_common_menu, 'WHERE MENU_NAME_REST IN %s AND DISUSE_FLAG = %s ORDER BY MENU_ID', [menu_rest_list, 0])
+
+    menu_id_list = []
+    for record in ret_menu:
+        menu_id_list.append(record.get('MENU_ID'))
+
+    # 書き込み権限を持つメニューIDに絞り込む
+    permitted_menu_id_list = set(_get_write_permission_menu_id_list(objdbca, menu_id_list))
+
+    # 権限不足のメニュー名を集める
+    no_permission_menu_names = []
+    for record in ret_menu:
+        if record.get('MENU_ID') in permitted_menu_id_list:
+            continue
+
+        menu_name = record.get('MENU_NAME_' + lang.upper())
+        no_permission_menu_names.append(menu_name)
+        g.applogger.debug(f"[Export Permission Check] No write permission: {record.get('MENU_NAME_REST')} ({menu_name})")
+
+    # 権限不足のメニューがある場合はエラーを発生
+    if no_permission_menu_names:
+        menu_names = ', '.join(no_permission_menu_names)
+        log_msg_args = [menu_names]
+        api_msg_args = [menu_names]
+        raise AppException("401-00001", log_msg_args, api_msg_args)  # noqa: F405
+
+
+def check_import_menu_permission(objdbca, menu_rest_list):
+    """
+        インポート対象メニューの書き込み権限チェック
+        既存メニューで EXPORT_PERMISSION_CHECK_FLG='1' の場合のみ、書き込み権限をチェック
+        新規メニュー（存在しない）や FLAG='0' の場合は権限チェックをスキップ
+
+        ARGS:
+            objdbca:DB接クラス  DBConnectWs()
+            menu_rest_list: インポート対象メニューのMENU_NAME_RESTリスト
+        RETURN:
+            なし（権限がない場合は例外を発生）
+    """
+    if not menu_rest_list:
+        return
+
+    t_common_menu = 'T_COMN_MENU'
+
+    # 変数定義
+    lang = g.get('LANGUAGE')
+
+    # 『メニュー管理』テーブルからインポート対象メニューを取得
+    ret_menu = objdbca.table_select(t_common_menu, 'WHERE MENU_NAME_REST IN %s AND DISUSE_FLAG = %s ORDER BY MENU_ID', [menu_rest_list, 0])
+
+    if not ret_menu:
+        # 全て新規メニューの場合は権限チェック不要
+        return
+
+    # 既存メニューのIDリストと FLAG=1（権限チェック必要）のメニューIDリストを取得
+    existing_menu_ids = []
+    check_required_menu_ids = []
+    menu_info_map = {}
+
+    for record in ret_menu:
+        menu_id = record.get('MENU_ID')
+        menu_rest = record.get('MENU_NAME_REST')
+        export_permission_check_flg = record.get('EXPORT_PERMISSION_CHECK_FLG')
+
+        existing_menu_ids.append(menu_id)
+        menu_info_map[menu_id] = {
+            'menu_rest': menu_rest,
+            'menu_name_ja': record.get('MENU_NAME_JA'),
+            'menu_name_en': record.get('MENU_NAME_EN'),
+        }
+
+        if export_permission_check_flg == '1':
+            # FLAG=1 のメニューのみ権限チェック必要
+            check_required_menu_ids.append(menu_id)
+
+    if not check_required_menu_ids:
+        # 全て FLAG=0 の既存メニューまたは新規メニューの場合は権限チェック不要
+        return
+
+    # FLAG=1 のメニューに対して書き込み権限をチェック
+    permitted_menu_id_list = set(_get_write_permission_menu_id_list(objdbca, check_required_menu_ids))
+
+    # 権限不足のメニュー名を集める
+    no_permission_menu_names = []
+    for menu_id in check_required_menu_ids:
+        if menu_id in permitted_menu_id_list:
+            continue
+
+        menu_info = menu_info_map[menu_id]
+        menu_name = menu_info['menu_name_ja'] if lang == 'ja' else menu_info['menu_name_en']
+        no_permission_menu_names.append(menu_name)
+        g.applogger.debug(f"[Import Permission Check] No write permission: {menu_info['menu_rest']} ({menu_name})")
+
+    # 権限不足のメニューがある場合はエラーを発生
+    if no_permission_menu_names:
+        menu_names = ', '.join(no_permission_menu_names)
+        log_msg_args = [menu_names]
+        api_msg_args = [menu_names]
+        raise AppException("401-00001", log_msg_args, api_msg_args)  # noqa: F405
 
 
 def execute_menu_bulk_export(objdbca, menu, body):
@@ -296,6 +472,9 @@ def execute_menu_bulk_export(objdbca, menu, body):
 
         # 親子メニューグループの際にメニューが重複することがあり、重複排除を行う事にする
         body["menu"] = list(dict.fromkeys(body["menu"]))
+
+        # エクスポート対象メニューの書き込み権限チェック
+        check_export_menu_permission(objdbca, body["menu"])
 
         # 登録用パラメータを作成
         parameters = {
@@ -405,6 +584,9 @@ def execute_excel_bulk_export(objdbca, menu, body):
 
         # 親子メニューグループの際にメニューが重複することがあり、重複排除を行う事にする
         body["menu"] = list(dict.fromkeys(body["menu"]))
+
+        # エクスポート対象メニューの書き込み権限チェック
+        check_export_menu_permission(objdbca, body["menu"])
 
         # 登録用パラメータを作成
         parameters = {
@@ -687,6 +869,11 @@ def execute_excel_bulk_import(objdbca, menu, body):
         execution_type = ret_dp_execution_type[0].get('EXECUTION_TYPE_NAME_' + lang.upper())
 
         user_name = util.get_user_name(user_id)
+
+        # インポート対象メニューの書き込み権限チェック（既存メニュー＋FLAG=1のみ）
+        menu_list = body.get('menu', [])
+        if menu_list:
+            check_import_menu_permission(objdbca, menu_list)
 
         # 登録用パラメータを作成
         parameters = {
@@ -1459,6 +1646,9 @@ def execute_menu_import(objdbca, organization_id, workspace_id, menu, body):
     menu_name_rest_list = body['menu']
     upload_id = body['upload_id']
     file_name = body['file_name']
+
+    # インポート対象メニューの書き込み権限チェック（既存メニュー＋FLAG=1のみ）
+    check_import_menu_permission(objdbca, menu_name_rest_list)
 
     upload_dir_name = upload_id.replace('A_', '')
     import_path = dir_name + '/' + upload_dir_name

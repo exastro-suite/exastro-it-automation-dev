@@ -13,6 +13,7 @@
 #   limitations under the License.
 
 import os
+import json
 from flask import g
 
 from common_libs.common import *  # noqa: F403
@@ -20,6 +21,75 @@ from common_libs.common.mongoconnect.const import Const
 from common_libs.common.mongoconnect.mongoconnect import MONGOConnectWs
 from common_libs.loadtable import *
 from common_libs.loadcollection.load_collection import loadCollection
+from libs.export_import import check_export_menu_permission
+
+
+def _check_export_download_permission(objdbca, objmenu, menu, record_id, journal_uuid=None):
+    """
+        エクスポート管理メニューのファイルダウンロード時の権限チェック
+
+        ARGS:
+            objdbca: DB接続クラス DBConnectWs()
+            objmenu: メニューオブジェクト
+            menu: メニュー名 string
+            record_id: レコードのプライマリキー値 string
+            journal_uuid: 履歴のJOURNAL_SEQ_NO (履歴の場合のみ) string or None
+
+        RETURN:
+            なし（権限がない場合は例外を発生）
+    """
+    # ログラベル（通常 or 履歴）
+    log_label = "Download Permission Check (History)" if journal_uuid else "Download Permission Check"
+    log_context = f"record_id={record_id}, journal_uuid={journal_uuid}, menu={menu}" if journal_uuid else f"record_id={record_id}, menu={menu}"
+
+    # DBから直接 json_storage_item を取得
+    table_name = objmenu.get_table_name()
+    primary_key = objmenu.get_primary_key()
+
+    if journal_uuid:
+        # 履歴テーブルから取得
+        history_table_name = table_name + '_JNL'
+        ret = objdbca.table_select(history_table_name, 'WHERE JOURNAL_SEQ_NO = %s', [journal_uuid])
+    else:
+        # 通常テーブルから取得（プライマリキーを動的に使用）
+        ret = objdbca.table_select(table_name, f'WHERE {primary_key} = %s AND DISUSE_FLAG = %s', [record_id, 0])
+
+    if len(ret) == 0:
+        # レコードが存在しない場合はエラー
+        g.applogger.error(f"[{log_label}] Record not found: {log_context}")
+        msg = g.appmsg.get_api_message("MSG-30026", [])
+        raise AppException("401-00001", [msg], [msg])
+
+    json_storage_item = ret[0].get('JSON_STORAGE_ITEM')
+    if json_storage_item:
+        try:
+            storage_data = json.loads(json_storage_item)
+            menu_list = storage_data.get('menu', [])
+            if menu_list:
+                # エクスポート対象メニューへの書き込み権限をチェック（EXPORT_PERMISSION_CHECK_FLG を考慮）
+                check_export_menu_permission(objdbca, menu_list)
+            else:
+                # menu_list が空の場合はエラー
+                g.applogger.error(f"[{log_label}] menu list is empty: {log_context}")
+                msg = g.appmsg.get_api_message("MSG-30026", [])
+                raise AppException("401-00001", [msg], [msg])
+        except json.JSONDecodeError as e:
+            # JSON パースエラー
+            g.applogger.error(f"[{log_label}] Failed to parse json_storage_item: {log_context}, error={str(e)}")
+            msg = g.appmsg.get_api_message("MSG-30026", [])
+            raise AppException("499-00001", [msg], [msg])
+        except AppException:
+            # AppException はそのまま再送出
+            raise
+        except Exception as e:
+            # 予期しない例外
+            g.applogger.error(f"[{log_label}] Unexpected error: {log_context}, error={str(e)}")
+            raise
+    else:
+        # json_storage_item が NULL の場合はアクセス拒否
+        g.applogger.error(f"[{log_label}] json_storage_item is None, access denied: {log_context}")
+        msg = g.appmsg.get_api_message("401-00001", [])
+        raise AppException("401-00001", [msg], [msg])
 
 
 def rest_count(objdbca, menu, filter_parameter):
@@ -169,6 +239,10 @@ def get_file_path(objdbca, menu, uuid, column):
     if len(result) == 0:
         return None
 
+    # エクスポート管理メニューの場合、エクスポート対象メニューへの書き込み権限をチェック
+    if menu in ['menu_export_import_list', 'bulk_excel_export_import_list']:
+        _check_export_download_permission(objdbca, objmenu, menu, uuid)
+
     # columnの値がなければNone
     file_name = result[0].get('parameter').get(column)
     if file_name is None:
@@ -226,6 +300,10 @@ def get_history_file_path(objdbca, menu, uuid, column, journal_uuid):
     # 0件の場合はNone
     if len(result) == 0:
         return None
+
+    # エクスポート管理メニューの場合、エクスポート対象メニューへの書き込み権限をチェック
+    if menu in ['menu_export_import_list', 'bulk_excel_export_import_list']:
+        _check_export_download_permission(objdbca, objmenu, menu, uuid, journal_uuid)
 
     # journal_datetimeの降順にソート
     jounal_list = []

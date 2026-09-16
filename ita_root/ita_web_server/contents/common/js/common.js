@@ -915,14 +915,24 @@ getFile: function( endPoint, method = 'GET', data, option = {} ) {
                 }, 200 );
             } else {
                 // 失敗
+                // platform-authの修正により、エラー時も正しいステータスコードが返される
+                // ITAのAPIは常にJSONを返すため、Content-Typeチェックは不要
                 response.json().then(function( json ){
-                    cmn.responseError( response.status, json ).then(function( result ){
-                        progressModal.close();
-                        progressModal = null;
-                        reject( result );
-                    });
+                    progressModal.close();
+                    progressModal = null;
+                    // エラー情報を呼び出し元に渡す（alertは呼び出し元で表示）
+                    reject( json );
                 }).catch(function( error ){
-                    cmn.systemErrorAlert();
+                    // JSONパースエラー（想定外）
+                    progressModal.close();
+                    progressModal = null;
+                    console.error('Failed to parse error response as JSON:', error);
+                    // パースできなかった場合はステータス情報を渡す
+                    reject({
+                        status: response.status,
+                        statusText: response.statusText,
+                        message: `Error ${response.status}: ${response.statusText}`
+                    });
                 });
             }
         } catch ( e ) {
