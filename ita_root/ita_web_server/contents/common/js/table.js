@@ -1571,7 +1571,12 @@ setTableEvents() {
                 }).catch(function( e ){
                     if ( e !== 'break') {
                         console.error( e );
-                        alert( getMessage.FTE00179 );
+                        // バックエンドからの詳細なエラーメッセージを優先して表示
+                        if ( e && e.message ) {
+                            alert( e.message );
+                        } else {
+                            alert( getMessage.FTE00179 );
+                        }
                     }
                     $a.removeClass('nowDownload');
                 });
