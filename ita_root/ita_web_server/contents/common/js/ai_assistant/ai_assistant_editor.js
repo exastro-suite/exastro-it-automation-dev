@@ -71,6 +71,7 @@ static get assets() {
         { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_chat.js'},
         // プラットフォームAPIの一覧表示用Table（会話履歴・学習事項の一覧に使う）
         { type: 'js', url: '/_/ita/js/table_pf.js'},
+        { type: 'css', url: '/_/ita/css/conductor.css'},
         { type: 'css', url: '/_/ita/css/ai_assistant.css'},
     ];
 }
