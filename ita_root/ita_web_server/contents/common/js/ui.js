@@ -1958,6 +1958,8 @@ aiAssistant() {
         { type: 'js', url: '/_/ita/js/ai_assistant.js'},
         { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_setting.js'},
         { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_llm.js'},
+        // 会話履歴・学習事項のインポート／エクスポート
+        { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_transfer.js'},
         // 画面専用ツール（ツールごとに定義と動作を1ファイルにまとめている）
         { type: 'js', url: '/_/ita/js/ai_assistant/tools/ai_assistant_tool_ask_user_choice.js'},
         { type: 'js', url: '/_/ita/js/ai_assistant/tools/ai_assistant_tool_display_html.js'},
