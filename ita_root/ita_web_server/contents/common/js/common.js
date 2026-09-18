@@ -5180,13 +5180,12 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
                     });
                 };
 
-                // 開発サポート
-                const aiEnabled = option.aiAssistantEnabled;
-                if ( typeof DevelopmentSupport === 'function' && mode === 'edit' && aiEnabled) {
-                    const support = new DevelopmentSupport();
-                    support.setup( modal, aceEditor );
-                } else {
-                    console.warn('DevelopmentSupport is not defined.');
+                // AIアシスタント（編集モードで、メニューでAIアシスタントが有効な場合のみ）。
+                // フッターのボタンからダイアログの右側に開き、編集中のファイルの作成・修正を
+                // 手伝ってもらう（AIアシスタント一式の読み込みは、開くときまで行わない）。
+                if ( typeof AiAssistantEditor === 'function' && mode === 'edit' && option.aiAssistantEnabled ) {
+                    const aiAssistantEditor = new AiAssistantEditor();
+                    aiAssistantEditor.setup( modal, aceEditor );
                 }
             });
         } else if ( fileType === 'image') {
