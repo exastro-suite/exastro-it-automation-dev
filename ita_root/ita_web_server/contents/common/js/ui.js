@@ -1967,6 +1967,7 @@ aiAssistant() {
         { type: 'js', url: '/_/ita/js/ai_assistant/ai_assistant_chat.js'},
         // プラットフォームAPIの一覧表示用Table（メッセージ履歴の表示に使う）
         { type: 'js', url: '/_/ita/js/table_pf.js'},
+        { type: 'css', url: '/_/ita/css/conductor.css'},
         { type: 'css', url: '/_/ita/css/ai_assistant.css'},
     ];
     const tabs = [

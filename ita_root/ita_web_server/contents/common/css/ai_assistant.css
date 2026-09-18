@@ -1005,10 +1005,11 @@ flex: 1 1 auto;
 .aiAssistantChatAssistantMessage ul.aiAssistantUpdatedMenusList {
     display: flex;
     flex-direction: row;
-    gap: 6px;
+    gap: 0 8px;
     margin: 0;
     padding: 0;
     list-style: none;
+    flex-wrap: wrap;
 }
 .aiAssistantUpdatedMenusItem {
     margin: 0;
