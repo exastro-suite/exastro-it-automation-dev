@@ -1480,6 +1480,12 @@ export function messageid_en() {
         'FTE14383': 'Failed to open the AI assistant.',
         'FTE14384': 'Attach the file being edited',
 
+        // LLM Editor(Playbook reflection)
+        'FTE14390': 'Reflection',
+        'FTE14391': 'Reflection difference',
+        'FTE14392': 'Apply',
+        'FTE14393': 'Cancel',
+
         //gemini
         'FTE14101': 'API KEY',
         'FTE14102': 'Model Selection',
