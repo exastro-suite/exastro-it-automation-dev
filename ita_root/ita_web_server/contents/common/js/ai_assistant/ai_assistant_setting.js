@@ -666,7 +666,7 @@ createServiceItemHtml( service, credential ) {
             </div>
             <div class="aiSettingItemMenu">
                 ${fn.html.iconButton('menuList', getMessage.FTE14158, 'itaButton aiSettingModelSelectButton', { action: 'default'})}
-                ${fn.html.iconButton('edit', '', 'itaButton aiSettingUpdateButton popup', { action: 'default', title: getMessage.FTE14159 })}
+                ${fn.html.iconButton('edit', getMessage.FTE14159, 'itaButton aiSettingUpdateButton', { action: 'default'})}
                 ${fn.html.iconButton('circle_check', '', 'itaButton aiSettingVerifyButton popup', { action: 'positive', title: getMessage.FTE14160 })}
                 ${fn.html.iconButton('trash', '', 'itaButton aiSettingDeleteButton popup', { action: 'danger', title: getMessage.FTE14161 })}
             </div>
@@ -1290,7 +1290,7 @@ get modelDialogConfig() {
         },
         footer: {
             button: {
-                save: { text: getMessage.FTE14206, action: 'positive', className: 'dialogPositive'},
+                save: { text: getMessage.FTE14206, action: 'positive', className: 'dialogPositive', width: '120px'},
                 cancel: { text: getMessage.FTE10026, action: 'normal'}
             }
         }
