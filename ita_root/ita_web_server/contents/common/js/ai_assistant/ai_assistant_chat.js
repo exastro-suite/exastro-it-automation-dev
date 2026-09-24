@@ -2600,12 +2600,13 @@ stopMessage() {
     ドライバー実行進捗
 ##################################################
 */
+// 専用の実行画面（Movementノード）を持つドライバー実行ツールの一覧
+static DRIVER_TOOLS = ['execute-driver', 'dry-run-driver'];
 // execute-driver / dryrun-driver の結果から execution_no を取り出し、
 // 進捗を購読して実行状況をバブルに反映する。完了状態まで待ってから、
 // 確定した最終結果（{type, status, result} など）を返す。対象外や取得失敗時は null。
 async watchDriverProgress( toolUse, toolResult, runningEl ) {
-    const DRIVER_TOOLS = ['execute-driver', 'dryrun-driver'];
-    if ( !DRIVER_TOOLS.includes( toolUse.name ) ) return null;
+    if ( !AiAssistantChat.DRIVER_TOOLS.includes( toolUse.name ) ) return null;
 
     // ローディングclassをremove
     runningEl.classList.remove('aiAssistantChatItemLoading');
@@ -2631,8 +2632,8 @@ async watchDriverProgress( toolUse, toolResult, runningEl ) {
         console.warn('watchDriverProgress: ステータス確認メニューを導出できませんでした', execMenu );
         return null;
     }
-    const movementName = toolUse.arguments?.movement_name ?? '';
-    const operationName = toolUse.arguments?.operation_name ?? '';
+    const movementName = toolUse.arguments?.movement_name ?? toolUse.input?.movement_name ?? '';
+    const operationName = toolUse.arguments?.operation_name ?? toolUse.input?.operation_name ?? '';
     const execListMenu = this.drivers?.[ statusMenu ]?.executionListMenu ?? '';
 
     // Movement HTML
@@ -3523,8 +3524,7 @@ restorePendingChoice( history, toolResultMap ) {
 // toolUse: 履歴内の tool_use ブロック（name, arguments を持つ）
 // toolResult: 対応する tool_result ブロック（無い場合あり）
 resumeDriverExecution( toolUse, toolResult ) {
-    const DRIVER_TOOLS = ['execute-driver', 'dryrun-driver'];
-    if ( !DRIVER_TOOLS.includes( toolUse.name )) return;
+    if ( !AiAssistantChat.DRIVER_TOOLS.includes( toolUse.name )) return;
 
     // 実行メニュー（execution_*）→ ステータス確認メニュー（check_operation_status_*）へ変換
     const execMenu = toolUse.arguments?.menu ?? toolUse.input?.menu ?? '';
