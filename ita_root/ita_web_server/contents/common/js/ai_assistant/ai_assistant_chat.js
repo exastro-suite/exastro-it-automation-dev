@@ -1716,6 +1716,11 @@ createCodeToolbar( extraClass ) {
     toolbar.innerHTML =
         copyButton
         + fn.html.button( fn.html.icon('note'), 'itaButton aiAssistantChatCodeButton popup', { type: 'codeToInput', action: 'default', title: getMessage.FTE14269 });
+    // LLMエディタのみコード反映ボタンを表示する
+    if( this.promptProfile == 'LLMEditor' ) {
+        toolbar.innerHTML += fn.html.button( fn.html.icon('circle_check'), 'itaButton aiAssistantChatCodeButton popup', {type: 'codeToEditor', action: 'default', title: getMessage.FTE14390 });
+    }
+
     return toolbar;
 }
 // コード（ブロック／インライン）のテキストを取得する（ツールバーのボタンから呼び出す）
@@ -4690,6 +4695,7 @@ bodyEventActions = {
     // コードブロック・表示専用HTML
     codeCopy:       { whileRunning: true, run:( button ) => this.copyCodeBlock( button ) },
     codeToInput:    { whileRunning: true, run:( button ) => this.setCodeBlockToInput( button ) },
+    codeToEditor:   { whileRunning: true, run:( button ) => this.setCodeBlockToEditor( button ) },
     displayHtmlPdf: { whileRunning: true, run:( button ) => this.printDisplayHtmlAsPdf( button ) }
 }
 bindBodyEvents() {
@@ -4839,6 +4845,14 @@ setCodeBlockToInput( button ) {
     this.elements.message.value = this.getCodeBlockText( button );
     this.elements.message.focus();
 }
+
+// エディターへコードブロックを反映（オーバーライド用）
+// ai_assistant_editor.js でオーバーライドされる。
+// デフォルト実装は提供しない。
+setCodeBlockToEditor( button ) {
+    // オーバーライドされていない場合は何もしない
+}
+
 /*
 ##################################################
     Footerイベント
