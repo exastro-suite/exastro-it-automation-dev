@@ -1316,7 +1316,7 @@ export function messageid_en() {
         'FTE14254': 'Thank you for working until so late.',
         'FTE14255': 'This is the Exastro AI assistant.',
         'FTE14256': '<br>How can I help you?',
-        'FTE14257': function( name ){ return `Failed to authenticate the AI service (${name}).<br>The authentication information may have expired.<br>Please set the authentication information again from "AI service settings".`},
+        'FTE14257': function( name ){ return `Failed to authenticate the AI service (${name}).<br>The authentication information may have expired.<br>Please update your authentication information from "AI service settings".`},
         'FTE14258': 'The preparation for use is not complete.<br>Please complete the settings from "AI service settings".',
         'FTE14259': 'The answers and the operation results of the AI are not guaranteed to be accurate or complete. For operations performed through the AI assistant, check the content and the scope of the impact before the execution, and check that the result is in the intended state after the execution as well.',
         'FTE14260': 'Edit',
