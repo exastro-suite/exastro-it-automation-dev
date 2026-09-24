@@ -194,6 +194,8 @@ constructor( promptProfile ) {
     this.modelId = '';
     // ツール定義（Anthropic tools形式）
     this.tools = [];
+    // メニュー情報
+    this.menu = fn.getParams().menu ?? '';
     // サーバー側の履歴を書き換える処理（全置換・completions）を直列化するためのキュー。
     // 保存（履歴の全置換）は応答ループから待たずに投げられるため、問い合わせと同時に走ると
     // サーバー側の履歴が壊れる（＝二重保存や、保存済み判定のずれ）。
@@ -1148,7 +1150,8 @@ static attachmentMetaBlock( attachments ) {
 async requestCompletion( signal, messageText = null ) {
     const body = {
         // 会話のデフォルトモデルを上書きする（フッターで切り替えたモデルを使う）
-        model_id: this.modelId
+        model_id: this.modelId,
+        menu_id: this.menu
     };
     if ( messageText !== null ) body.message = messageText;
     return await this.request(AiAssistantLlm.apiUrl.completion( this.conversationId ), 'POST', body, signal );
