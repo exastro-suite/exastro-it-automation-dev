@@ -1686,7 +1686,8 @@ createAssistantMessageElement( text, loading = false ) {
             wrapper.appendChild( table );
         });
         // コードブロック（pre）の右上に「コピー」「入力欄にセット」ボタンを付与する
-        inner.querySelectorAll('pre').forEach(( pre ) => {
+        inner.querySelectorAll('pre > code.hljs').forEach(( code ) => {
+            const pre = code.parentElement;
             const wrapper = document.createElement('div');
             wrapper.classList.add('aiAssistantChatCodeBlock');
             pre.replaceWith( wrapper );
@@ -1694,7 +1695,7 @@ createAssistantMessageElement( text, loading = false ) {
             wrapper.appendChild( pre );
         });
         // インラインコード（pre配下でないcode）にも同じボタンを付与する（ボタンは枠の外に浮かせる）
-        inner.querySelectorAll(':not(pre) > code').forEach(( code ) => {
+        inner.querySelectorAll(':not(pre) > code.hljs').forEach(( code ) => {
             const wrapper = document.createElement('span');
             wrapper.classList.add('aiAssistantChatInlineCode');
             code.replaceWith( wrapper );
