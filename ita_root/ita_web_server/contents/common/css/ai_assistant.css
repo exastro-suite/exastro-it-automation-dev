@@ -1915,6 +1915,12 @@ will-change: auto!important;
     padding: 2px 4px;
     text-align: center;
 }
+.ci[data-key="rowMenu_edit"] .itaButton,
+.ci[data-key="rowMenu_resume"] .itaButton,
+.ci[data-key="rowMenu_check"] .itaButton,
+.ci[data-key="rowMenu_titleEdit"] .itaButton {
+    margin: 0 auto;
+}
 /* 内容は複数行になるため、行の高さが揃うように数行までの表示に抑える */
 .pfTable .tbody .ci[data-key="lesson"] {
     display: -webkit-box;

@@ -312,6 +312,7 @@ static lessonRecord( lesson ) {
         category: fn.cv( lesson.category, ''),
         priority: lesson.priority ?? null,
         enabled: lesson.enabled === true,
+        prompt_profile: fn.cv( lesson.prompt_profile, ''),
         lesson_id: fn.cv( lesson.lesson_id, ''),
         created_at: fn.cv( lesson.created_at, ''),
         updated_at: fn.cv( lesson.updated_at, '')
@@ -325,8 +326,11 @@ static lessonRecord( lesson ) {
 // ファイルに含まれている学習事項を、新しい学習事項として1件ずつ登録する。
 //   ・登録日時・更新日時はインポートした日時になる（プラットフォーム側が付ける）
 //   ・学習元の会話（conversation_id）は引き継がない（インポート先には無い会話のため）
+//   ・プロンプトプロファイルはファイルの内容ではなく、インポート先の一覧のものを使う
+// param = { promptProfile }
+//   promptProfile … 登録する学習事項のプロンプトプロファイル（インポート元の一覧のもの）
 // 戻り値がfalseのときは一覧を取得しなおさない（1件も登録しなかった場合）。
-static async importLessons() {
+static async importLessons( param = {}) {
     const title = getMessage.FTE14090;
 
     const selected = await AiAssistantTransfer.selectJsonFile( title );
@@ -354,7 +358,7 @@ static async importLessons() {
         }
         const record = records[ i ];
         try {
-            await AiAssistantLlm.createLesson( record );
+            await AiAssistantLlm.createLesson({ ...record, promptProfile: param.promptProfile });
             imported++;
         } catch ( error ) {
             console.error( error );
