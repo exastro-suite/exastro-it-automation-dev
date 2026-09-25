@@ -76,8 +76,8 @@ static get assets() {
         // コードブロック反映・差分確認
         { type: 'js', url: '/_/ita/lib/diffjs/diff.min.js' },
         { type: 'js', url: '/_/ita/lib/diff2html/diff2html.min.js' },
-        { type: 'css', url: '/_/ita/lib/diff2html/diff2html.css' }
-
+        { type: 'css', url: '/_/ita/lib/diff2html/diff2html.css' },
+        { type: 'css', url: '/_/ita/css/compare.css'},
     ];
 }
 /*
