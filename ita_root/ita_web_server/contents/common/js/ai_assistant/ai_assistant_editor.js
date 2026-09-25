@@ -343,9 +343,9 @@ setCodeBlockToEditor( button ){
     // チャットインスタンスからコードブロックのテキストを取得
     if ( !ae.aa?.chat ) return;
 
-    //ソースコード取得
-    const beforeValue = ae.editor.getValue();
-    const afterValue = ae.aa.chat.getCodeBlockText( button );
+    //ソースコード取得(改行コードをLFに統一)
+    const beforeValue = ae.editor.getValue().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const afterValue = ae.aa.chat.getCodeBlockText( button ).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 
     //ファイル名取得
     const beforeFileName = fn.cv( ae.modal.config?.header?.title, 'file.txt')
