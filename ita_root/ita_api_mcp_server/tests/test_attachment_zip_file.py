@@ -185,6 +185,143 @@ class TestToolCreateAttachmentZipFile:
 
         assert mock_create.call_args[0][3] == "MyBundle.ZIP"
 
+    def test_file_permissions_default_is_644(self, mock_flask_g, mocker):
+        # 境界値: file_permissionsを指定しない場合、zip内の各ファイルの
+        # unixパーミッションが644になること
+        mocker.patch(
+            "tools.attachment_zip_file.fetch_attachment_file",
+            return_value={"filename": "f.txt", "mime_type": "text/plain", "content": b"x"},
+        )
+        mock_create = mocker.patch(
+            "tools.attachment_zip_file.create_attachment_file",
+            return_value={"file_id": "fid", "filename": "archive.zip", "mime_type": "application/zip", "size": 1},
+        )
+
+        attachment_zip_file.tool_create_attachment_zip_file(
+            {"files": [{"file_id": "file-1"}]},
+            {"organization_id": "o", "workspace_id": "w", "user_id": "u"},
+        )
+
+        zip_bytes = mock_create.call_args[0][5]
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            assert zf.getinfo("f.txt").external_attr >> 16 == 0o644
+
+    def test_file_permissions_custom_value_applied(self, mock_flask_g, mocker):
+        # 正常系: file_permissionsを指定した場合、zip内の各ファイルの
+        # unixパーミッションに反映されること
+        mocker.patch(
+            "tools.attachment_zip_file.fetch_attachment_file",
+            return_value={"filename": "f.sh", "mime_type": "text/plain", "content": b"x"},
+        )
+        mock_create = mocker.patch(
+            "tools.attachment_zip_file.create_attachment_file",
+            return_value={"file_id": "fid", "filename": "archive.zip", "mime_type": "application/zip", "size": 1},
+        )
+
+        attachment_zip_file.tool_create_attachment_zip_file(
+            {"files": [{"file_id": "file-1"}], "file_permissions": "755"},
+            {"organization_id": "o", "workspace_id": "w", "user_id": "u"},
+        )
+
+        zip_bytes = mock_create.call_args[0][5]
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            assert zf.getinfo("f.sh").external_attr >> 16 == 0o755
+
+    def test_file_permissions_invalid_value_raises(self, mock_flask_g, mocker):
+        # 異常系: file_permissionsが8進数として解釈できない場合は例外が発生すること
+        mock_fetch = mocker.patch("tools.attachment_zip_file.fetch_attachment_file")
+        mocker.patch("tools.attachment_zip_file.create_attachment_file")
+
+        with pytest.raises(Exception) as exc_info:
+            attachment_zip_file.tool_create_attachment_zip_file(
+                {"files": [{"file_id": "file-1"}], "file_permissions": "abc"},
+                {"organization_id": "o", "workspace_id": "w", "user_id": "u"},
+            )
+
+        assert str(exc_info.value) == "file_permissions must be an octal permission string, e.g. '644'"
+        mock_fetch.assert_not_called()
+
+    def test_per_file_permissions_override_default(self, mock_flask_g, mocker):
+        # 正常系: filesの各要素にpermissionsを指定した場合、そのファイルだけに
+        # 個別のパーミッションが反映され、指定の無いファイルはfile_permissions
+        # (またはデフォルトの644)が使われること
+        files_by_id = {
+            "file-1": {"filename": "script.sh", "mime_type": "text/plain", "content": b"#!/bin/sh"},
+            "file-2": {"filename": "plain.txt", "mime_type": "text/plain", "content": b"x"},
+        }
+        mocker.patch(
+            "tools.attachment_zip_file.fetch_attachment_file",
+            side_effect=_fetch_side_effect(files_by_id),
+        )
+        mock_create = mocker.patch(
+            "tools.attachment_zip_file.create_attachment_file",
+            return_value={"file_id": "fid", "filename": "archive.zip", "mime_type": "application/zip", "size": 1},
+        )
+
+        attachment_zip_file.tool_create_attachment_zip_file(
+            {
+                "files": [
+                    {"file_id": "file-1", "permissions": "755"},
+                    {"file_id": "file-2"},
+                ]
+            },
+            {"organization_id": "o", "workspace_id": "w", "user_id": "u"},
+        )
+
+        zip_bytes = mock_create.call_args[0][5]
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            assert zf.getinfo("script.sh").external_attr >> 16 == 0o755
+            assert zf.getinfo("plain.txt").external_attr >> 16 == 0o644
+
+    def test_per_file_permissions_override_custom_file_permissions_default(self, mock_flask_g, mocker):
+        # 境界値: file_permissionsでデフォルトを変更していても、
+        # permissionsを指定したファイルはそちらが優先されること
+        files_by_id = {
+            "file-1": {"filename": "a.txt", "mime_type": "text/plain", "content": b"a"},
+            "file-2": {"filename": "b.txt", "mime_type": "text/plain", "content": b"b"},
+        }
+        mocker.patch(
+            "tools.attachment_zip_file.fetch_attachment_file",
+            side_effect=_fetch_side_effect(files_by_id),
+        )
+        mock_create = mocker.patch(
+            "tools.attachment_zip_file.create_attachment_file",
+            return_value={"file_id": "fid", "filename": "archive.zip", "mime_type": "application/zip", "size": 1},
+        )
+
+        attachment_zip_file.tool_create_attachment_zip_file(
+            {
+                "files": [
+                    {"file_id": "file-1", "permissions": "600"},
+                    {"file_id": "file-2"},
+                ],
+                "file_permissions": "755",
+            },
+            {"organization_id": "o", "workspace_id": "w", "user_id": "u"},
+        )
+
+        zip_bytes = mock_create.call_args[0][5]
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            assert zf.getinfo("a.txt").external_attr >> 16 == 0o600
+            assert zf.getinfo("b.txt").external_attr >> 16 == 0o755
+
+    def test_per_file_invalid_permissions_raises_with_file_id(self, mock_flask_g, mocker):
+        # 異常系: filesの要素のpermissionsが8進数として解釈できない場合、
+        # file_idを含む例外メッセージが発生すること
+        mock_fetch = mocker.patch("tools.attachment_zip_file.fetch_attachment_file")
+        mocker.patch("tools.attachment_zip_file.create_attachment_file")
+
+        with pytest.raises(Exception) as exc_info:
+            attachment_zip_file.tool_create_attachment_zip_file(
+                {"files": [{"file_id": "file-1", "permissions": "xyz"}]},
+                {"organization_id": "o", "workspace_id": "w", "user_id": "u"},
+            )
+
+        assert str(exc_info.value) == (
+            "permissions for file_id 'file-1' must be an octal permission string, e.g. '644'"
+        )
+        mock_fetch.assert_not_called()
+
     def test_files_missing_raises(self, mock_flask_g, mocker):
         # 異常系: filesが指定されていない場合は例外が発生すること
         mock_fetch = mocker.patch("tools.attachment_zip_file.fetch_attachment_file")
