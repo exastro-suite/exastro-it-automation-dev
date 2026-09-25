@@ -4542,7 +4542,8 @@ async registerLessons( lessons, sourceConversationId ) {
     const registered = new Map();
     let totalCount = null;
     try {
-        const existing = await AiAssistantLlm.fetchLessons();
+        // 照合するのは、この会話と同じプロンプトプロファイルの学習事項だけ
+        const existing = await AiAssistantLlm.fetchLessons({ promptProfile: this.promptProfile });
         totalCount = existing.totalCount;
         for ( const item of existing.lessons ) {
             if ( item?.lesson_id && typeof item.lesson === 'string') {
@@ -4566,7 +4567,8 @@ async registerLessons( lessons, sourceConversationId ) {
                     enabled: true
                 });
             } else {
-                await AiAssistantLlm.createLesson({ ...record, conversationId: sourceConversationId });
+                await AiAssistantLlm.createLesson({ ...record, conversationId: sourceConversationId,
+                    promptProfile: this.promptProfile });
                 // 総件数は新規登録した分だけ増える（更新した分は増えない）
                 if ( totalCount !== null ) totalCount++;
             }

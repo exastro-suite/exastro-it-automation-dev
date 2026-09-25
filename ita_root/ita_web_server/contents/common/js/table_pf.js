@@ -178,12 +178,17 @@ static lessonList( tableId, option = {}) {
     const { organizationId, workspaceId } = fn.getCommonParams();
     const endPoint = `/api/${organizationId}/platform/workspaces/${workspaceId}/lessons`;
 
+    // 学習事項の一覧はprompt_profileでの絞り込みが必須。省略時はAIアシスタントが使うプロファイル。
+    const promptProfile = fn.cv( option.promptProfile,
+        ( typeof AiAssistantLlm !== 'undefined')? AiAssistantLlm.promptProfile: '');
+
     return new DataTablePF( tableId, {
         columns: DataTablePF.lessonColumns,
         // 全件を1回で取得するため、1回のリクエストで取得する件数を上限として渡す
         limit: ( typeof AiAssistantLlm !== 'undefined')? AiAssistantLlm.lessonsFetchLimit: 200,
-        // 有効・無効や分類での絞り込みは行わない（登録されているものをすべて表示する）
-        rest: ( limit, offset ) => `${endPoint}?limit=${limit}&offset=${offset}`,
+        // 有効・無効や分類での絞り込みは行わない（そのプロファイルに登録されているものをすべて表示する）
+        rest: ( limit, offset ) => `${endPoint}?prompt_profile=${encodeURIComponent( promptProfile )}`
+            + `&limit=${limit}&offset=${offset}`,
         list: ( data ) => ( Array.isArray( data?.lessons ) )? data.lessons: [],
         total: ( data ) => data?.total_count
     }, { paging: false, sort: true, ...option });

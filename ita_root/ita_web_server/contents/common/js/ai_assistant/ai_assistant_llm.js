@@ -473,8 +473,10 @@ static async deleteConversation( conversationId ) {
 ##################################################
 */
 // 学習事項（次回セッションへの申し送り）は、プラットフォーム側の専用API（/lessons）へ
-// ユーザー・ワークスペース単位に保存される。
+// ユーザー・ワークスペース・プロンプトプロファイル単位に保存される。
 //
+// ・学習事項はプロンプトプロファイル（AgenticAI / LLMEditor）ごとに分かれる。登録時の prompt_profile の
+//   会話にだけ反映され、一覧（GET /lessons）もプロファイルで絞り込まれる（指定は必須）。
 // ・有効（enabled = true）な学習事項は、プラットフォーム側が問い合わせのたびに
 //   システムプロンプトへ自動的に追記する。そのため画面側からLLMへ渡す必要は無く、
 //   前提知識としての読み出しも行わない（登録するだけで次回以降の会話に反映される）。
@@ -527,11 +529,12 @@ static async extractLessons( transcript, param = {}, signal ) {
     };
 }
 // 学習事項を1件登録する（POST /lessons）。
-// record = { lesson, category, priority, enabled, conversationId }
+// record = { lesson, category, priority, enabled, conversationId, promptProfile }
 //   category … 分類（空の場合は分類なしとして登録する）
 //   priority … 重要度（1〜10。範囲外や数値以外は lessonPriority() が読み替える）
 //   enabled … 有効・無効（省略時は有効。無効にすると次回以降の会話へ反映されない）
 //   conversationId … 学習元の会話ID（任意。どの会話から得た学習事項かを残す）
+//   promptProfile … 反映先のプロンプトプロファイル（省略時はAIアシスタントメニューのもの）
 // 戻り値: 登録された学習事項（lesson_id を含む）
 static async createLesson( record ) {
     const lesson = String( record?.lesson ?? '').trim();
@@ -541,6 +544,7 @@ static async createLesson( record ) {
     return await llm.request(AiAssistantLlm.apiUrl.lesson(), 'POST', {
         lesson: lesson,
         category: ( record?.category )? record.category: null,
+        prompt_profile: record?.promptProfile ?? AiAssistantLlm.promptProfile,
         priority: AiAssistantLlm.lessonPriority( record?.priority ),
         // 登録した学習事項は、次回以降の会話へすぐ反映させる（指定された場合はその状態で登録する）
         enabled: ( typeof record?.enabled === 'boolean')? record.enabled: true,
@@ -548,10 +552,13 @@ static async createLesson( record ) {
     });
 }
 // 登録済みの学習事項を取得する（GET /lessons）。
-// param = { enabled, category, limit, offset }（いずれも任意。enabled・categoryは省略時は絞り込みなし）
+// param = { promptProfile, enabled, category, limit, offset }
+//   promptProfile … 取得するプロンプトプロファイル（省略時はAIアシスタントメニューのもの）
+//   それ以外は任意。enabled・categoryは省略時は絞り込みなし
 // 戻り値 { lessons, count, totalCount } … lessons は重要度の高い順・更新日時の新しい順。
 static async fetchLessons( param = {} ) {
     const query = [];
+    query.push(`prompt_profile=${encodeURIComponent( param.promptProfile ?? AiAssistantLlm.promptProfile )}`);
     if ( typeof param.enabled === 'boolean') query.push(`enabled=${param.enabled}`);
     if ( param.category ) query.push(`category=${encodeURIComponent( param.category )}`);
     query.push(`limit=${param.limit ?? AiAssistantLlm.lessonsFetchLimit}`);

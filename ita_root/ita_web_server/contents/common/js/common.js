@@ -5080,7 +5080,9 @@ fileEditor: function( fileData, fileName, mode = 'edit', option = {} ) {
 
                 const langTools = ace.require('ace/ext/language_tools');
 
-                const aceEditor = ace.edit('aceEditor', {
+                // IDではなく要素で指定する（エディターの上に別のエディターを重ねて開くと
+                // id="aceEditor"が重複し、下のエディターが対象になってしまうため）
+                const aceEditor = ace.edit( modal.$.dbody.find('.editorBody').get(0), {
                     theme: `ace/theme/${aceTheme}`,
                     mode: `ace/mode/${fileMode}`,
                     displayIndentGuides: true,

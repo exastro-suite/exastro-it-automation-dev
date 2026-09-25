@@ -476,6 +476,7 @@ async setupLessons() {
               promptMax = AiAssistantLlm.lessonsPromptMaxCount;
 
         aa.lessonTable = DataTablePF.lessonList( aa.tableId('AAL'), {
+            promptProfile: aa.promptProfile,
             // 学習事項の新規登録（再読込の右側にボタンが追加される）
             headerMenu: [
                 { type: 'lessonAdd', icon: 'plus', text: getMessage.FTE00008, action: 'positive'}
@@ -554,7 +555,8 @@ async addLesson() {
     const processing = fn.processingModal( getMessage.FTE14067 );
     let error = null;
     try {
-        await AiAssistantLlm.createLesson( added );
+        // この一覧（同じプロンプトプロファイル）の学習事項として登録する
+        await AiAssistantLlm.createLesson({ ...added, promptProfile: aa.promptProfile });
     } catch ( e ) {
         console.error( e );
         error = e;
@@ -806,7 +808,8 @@ async importLessons() {
 
     aa.lessonBusy = true;
     try {
-        return await AiAssistantTransfer.importLessons();
+        // インポートした学習事項が、この一覧（同じプロンプトプロファイル）に並ぶようにする
+        return await AiAssistantTransfer.importLessons({ promptProfile: aa.promptProfile });
     } finally {
         aa.lessonBusy = false;
     }
