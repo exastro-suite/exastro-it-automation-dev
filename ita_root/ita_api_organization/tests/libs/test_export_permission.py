@@ -886,6 +886,36 @@ class TestGetMenuExportList:
 
     @patch('libs.export_import._get_target_menu_id_list')
     @patch('libs.export_import._create_export_menu_data')
+    def test_flag0_menus_include_readonly_and_disused_link(self, mock_create_data, mock_get_target, mock_objdbca, mock_g_with_roles):
+        """内部メニュー（FLAG='0'）は、閲覧のみ・廃止済みの紐付でも表示され、紐付がなければ表示されない"""
+        mock_get_target.return_value = ['menu1', 'flag0_readonly', 'flag0_no_link']
+
+        mock_objdbca.table_select.side_effect = [
+            # 1回目: T_DP_HIDE_MENU_LIST
+            [],
+            # 2回目: T_COMN_ROLE_MENU_LINK（通常メニュー）
+            [{'MENU_ID': 'menu1', 'PRIVILEGE': '1'}],
+            # 3回目: T_COMN_MENU（FLAG='0'のメニュー）
+            [{'MENU_ID': 'flag0_readonly'}, {'MENU_ID': 'flag0_no_link'}],
+            # 4回目: T_COMN_ROLE_MENU_LINK（FLAG='0'のメニュー、閲覧のみ・廃止済み）
+            [{'MENU_ID': 'flag0_readonly', 'PRIVILEGE': '2', 'DISUSE_FLAG': '1'}],
+        ]
+
+        mock_create_data.return_value = {'menu_groups': []}
+
+        get_menu_export_list(mock_objdbca, 'org1', 'ws1')
+
+        permitted_menu_ids = mock_create_data.call_args[0][1]
+        assert permitted_menu_ids == ['menu1', 'flag0_readonly']
+
+        # 4回目の検索条件: 閲覧のみ（'2'）を含み、DISUSE_FLAG で絞り込まない
+        table_name, where, bind = mock_objdbca.table_select.call_args_list[3][0]
+        assert table_name == 'T_COMN_ROLE_MENU_LINK'
+        assert 'DISUSE_FLAG' not in where
+        assert bind[2] == ['0', '1', '2']
+
+    @patch('libs.export_import._get_target_menu_id_list')
+    @patch('libs.export_import._create_export_menu_data')
     def test_flag_null_not_treated_as_internal_menu(self, mock_create_data, mock_get_target, mock_objdbca, mock_g_with_roles):
         """FLAG=NULL のメニューは内部メニュー（FLAG='0'）として扱わない"""
         mock_get_target.return_value = ['menu1']

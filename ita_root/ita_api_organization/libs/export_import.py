@@ -72,7 +72,8 @@ def get_menu_export_list(objdbca, organization_id, workspace_id):
         [menu_id_list, role_id_list, ['0', '1'], 0]
     )
 
-    # 2. FLAG=0の内部メニュー：廃止済み紐付も含める（ワークスペース作成時のデフォルト動作を保持）
+    # 2. FLAG=0の内部メニュー：ロール-メニュー紐付があれば、権限・廃止に関わらず表示する
+    #    ワークスペース作成時、ワークスペース管理者ロールの紐付は閲覧のみ・廃止済みで作成されるため
     # FLAG=NULLは'1'と同様に扱う（権限チェック必須）
     t_comn_menu = 'T_COMN_MENU'
     ret_flag0_menus = objdbca.table_select(
@@ -84,13 +85,11 @@ def get_menu_export_list(objdbca, organization_id, workspace_id):
 
     ret_flag0_menu_link = []
     if flag0_menu_ids:
-        # 内部メニュー（FLAG='0'）も書き込み権限のみ表示
-        # ただし、内部メニューは権限チェックがスキップされるため、PRIVILEGE='2'でもエクスポート実行は可能
-        # しかし、一貫性のため書き込み権限があるもののみ表示する
+        # 内部メニュー（FLAG='0'）はエクスポート実行時の権限チェックがスキップされるため、閲覧のみ（PRIVILEGE='2'）も表示する
         ret_flag0_menu_link = objdbca.table_select(
             t_comn_role_menu_link,
             'WHERE MENU_ID IN %s AND ROLE_ID IN %s AND PRIVILEGE IN %s ORDER BY MENU_ID',
-            [flag0_menu_ids, role_id_list, ['0', '1']]
+            [flag0_menu_ids, role_id_list, ['0', '1', '2']]
         )
 
     # 3. マージして重複排除（元の順序を維持）
