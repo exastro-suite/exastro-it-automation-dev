@@ -73,6 +73,11 @@ static get assets() {
         { type: 'js', url: '/_/ita/js/table_pf.js'},
         { type: 'css', url: '/_/ita/css/conductor.css'},
         { type: 'css', url: '/_/ita/css/ai_assistant.css'},
+        // コードブロック反映・差分確認
+        { type: 'js', url: '/_/ita/lib/diffjs/diff.min.js' },
+        { type: 'js', url: '/_/ita/lib/diff2html/diff2html.min.js' },
+        { type: 'css', url: '/_/ita/lib/diff2html/diff2html.css' }
+
     ];
 }
 /*
@@ -199,6 +204,18 @@ async open() {
             openTab: ( name ) => ae.openTab( name )
         });
         await ae.aa.setup();
+
+        // ai_assistant_chatのsetCodeBlockToEditorメソッドをオーバーライドして、
+        // エディターへの反映処理をこのクラスで処理する
+        if ( ae.aa.chat ) {
+            ae.aa.chat.setCodeBlockToEditor = ( button ) => {
+                try{
+                    ae.setCodeBlockToEditor( button )
+                } catch(error){
+                    console.error('setCodeBlockToEditor execution error:',error);
+                }
+            };
+        }
     } catch ( error ) {
         failed = error;
     }
@@ -315,6 +332,75 @@ attachEditingFile() {
     // 添付したファイルはチャットの入力欄の上に並ぶため、チャットのタブへ切り替える
     ae.openTab('container');
 }
+/*
+##################################################
+##################################################
+*/
+// 右側のAIアシスタントが提案したコードブロックを編集中の内容に反映する。
+setCodeBlockToEditor( button ){
+    const ae = this;
+
+    // チャットインスタンスからコードブロックのテキストを取得
+    if ( !ae.aa?.chat ) return;
+
+    //ソースコード取得
+    const beforeValue = ae.editor.getValue();
+    const afterValue = ae.aa.chat.getCodeBlockText( button );
+
+    //ファイル名取得
+    const beforeFileName = fn.cv( ae.modal.config?.header?.title, 'file.txt')
+    const inputName = fn.cv( ae.modal.$.dbody.find('.editorFileName').val(), '').trim();
+    const afterFileName = ( inputName )? inputName: fn.cv( ae.modal.config?.header?.title, 'file.txt');
+
+    // 差分を生成
+    const unifiedDiff = Diff.createTwoFilesPatch(
+        beforeFileName,
+        afterFileName,
+        beforeValue,
+        afterValue
+    );
+
+    const diffHtml = Diff2Html.html(unifiedDiff, {
+        drawFileList: false,
+        matching: 'lines',
+        outputFormat: 'side-by-side',
+    });
+
+    // ダイアログの設定
+    const config = {
+        mode: 'modeless',
+        position: 'center',
+        header: {
+            title: getMessage.FTE14391
+        },
+        width: '1600px',
+        footer: {
+            button: {
+                ok: { text: getMessage.FTE14392, action: 'positive' },
+                cancel: { text: getMessage.FTE14393, action: 'normal' }
+            }
+        }
+    };
+
+    // ダイアログのアクション
+    const func = {
+        ok: () => {
+            ae.editor.setValue( afterValue );
+            modal.close();
+            modal = null;
+        },
+        cancel: () => {
+            modal.close();
+            modal = null;
+        }
+    };
+
+    // ダイアログを開く
+    let modal = new Dialog( config, func );
+    modal.open( diffHtml );
+}
+
+
 /*
 ##################################################
    右側のAIアシスタントを閉じる
