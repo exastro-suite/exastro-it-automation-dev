@@ -1686,8 +1686,7 @@ createAssistantMessageElement( text, loading = false ) {
             wrapper.appendChild( table );
         });
         // コードブロック（pre）の右上に「コピー」「入力欄にセット」ボタンを付与する
-        inner.querySelectorAll('pre > code.hljs').forEach(( code ) => {
-            const pre = code.parentElement;
+        inner.querySelectorAll('pre').forEach(( pre ) => {
             const wrapper = document.createElement('div');
             wrapper.classList.add('aiAssistantChatCodeBlock');
             pre.replaceWith( wrapper );
@@ -1695,7 +1694,7 @@ createAssistantMessageElement( text, loading = false ) {
             wrapper.appendChild( pre );
         });
         // インラインコード（pre配下でないcode）にも同じボタンを付与する（ボタンは枠の外に浮かせる）
-        inner.querySelectorAll(':not(pre) > code.hljs').forEach(( code ) => {
+        inner.querySelectorAll(':not(pre) > code').forEach(( code ) => {
             const wrapper = document.createElement('span');
             wrapper.classList.add('aiAssistantChatInlineCode');
             code.replaceWith( wrapper );
@@ -1717,8 +1716,8 @@ createCodeToolbar( extraClass ) {
     toolbar.innerHTML =
         copyButton
         + fn.html.button( fn.html.icon('note'), 'itaButton aiAssistantChatCodeButton popup', { type: 'codeToInput', action: 'default', title: getMessage.FTE14269 });
-    // LLMエディタのみコード反映ボタンを表示する
-    if( this.promptProfile == 'LLMEditor' ) {
+    // LLMエディタかつextraClassの値がない(aiAssistantChatCodeToolbarInlineではない)場合、コード反映ボタンを表示する
+    if( this.promptProfile == 'LLMEditor' && !extraClass) {
         toolbar.innerHTML += fn.html.button( fn.html.icon('circle_check'), 'itaButton aiAssistantChatCodeButton popup', {type: 'codeToEditor', action: 'default', title: getMessage.FTE14390 });
     }
 
