@@ -17,6 +17,7 @@ The behaviour of `labeling` changes depending on which combination of fields you
 | Pattern C | **Use the event field's value itself as the label value (value extraction)** | specified | **all `null`** | **`null`** |
 
 - A request like "I want to take the XX field of the event out as a label so it can be used in conditions" is **Pattern C**. Trying to emulate it with Pattern A means creating one record per possible value, which does not scale.
+- A threshold (magnitude comparison) request such as "target it only when XX **exceeds** YY" is **Pattern A**. A `filter` only has `==`/`≠`, so the magnitude comparison is done here in `labeling` and the filter then checks the assigned label with `==` - a two-stage construction (see the "When you need a threshold (magnitude comparison) condition" section of `filter.md`). **Extracting the value with Pattern C does not give you a threshold decision** (a filter cannot express `> 80`).
 - See the "Pattern C" section below for details.
 
 ## Pattern C: extracting an event field's value into a label as-is
@@ -67,6 +68,7 @@ The data type of the value and the comparison method must be combined correctly.
 | `bool`, `object`, `array`, `falsy` | `==` or `≠` only |
 | `any` (other) | Only `RegExp` (regular expression, no option), `RegExp(DOTALL)`, or `RegExp(MULTILINE)` |
 
+- **`<`/`<=`/`>`/`>=` are available only in this `labeling` menu; they do not exist in a filter condition (`condition_type`).** For a requirement that narrows events by a threshold, do the magnitude comparison here to assign a label, and have the `filter` check that label with `==`.
 - When `type_name` is `integer`, `search_value_name` must be convertible to an integer. When `float`, it must be convertible to a float. When `bool`, it must be either `"true"` or `"false"` (case-insensitive).
 - When `type_name` is `object`, `search_value_name` must be valid JSON starting with `{` and ending with `}`. When `array`, it must be valid JSON starting with `[` and ending with `]`.
 - When `type_name` is `falsy`, `search_value_name` must be empty (specifying a value is an error). Also, when `comparison_method` is `≠`, `label_value_name` is required.

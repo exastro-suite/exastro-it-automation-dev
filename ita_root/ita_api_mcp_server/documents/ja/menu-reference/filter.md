@@ -14,6 +14,35 @@ OASEのフィルター。ラベル条件でイベントを絞り込み、ルー�
   [["_exastro_type", "≠", "conclusion"], ["event_type", "==", "高負荷アラート"]]
   ```
 
+## しきい値（大小比較）の条件を作りたいとき（重要）
+
+「CPU使用率が80%を**超えたとき**だけ対象にしたい」「レスポンスタイムが1000ms**以上**のときだけ」のように、**数値のしきい値でイベントを絞り込みたい場合、filterには大小比較が無いため、比較は`labeling`側で行い、filterはその結果のラベルを`==`で見る**という2段構えにする。これがExastroでの唯一の実現方法である。
+
+```
+labeling（ここで大小比較する）           filter（ここは == だけ）
+  search_key_name:    event.cpu_usage
+  type_name:          float          ─┐
+  comparison_method:  >               ├─ 80を超えたイベントにだけ
+  search_value_name:  80              │   cpu_over_80 = "true" が付く
+  label_key_name:     cpu_over_80    ─┘        │
+  label_value_name:   true                     ▼
+                                      [["cpu_over_80", "==", "true"], ...]
+```
+
+手順:
+
+1. `label_creation`でしきい値判定用のラベルキーを作る（例: `cpu_over_80`）。
+2. `labeling`で**パターンA（条件に合致したときだけ固定値を付与）** の設定を作る。`comparison_method`に`>`/`>=`/`<`/`<=`を指定し、`type_name`は数値なら`integer`か`float`、`label_value_name`には`true`のような固定値を入れる。`labeling`では`<`/`<=`/`>`/`>=`が使える（filterとは違う）。詳細は`labeling.md`を参照。
+3. `filter`の`filter_condition_json`に`[["cpu_over_80", "==", "true"]]`を加える。しきい値を下回るイベントにはラベルが付かないため、この条件にマッチせず対象外になる。
+
+注意点:
+
+- **`labeling`のパターンC（値の抽出。全項目`null`）でしきい値判定はできない。** 値を`cpu_usage`ラベルに抽出しても、filterでは`cpu_usage > 80`と書けないため要件を満たせない。しきい値判定は必ずパターンAで行うこと。
+- **「監視ツール側で80%以上のアラートだけ送るように設定する」はExastro側の設定ではない。** ユーザーがExastroでの条件設定を求めているときに、この回避策を第一候補として提示してはいけない（提示するとしても、Exastro側で完結する上記の方法を推奨案として併記すること）。
+- しきい値は変わりうるので、`label_key_name`に`cpu_over_80`のようにしきい値を埋め込むか、`cpu_threshold_exceeded`のような値に依存しない名前にするかはユーザーに確認すること。
+- **既存のフィルターにしきい値条件を追加する場合は、どのフィルターに追加するかを必ずユーザーに確認すること。** 既存ルールの発火条件が狭まるため、黙って全フィルターを更新してはいけない。
+- 既存フィルターを`Update`する場合は、直前に`menu-filter`で取得した`last_update_date_time`を必ず渡すこと。省略すると`{"0": {"Individual check": ["last_update_date_time is invalid (None)"]}}`（499-00201）になる。また`Update`は渡した値だけで検証されるため、`filter_name`/`search_condition_id`/`available_flag`など**変更しない列も全て再送**すること。
+
 ## 固定ラベル（組み込みラベル）— `_exastro_host` によるホスト絞り込み（重要）
 
 `label_creation`で作成したラベル以外に、Exastroに最初から組み込まれている固定ラベルを`label_name`に指定できる。実際に使える一覧は`list-menu-info-pulldown`の`filter_condition_json.label_name`で取得できる。

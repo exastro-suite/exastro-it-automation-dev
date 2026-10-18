@@ -325,3 +325,48 @@
 
 - **イベント側のフィールド名は推測になることが多い。** 推測である旨を明示してユーザーに確認を取ること。`event_history`メニューで実データを確認しようとしても`System Error (999-99999)`になるため、確認手段として試さないこと。
 - 「どんな値が来るか」をユーザーに聞く必要はない。パターンCは1件でそのフィールドの全ての値に対応できる。
+
+## ラベルの値がしきい値を超えたときだけ対象にする
+
+「□□（例: CPU使用率）が△△（例: 80%）を超えたときだけ対象にしたい」のような、**数値のしきい値で絞り込む**依頼の手順。
+
+### filterには大小比較が無い（最重要）
+
+`filter`の`condition_type`は`==`と`≠`の2値しかなく、`>`や`>=`は存在しない。そのため**しきい値の判定は`labeling`側で行い、`filter`はその結果のラベルを`==`で見る**という2段構えにする。これがExastroでの唯一の実現方法である。
+
+```
+labeling（ここで大小比較）                      filter（ここは == だけ）
+  event.cpu_usage > 80 (float)  ──▶  cpu_over_80 = "true"  ──▶  ["cpu_over_80","==","true"]
+                                     （80以下のイベントには
+                                       ラベルが付かない）
+```
+
+| メニュー | 作業 |
+|---|---|
+| `label_creation` | **新規作成**。しきい値判定用のラベルキーを1件追加（例: `cpu_over_80`） |
+| `labeling` | **新規作成**。パターンA（条件付き固定値）で`comparison_method`に`>`等を指定 |
+| `filter` | **更新**。既存フィルターの`filter_condition_json`にそのラベルの`==`条件を追加 |
+| `event_collection` / `action` / `rule` | **触らない** |
+
+### 手順
+
+1. **提案を作る前に`get-document`で`documents-menu/filter.md`と`documents-menu/labeling.md`を取得する。** filter側に大小比較が無いことと、`labeling`のパターンA（`type_name`×`comparison_method`の組合せ）を確認する。
+2. `menu-filter`で既存の`label_creation`/`labeling`/`filter`を取得する。**「既にOASEの設定をしていますか」のように、自分で`menu-filter`すれば分かることをユーザーに質問してはいけない。** 既存構成を自分で把握した上で提案を組み立てること。
+3. `label_creation`でしきい値判定用のラベルキーを登録する。
+4. `labeling`でパターンAの設定を登録する。
+    - `search_key_name`: しきい値を判定する数値が入っているイベント項目（例: `event.cpu_usage`）
+    - `type_name`: `float`（整数しか来ないと分かっているなら`integer`）
+    - `comparison_method`: `>`（「以上」なら`>=`。「超えた」と「以上」でどちらになるかはユーザーに確認する）
+    - `search_value_name`: しきい値（例: `80`）
+    - `label_value_name`: `true`のような固定値
+5. `filter`を`Update`して`filter_condition_json`に`["<ラベルキー>", "==", "true"]`を追加する。
+6. しきい値を下回るイベントにはラベルが付かないため条件にマッチしない、という仕組みをユーザーに説明して完了とする。
+
+### 注意点
+
+- **パターンC（値の抽出。全項目`null`）では要件を満たせない。** 値を`cpu_usage`ラベルに抽出しても、filterで`cpu_usage > 80`と書けないため絞り込めない。しきい値判定は必ずパターンA。
+- **「監視ツール側で80%以上のアラートだけ送るよう設定する」はExastro側の設定ではない。** ユーザーがExastroでの条件設定を求めているときに、これを第一候補や推奨案として提示してはいけない。
+- 「超えたとき（`>`）」か「以上（`>=`）」か、しきい値を`label_key_name`に埋め込むか（`cpu_over_80`）値に依存しない名前にするか（`cpu_threshold_exceeded`）は、ユーザーに確認すること。
+- しきい値を判定する数値のフィールド名は推測になることが多い。推測である旨を明示して確認を取ること。
+- **既存フィルターのどれにしきい値条件を追加するかは必ずユーザーに確認すること。** 既存ルールの発火条件が狭まるため、黙って全フィルターを更新してはいけない。
+- `filter`の`Update`では、直前の`menu-filter`で取得した`last_update_date_time`を必ず渡すこと。省略すると`last_update_date_time is invalid (None)`（499-00201）になる。変更しない列（`filter_name`/`search_condition_id`/`available_flag`等）も全て再送すること。

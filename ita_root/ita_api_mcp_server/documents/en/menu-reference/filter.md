@@ -14,6 +14,35 @@ An OASE filter. Narrows down events by label conditions and determines which eve
   [["_exastro_type", "≠", "conclusion"], ["event_type", "==", "high load alert"]]
   ```
 
+## When you need a threshold (magnitude comparison) condition (important)
+
+For requirements such as "target only events where CPU usage **exceeds** 80%" or "only when the response time is 1000 ms **or more**", **a filter has no magnitude comparison, so the comparison must be done on the `labeling` side and the filter then checks the resulting label with `==`**. This two-stage construction is the only way to achieve it in Exastro.
+
+```
+labeling (the comparison happens here)   filter (only == here)
+  search_key_name:    event.cpu_usage
+  type_name:          float          ─┐
+  comparison_method:  >               ├─ only events above 80 get
+  search_value_name:  80              │   cpu_over_80 = "true"
+  label_key_name:     cpu_over_80    ─┘        │
+  label_value_name:   true                     ▼
+                                      [["cpu_over_80", "==", "true"], ...]
+```
+
+Steps:
+
+1. Create a label key for the threshold decision in `label_creation` (e.g. `cpu_over_80`).
+2. Create a **Pattern A (assign a fixed value only when a condition matches)** record in `labeling`. Set `comparison_method` to `>`/`>=`/`<`/`<=`, set `type_name` to `integer` or `float` for numeric values, and put a fixed value such as `true` in `label_value_name`. `labeling` does support `<`/`<=`/`>`/`>=` (unlike a filter). See `labeling.md` for details.
+3. Add `[["cpu_over_80", "==", "true"]]` to the filter's `filter_condition_json`. Events below the threshold never get the label, so they do not match this condition and are excluded.
+
+Notes:
+
+- **Pattern C of `labeling` (value extraction, all fields `null`) cannot implement a threshold decision.** Even if you extract the value into a `cpu_usage` label, a filter cannot express `cpu_usage > 80`, so the requirement is not met. Always use Pattern A for threshold decisions.
+- **"Configure the monitoring tool to send only alerts above 80%" is not an Exastro-side setting.** When the user is asking for the condition to be configured in Exastro, do not offer this workaround as the primary option (if you mention it at all, also present the Exastro-only method above as the recommended one).
+- Thresholds can change, so ask the user whether to embed the threshold in `label_key_name` (e.g. `cpu_over_80`) or use a value-independent name such as `cpu_threshold_exceeded`.
+- **When adding a threshold condition to existing filters, always confirm which filters to modify.** It narrows the firing condition of existing rules, so never update every filter silently.
+- When issuing `Update` on an existing filter, always pass the `last_update_date_time` obtained from the immediately preceding `menu-filter`. Omitting it results in `{"0": {"Individual check": ["last_update_date_time is invalid (None)"]}}` (499-00201). Also, `Update` is validated using only the values you pass, so **re-send every unchanged column too** (`filter_name`, `search_condition_id`, `available_flag`, etc.).
+
 ## Fixed (built-in) labels - narrowing by host with `_exastro_host` (important)
 
 In addition to labels created in `label_creation`, fixed labels built into Exastro can be specified in `label_name`. The list actually available can be retrieved via `list-menu-info-pulldown` under `filter_condition_json.label_name`.

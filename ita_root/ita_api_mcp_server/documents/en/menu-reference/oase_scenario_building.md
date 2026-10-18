@@ -325,3 +325,48 @@ Procedure for a request like "make the <field name> of <event type> usable as a 
 
 - **The event-side field name is often a guess.** State explicitly that it is a guess and confirm with the user. Trying to inspect real data in the `event_history` menu fails with `System Error (999-99999)`, so do not attempt it as a verification method.
 - There is no need to ask the user "which values will arrive". A single Pattern C record covers every value of that field.
+
+## Targeting events only when a label value exceeds a threshold
+
+The procedure for a request that **narrows events by a numeric threshold**, such as "I only want to target it when XX (e.g. CPU usage) exceeds YY (e.g. 80%)".
+
+### A filter has no magnitude comparison (most important)
+
+A filter's `condition_type` has only the two values `==` and `≠`; `>` and `>=` do not exist. Therefore **the threshold decision must be made on the `labeling` side, and the `filter` checks the resulting label with `==`** - a two-stage construction. This is the only way to achieve it in Exastro.
+
+```
+labeling (magnitude comparison here)            filter (only == here)
+  event.cpu_usage > 80 (float)  ──▶  cpu_over_80 = "true"  ──▶  ["cpu_over_80","==","true"]
+                                     (events at or below 80
+                                      never get the label)
+```
+
+| Menu | Work |
+|---|---|
+| `label_creation` | **Create**. Add one label key for the threshold decision (e.g. `cpu_over_80`) |
+| `labeling` | **Create**. Pattern A (conditional fixed value) with `>` etc. in `comparison_method` |
+| `filter` | **Update**. Add an `==` condition on that label to the existing `filter_condition_json` |
+| `event_collection` / `action` / `rule` | **Leave untouched** |
+
+### Steps
+
+1. **Before building the proposal, retrieve `documents-menu/filter.md` and `documents-menu/labeling.md` with `get-document`.** Confirm that the filter side has no magnitude comparison, and check Pattern A of `labeling` (the `type_name` × `comparison_method` combination).
+2. Retrieve the existing `label_creation` / `labeling` / `filter` records with `menu-filter`. **Never ask the user something you can find out yourself with `menu-filter`, such as "have you already configured OASE?".** Build the proposal on the existing configuration you retrieved yourself.
+3. Register the label key for the threshold decision in `label_creation`.
+4. Register a Pattern A record in `labeling`.
+    - `search_key_name`: the event field holding the number to compare (e.g. `event.cpu_usage`)
+    - `type_name`: `float` (use `integer` only if you know only integers arrive)
+    - `comparison_method`: `>` (use `>=` for "or more"; confirm with the user which one they mean)
+    - `search_value_name`: the threshold (e.g. `80`)
+    - `label_value_name`: a fixed value such as `true`
+5. `Update` the filter to add `["<label key>", "==", "true"]` to `filter_condition_json`.
+6. Explain the mechanism to the user - events below the threshold never get the label, so they do not match the condition - and finish.
+
+### Notes
+
+- **Pattern C (value extraction, all fields `null`) cannot satisfy the requirement.** Even if you extract the value into a `cpu_usage` label, a filter cannot express `cpu_usage > 80`, so it cannot narrow anything. Always use Pattern A for threshold decisions.
+- **"Configure the monitoring tool to send only alerts above 80%" is not an Exastro-side setting.** When the user asks for the condition to be configured in Exastro, do not present it as the first or recommended option.
+- Confirm with the user whether they mean "exceeds (`>`)" or "or more (`>=`)", and whether to embed the threshold in `label_key_name` (`cpu_over_80`) or use a value-independent name (`cpu_threshold_exceeded`).
+- The field name holding the number is often a guess. State explicitly that it is a guess and confirm.
+- **Always confirm which existing filters should receive the threshold condition.** It narrows the firing condition of existing rules, so never update every filter silently.
+- On a filter `Update`, always pass the `last_update_date_time` obtained from the immediately preceding `menu-filter`; omitting it results in `last_update_date_time is invalid (None)` (499-00201). Re-send unchanged columns too (`filter_name`, `search_condition_id`, `available_flag`, etc.).
