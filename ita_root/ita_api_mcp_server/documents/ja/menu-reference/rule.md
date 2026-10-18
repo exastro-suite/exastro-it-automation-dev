@@ -12,6 +12,9 @@ OASEのルール。フィルター結果に基づき「どのアクションを�
   - `A xor B` : フィルターAとBのどちらか一方だけにマッチしたときに条件成立
   - `A -> B` : フィルターAにマッチした後にフィルターBにマッチしたときに条件成立（時系列相関）
 - 単一フィルターだけで判定したい場合は、`filter_a`のみ指定し`filter_b`/`filter_operator`は空にする。
+- **一意制約は`filter_a` + `filter_operator` + `filter_b` の組合せ。** つまり**同じフィルター構成のルールは2つ作れない**（`The combination is incorrect.` / 499-00201・MSG-00006）。
+  - 既存ルールを別ホスト向けに複製する場合、**ルールだけ増やすことはできず、必ず別のフィルターを用意する必要がある**。`filter_condition_json`に`_exastro_host`条件を足した新しいフィルターを作り、それを`filter_a`に指定すること（`filter.md`参照）。
+  - 逆に、`action`の`event_collaboration`を`True`にしてイベント発生元ホストで実行する構成なら、ルールもフィルターも複製する必要はない（1組で全ホストをカバーできる）。
 
 ## action_id column
 
@@ -49,6 +52,39 @@ OASEのルール。フィルター結果に基づき「どのアクションを�
 ## ttl column
 
 - 単位は秒。最小値10、最大値2147483647。デフォルト3600。
+
+## 既存ルールを`Update`するときの注意（重要）
+
+- `maintenance-all`の`Update`では、**バリデーションは「今回渡した値」だけで判定される**。既存レコードに入っている値は補完されない。
+- そのため`action_id`だけを差し替えるつもりで1項目だけ渡すと、`filter_a`/`filter_b`が未指定として扱われ、次のエラーになる。
+  ```
+  {"0": {"Individual check": ["Duplicate filters are selected."]}}  (499-00201)
+  ```
+- **更新前に`menu-filter`で既存レコードを取得し、変更しない項目（`rule_name`/`rule_label_name`/`rule_priority`/`filter_a`/`conclusion_label_settings`/`action_label_inheritance_flag`/`event_label_inheritance_flag`/`ttl`/`available_flag`）も含めてすべて渡すこと。**
+- `last_update_date_time`も直前の`menu-filter`で取得した値をそのまま渡す（更新ごとに値が変わるため、連続更新する場合は毎回取り直す）。
+- 例: アクションの差し替えのみを行う`Update`
+  ```json
+  {
+    "menu": "rule",
+    "records": [{
+      "type": "Update",
+      "parameter": {
+        "rule_id": "<既存のrule_id>",
+        "last_update_date_time": "<menu-filterで取得した値をそのまま>",
+        "available_flag": "True",
+        "rule_name": "<既存と同じ>",
+        "rule_label_name": "<既存と同じ>",
+        "rule_priority": "1",
+        "filter_a": "<既存と同じフィルター名>",
+        "action_id": "<新しいアクション名>",
+        "conclusion_label_settings": "[]",
+        "action_label_inheritance_flag": "True",
+        "event_label_inheritance_flag": "False",
+        "ttl": "3600"
+      }
+    }]
+  }
+  ```
 
 ## 新規作成時の最小サンプル
 
