@@ -294,3 +294,34 @@ Self-check all of the following before presenting a proposal.
 6. Was Option A (consolidation via `event_collaboration: True`) also presented as a choice?
 7. Does every `Update` / `Discard` payload carry the `last_update_date_time` obtained from the immediately preceding `menu-filter`?
 8. Does every `Update` payload include all columns, including the unchanged ones (since validation uses only the passed values)?
+
+## Extracting an arbitrary event field as a label
+
+Procedure for a request like "make the <field name> of <event type> usable as a label" — i.e. **just adding one more value that can be used in conditions**. There is no need to touch all six menus.
+
+### Only two menus are needed
+
+| Menu | Handling |
+|---|---|
+| `event_collection` | **Reuse.** Use the existing collection setting (no new one needed) |
+| `label_creation` | **Newly create.** Add one label key |
+| `labeling` | **Newly create.** Add one record that copies the event field's value into the label value |
+| `filter` / `action` / `rule` | **Leave untouched.** They only become necessary when the extracted label is actually used as a condition |
+
+- Creating only `label_creation` does not populate any value. **Always propose it together with `labeling`.**
+- Conversely, creating only `labeling` fails if the label key does not exist. The order is `label_creation` -> `labeling`.
+
+### Steps
+
+1. Retrieve the existing `label_creation` and `labeling` records with `menu-filter`.
+    - If the same label key already exists, no new one is needed (tell the user so).
+    - Look at the `search_key_name` of existing `labeling` records (e.g. `event.type`) as a hint about the event JSON structure.
+2. **Retrieve `documents-menu/labeling.md` with `get-document` before building the proposal.** There are three assignment patterns, and this request is "Pattern C (extract the event field's value as-is)". Do not emulate it with Pattern A by creating one record per possible value.
+3. Register the label key in `label_creation`.
+4. Register the Pattern C record in `labeling` (specify only `search_key_name`; pass `type_name`/`comparison_method`/`search_value_name`/`label_value_name` all as `null`).
+5. Tell the user that the label can now be used in `filter` conditions, and finish.
+
+### Notes
+
+- **The event-side field name is often a guess.** State explicitly that it is a guess and confirm with the user. Trying to inspect real data in the `event_history` menu fails with `System Error (999-99999)`, so do not attempt it as a verification method.
+- There is no need to ask the user "which values will arrive". A single Pattern C record covers every value of that field.
