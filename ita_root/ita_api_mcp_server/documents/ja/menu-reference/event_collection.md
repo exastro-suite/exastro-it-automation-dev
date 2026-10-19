@@ -66,3 +66,10 @@ OASEのイベント収集設定。監視ツール等のエージェントがど�
   ]
 }
 ```
+
+## 既存の収集設定をもとに新しい収集設定を作るとき（複製）
+
+- `event_collection_settings_name`は**一意**。複製先には別の名前を付けること。
+- **`auth_token`/`password`/`secret_access_key`はパスワード項目のため、`menu-filter`では値が返らない（`null`になる）。** 既存の設定からはコピーできないので、複製先の認証情報は必ずユーザーに確認すること。推測やダミー値で登録してはいけない。
+- 監視ツールが別の機器であれば`url`も異なるはずなので、`url`もユーザーに確認すること。`connection_method_name`/`request_method_name`/`request_header`/`parameter`/`ttl`/`response_key`/`event_id_key`などは既存の値を流用してよい（流用する旨を提案に明記する）。
+- 収集設定を追加しただけではラベルは付かない。ラベル付与設定は収集設定ごとに必要なので、`labeling.md`の「既存のラベル付与設定を別の収集設定にコピーする」節も参照すること。

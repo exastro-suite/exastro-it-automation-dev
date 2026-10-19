@@ -108,3 +108,16 @@ The data type of the value and the comparison method must be combined correctly.
   ]
 }
 ```
+
+## Copying existing labeling settings to another event collection setting
+
+- **A labeling setting is applied only to events fetched by the matching event collection setting (`event_collection_settings_name`).** When you add an event collection setting (e.g. one more monitoring tool of the same kind), events from the new collection get no labels at all (not even `_exastro_host`) unless you create labeling settings for that collection.
+- Copy procedure:
+  1. With `menu-filter`, specify `{"event_collection_settings_name": {"NORMAL": "<source collection name>"}}` and retrieve all source labeling settings.
+  2. Register them one by one with `Register`, passing only the following in `parameter`:
+      - `labeling_settings_name`: a distinguishable name (e.g. append ` (zabbix-02)`). It is not unique, so the same name can be registered, but change it because they become indistinguishable
+      - `event_collection_settings_name`: the destination collection name
+      - `search_key_name` / `type_name` / `comparison_method` / `search_value_name` / `label_key_name` / `label_value_name`: the source values as-is (pass `null` as JSON `null`; do not turn the Pattern C `null`s into empty strings or omit the keys)
+  3. **Do not pass `labeling_settings_id` / `last_update_date_time` / `discard` / `last_updated_user`.** `labeling_settings_id` is a unique ID, so passing the source ID collides with the existing record.
+- Label keys (`label_creation`) do not depend on the event collection setting, so you do not need to create new ones.
+- Register the destination event collection setting before the labeling settings (a non-existent collection name cannot be specified).

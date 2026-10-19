@@ -108,3 +108,16 @@ OASEのラベル付与設定。受信したイベントの特定フィールド�
   ]
 }
 ```
+
+## 既存のラベル付与設定を別の収集設定にコピーする
+
+- **ラベル付与設定は、イベントを取得した収集設定（`event_collection_settings_name`）と一致するものしか適用されない。** 収集設定を増やした場合（例: 同じ種類の監視ツールをもう1台追加）は、その収集設定向けのラベル付与設定を作らないと、新しい収集設定のイベントにはラベルが1つも付かない（`_exastro_host`も入らない）。
+- コピー手順:
+  1. `menu-filter`で`{"event_collection_settings_name": {"NORMAL": "<コピー元の収集設定名>"}}`を指定し、コピー元のラベル付与設定を全件取得する。
+  2. 1件ずつ`Register`で登録する。`parameter`には次だけを渡す。
+      - `labeling_settings_name`: 区別できる名前（例: 末尾に` (zabbix-02)`を付ける）。一意ではないので同名でも登録できるが、見分けがつかなくなるので変えること
+      - `event_collection_settings_name`: コピー先の収集設定名
+      - `search_key_name`/`type_name`/`comparison_method`/`search_value_name`/`label_key_name`/`label_value_name`: コピー元の値をそのまま（`null`はJSONの`null`のまま渡す。パターンCの`null`を空文字にしたりキーを省略したりしてはいけない）
+  3. **`labeling_settings_id`/`last_update_date_time`/`discard`/`last_updated_user`は渡さない。** `labeling_settings_id`は一意のIDなので、コピー元のIDを渡すと既存レコードと衝突する。
+- ラベルキー（`label_creation`）は収集設定に依存しないので、新たに作る必要はない。
+- コピー先の収集設定は、ラベル付与設定より先に登録しておくこと（存在しない収集設定名は指定できない）。

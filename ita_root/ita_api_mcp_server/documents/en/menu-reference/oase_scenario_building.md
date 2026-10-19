@@ -436,3 +436,29 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 - "Discard" and "physical delete (`Delete`)" are different. When the user says "discard" (廃止), use `Discard`.
 - The filter and action linked to a discarded rule remain. Tell the user they can be discarded next if unnecessary (do not discard them on your own).
 - If another rule's `conclusion_label_settings` adds a label for this rule (as in the chaining setup of scenario 1-5), that label remains unused (harmless). Mention it if you notice it.
+
+## Adding a new event collection setting and reusing existing labeling settings by copying them
+
+Procedure for requests like "copy the same labeling settings as X (existing collection) to the newly added Y (collection)". This is the typical pattern when increasing the number of monitoring tools of the same kind.
+
+### Steps
+
+1. **Retrieve `documents-menu/event_collection.md` and `documents-menu/labeling.md` with `get-document`** (their "duplication" / "copy" sections).
+2. Retrieve the source event collection setting and all of its labeling settings with `menu-filter`.
+3. For the new collection, **confirm `url` and the credentials (`auth_token`, etc.) with the user**. Credentials cannot be obtained with `menu-filter`, so they cannot be copied from the existing setting. Reuse the existing values for the other items and say so in the proposal.
+4. **Investigate with `menu-filter` how the existing filters and rules will apply to events from the new collection, and only then explain it** (see "How to think about the impact" below). Do not assert guesses such as "the filters have no host condition" without checking.
+5. After approval, register in the order `event_collection` (new) → `labeling` (copies, one `Register` each).
+6. Re-read with `menu-filter` and confirm that the destination labeling settings have the same count and contents as the source before reporting.
+
+### How to think about the impact (important)
+
+- **Filters and rules do not distinguish event collection settings.** A filter only looks at label values, so if the labels of an event from the new collection satisfy the conditions, existing rules fire.
+- Therefore look at the existing filter conditions and explain as follows:
+    - If there is an `_exastro_host` condition: events from the new monitoring tool fire only when the host name matches that value. Events from non-matching hosts just get labels and no rule runs. If a response is needed for the new hosts, adding filters and rules (scenario "Duplicating / extending an existing rule for another host") is required separately.
+    - If there is no `_exastro_host` condition: existing rules run for events from any host of the new monitoring tool.
+- If you want to separate responses per event collection setting, the fixed label `_exastro_event_collection_settings_id` (its value is the collection setting ID) can be used in filter conditions.
+
+### Notes
+
+- If you only add the collection setting without copying the labeling settings, events from the new collection get no labels at all, including `_exastro_host`, and match no rule.
+- Give the destination `labeling_settings_name` a name distinguishable from the source (e.g. append ` (zabbix-02)`).

@@ -66,3 +66,13 @@ OASE event collection settings. Defines where and how an agent such as a monitor
   ]
 }
 ```
+
+## Creating a new event collection setting based on an existing one (duplication)
+
+- `event_collection_settings_name` is **unique**. Give the copy a different name.
+- **Credential items are not returned by `menu-filter` (they come back as `null`), so they cannot be copied from the existing setting.** Always confirm them for the copy with the user, and never register guessed or dummy values. The items concerned are:
+  - `auth_token`
+  - `password`
+  - `secret_access_key`
+- If the monitoring tool is a different machine, `url` should also differ, so confirm `url` with the user as well. `connection_method_name` / `request_method_name` / `request_header` / `parameter` / `ttl` / `response_key` / `event_id_key` and so on may be reused from the existing values (state in the proposal that they are reused).
+- Adding an event collection setting alone does not attach any labels. Labeling settings are required per event collection setting, so also see the section "Copying existing labeling settings to another event collection setting" in `labeling.md`.
