@@ -25,7 +25,7 @@ An action has two execution modes, and **only one** should be specified. Mixing 
 - Value format is `[H]<host name>` (`[H]` prefix + host name). Example: `[H]web-server-01`
 - Pulldown candidates can be retrieved with the `list-menu-info-pulldown` tool.
 - **Important (common misunderstanding)** `host_id` specifies "**which host the Conductor is executed against**" and **has no effect whatsoever on which events match**.
-  - Therefore, a requirement like "respond on host A for host A's events and on host B for host B's events" cannot be met simply by creating two actions that differ only in `host_id`. Because a filter without a host condition matches events from all hosts, both rules fire on the same event and **the response runs even on unrelated hosts**.
+  - Therefore, a requirement like "respond on host A for host A's events and on host B for host B's events" cannot be met simply by creating two actions that differ only in `host_id`. Because a filter without a host condition matches events from all hosts, for every host's event **only the single higher-priority rule** runs (one event is used by only one rule; see `rule.md`), so **the response may run on a host unrelated to the event, or the rule that should run does not run at all**.
   - Narrowing events by host is done by adding a condition on the fixed label `_exastro_host` to `filter_condition_json` in the `filter` menu (see `filter.md`).
 - Setting `event_collaboration` to `True` makes the event's originating host (`_exastro_host`) the execution target directly. Since this removes the need to duplicate actions per host, **prefer this option for the requirement "respond on the host where the event occurred"** (in that case, do not specify `host_id`).
 
@@ -76,6 +76,17 @@ An action has two execution modes, and **only one** should be specified. Mixing 
 ## parameter_sheet_id column
 
 - Specify, by name, the parameter sheet (menu) to execute against the target host.
+- **Only parameter sheets that meet all of the following can be selected** (everything that appears under `parameter_sheet_id` in `list-menu-info-pulldown`):
+  - A parameter sheet with host/operation (data sheets are not allowed)
+  - Not a bundle (vertical) sheet
+  - **Not host-group enabled**
+- For example, `file_copy` (File copy (host group enabled)) **does not appear because it is host-group enabled**. A Conductor that uses such a parameter sheet cannot be registered in Mode B (Conductor direct execution), so **use Mode A (operation execution)**.
+  - In Mode A, the Conductor runs with the parameters (target host and values) registered for the operation given in `operation_id`. When reusing an existing operation, check with `menu-filter` that its parameters (target host, etc.) fit the requirement and show them. When creating a new operation, you also need to register the parameter sheet records for that operation.
+
+## Finding the parameter sheets a Conductor uses
+
+- The contents of a Conductor (which Movements it contains) cannot be read with `menu-filter`. `conductor_class_edit` is not a menu; specifying it returns `[menu] is invalid.` (499-00001).
+- To find which parameter sheets a Conductor uses, `menu-filter` the substitution value auto-registration settings of the Movement (e.g. `subst_value_auto_reg_setting_ansible_legacy`) and check the related parameter sheets (menus).
 
 ## Minimal example for new registration (direct Conductor execution mode, host specified)
 

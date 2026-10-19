@@ -168,7 +168,7 @@ Therefore, present the following two options and let the user choose with `ask_u
 ### Step 3 (for Option B): why the filter must not be reused (important)
 
 - `action.host_id` only specifies "**which host the Conductor is executed against**" and **has no effect on which events match**.
-- Consequently, if an existing filter is shared by two rules as-is, **both rules fire on events from every host**, so the response runs even on unrelated hosts (and if `rule_priority` is identical, the behaviour becomes indeterminate).
+- Consequently, if an existing filter is shared by two rules as-is, for every host's event **only the single higher-priority rule** runs (one event is used by only one rule; see "Only one rule runs per event" in `rule.md`). As a result, **the response runs on hosts unrelated to the event, and the other rule never runs**.
 - The correct approach is to **create a new filter whose `filter_condition_json` includes a condition on the fixed label `_exastro_host`**.
 - **In addition, add an `_exastro_host` condition to the original filter as well (`Update`).** Forgetting this leaves the original rule picking up events from the new host too, so the discrimination does not take effect. Because this update changes the behaviour of an existing setting, always include it in the proposal and obtain the user's approval.
 - Note that two filters with exactly the same conditions cannot be created (`Identical filter conditions cannot be specified.` / 499-00201). Changing only the name will not register, so the conditions themselves must differ.
@@ -370,3 +370,32 @@ labeling (magnitude comparison here)            filter (only == here)
 - The field name holding the number is often a guess. State explicitly that it is a guess and confirm.
 - **Always confirm which existing filters should receive the threshold condition.** It narrows the firing condition of existing rules, so never update every filter silently.
 - On a filter `Update`, always pass the `last_update_date_time` obtained from the immediately preceding `menu-filter`; omitting it results in `last_update_date_time is invalid (None)` (499-00201). Re-send unchanged columns too (`filter_name`, `search_condition_id`, `available_flag`, etc.).
+
+## Running another Conductor when an existing rule matches
+
+Procedure for requests like "when rule X matches, run Conductor Y". For details, see the section "Running another Conductor when an existing rule matches (replace / add)" in `rule.md`, and `action.md`.
+
+### Specifications to grasp first (most important)
+
+- **Only one rule runs per event** (a matched event becomes reserved and is not passed to other rules). For `rule_priority`, **a smaller number means a higher priority**.
+- **A rule can specify only one action.**
+- Therefore "run Y in addition to the current action" cannot be achieved just by adding rules or filters. Chaining via the conclusion event is required.
+
+### Steps
+
+1. **Before drafting a proposal, retrieve `documents-menu/rule.md` and `documents-menu/action.md` with `get-document`.**
+2. Retrieve the target rule, existing actions and filters with `menu-filter`, and determine which action is currently linked to the rule (do not ask the user).
+3. If the existing rule already has an action, **confirm with `ask_user_choice` whether to replace (run Y instead of the current action) or add (also run Y after the current action)**. State the following in the options:
+    - Replace: the current action (e.g. Sleep) will no longer run
+    - Add: because the rules are chained via the conclusion event, **Y runs only when the current Conductor completes successfully, sequentially after it**
+4. If an existing action uses Y's `conductor_class_id`, reuse it. Otherwise create a new action.
+    - If Y's parameter sheet is not in the `parameter_sheet_id` list of `list-menu-info-pulldown` (e.g. a host-group-enabled sheet), **only Mode A (operation execution) can be used**.
+    - In Mode A, confirm with the user whether to reuse an existing operation or create a new one. When reusing, look up the operation's registered parameters (target host, etc.) with `menu-filter` and show them.
+5. For replace: `Update` the existing rule changing only `action_id` (pass every unchanged column and `last_update_date_time` too).
+6. For add: following the chaining steps in `rule.md`, register in the order `label_creation` (chain label) → update the existing rule's `conclusion_label_settings` → new `filter` for the conclusion event → `action` → new `rule`.
+
+### Notes
+
+- "Creating a second rule with the same filter" or "creating another filter with the same conditions" cannot be registered because of unique constraints. Even if it could, only one rule runs per event.
+- `_exastro_rule_name` cannot be used in the chaining filter condition (it is not in the pulldown). Always add your own label key through `conclusion_label_settings`.
+- Pass `records` of `maintenance-all` as an array. Passing it as a JSON string results in `Records array is required`.
