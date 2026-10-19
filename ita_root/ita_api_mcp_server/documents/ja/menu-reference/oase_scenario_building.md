@@ -399,3 +399,40 @@ labeling（ここで大小比較）                      filter（ここは == �
 - 「同じフィルターで2本目のルールを作る」「同じ条件のフィルターをもう1つ作る」は一意制約で登録できない。また作れたとしても、1つのイベントでは1本しか動かない。
 - 連鎖用のフィルター条件に`_exastro_rule_name`は使えない（プルダウンに無い）。必ず独自のラベルキーを`conclusion_label_settings`で付与する。
 - `maintenance-all`の`records`は配列で渡すこと。JSON文字列にすると`Records array is required`になる。
+
+## OASE設定を廃止する／廃止から復元する
+
+「◇◇（ルール名）を廃止にして」「◇◇を廃止から復元させて」への対応手順。書き方そのものは`documents-tools/maintenance-all.md`の「破棄（Discard）・復元（Restore）」節、廃止済みの探し方は`documents-tools/menu-filter.md`の「廃止済みレコードの扱い」節を参照。
+
+### 最初に押さえる仕様（最重要）
+
+- **OASEの6メニューは、廃止時に参照チェックをしない。** 有効なルールが使っているフィルターやアクションでも廃止できてしまう。その場合ルールは**エラーを出さずに動かなくなる**（判定時に参照先のフィルターが無いとしてスキップされる）。
+- **復元時も参照先が有効かはチェックされない。** フィルターやアクションが廃止されたままのルールを復元しても、そのルールは動かない。
+- 参照先が廃止されていると、参照している側の項目は`Failed to exchange ID. (<ID>)`と表示される。
+
+### 依存関係と順序
+
+```
+label_creation ◀── labeling ◀── filter ◀── rule ──▶ action
+（ラベルキー）    （ラベル付与）  （フィルター） （ルール） （アクション）
+```
+
+- **廃止**: 使う側から先に止める。`rule` → （`filter`／`action`）→ `labeling` → `label_creation`
+- **復元**: 使われる側から先に戻す。`label_creation` → `labeling` → （`filter`／`action`）→ `rule`
+
+### 手順
+
+1. **`get-document`で`documents-tools/maintenance-all.md`と`documents-tools/menu-filter.md`を取得する。**
+2. 対象を`menu-filter`で取得する。復元の場合は`{"discard": {"NORMAL": "1"}}`を付ける。同名の廃止済みが複数あれば、`last_update_date_time`と参照先の有効性で候補を絞り、それでも1件に決まらなければユーザーに確認する。
+3. **影響範囲を調べて提示する。**
+    - フィルター／アクションを廃止する場合: それを使っている有効な`rule`を`menu-filter`で探す。あれば「そのルールが動かなくなる」ことを伝え、ルールも廃止するか、フィルター／アクションだけ廃止するかを`ask_user_choice`で確認する。
+    - ルールを復元する場合: `filter_a`/`filter_b`/`action_id`が有効か確認する。廃止されていれば、先にそれらを復元する必要があることを伝える。
+    - ラベルキーを廃止する場合: それを使う`labeling`/`filter`の条件/`rule`の`conclusion_label_settings`を確認する。
+4. ユーザーの承認を取ってから`Discard`/`Restore`を実行する。`parameter`は**主キーと`last_update_date_time`だけ**にし、`discard`を含めない。
+5. **`menu-filter`で読み直し、`discard`の値が変わったことを確認してから完了を報告する。**
+
+### 注意点
+
+- 「廃止」と「物理削除（`Delete`）」は別物。ユーザーが「廃止」と言ったら`Discard`を使う。
+- 廃止したルールに紐付いていたフィルター・アクションは残る。不要なら続けて廃止できることを伝える（勝手に廃止しない）。
+- シナリオ1-5の連鎖構成のように、別のルールの`conclusion_label_settings`がこのルール用のラベルを付けている場合、そのラベルは使われずに残る（害はない）。気づいたら伝えること。

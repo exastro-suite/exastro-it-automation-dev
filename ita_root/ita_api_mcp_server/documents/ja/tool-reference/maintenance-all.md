@@ -37,6 +37,7 @@
 - `list-menu-info`ツールを使用してメニュー項目の属性を事前に取得し、それらの属性に従って項目の値を指定します
 - `list-menu-info` ツールの結果に `column_type` が `IDColumn` のメニュー項目が含まれている場合、`list-menu-info-pulldown` ツールで指定できる値を取得します
 - 更新、破棄、復元、削除操作を実行する際には、楽観的ロックが使用されます。そのため、`menu-filter`ツールを使用してレコードを取得し、`records[].parameter`に渡してください（注：検証は`last_update_date_time`を使用して行われます）
+    - ただし**破棄（`Discard`）と復元（`Restore`）では、取得したレコードをそのまま渡してはいけません**。下記「破棄（Discard）・復元（Restore）」を参照してください
 
 - `FileUploadColumn`フィールドに書き込む場合は、以下の2つの方法のいずれかを使用してください:
     - 登録済み`file_id` を `.records[].fileid.column_name_rest` に、ファイル名を `records[].parameter.column_name_rest` に設定します
@@ -80,3 +81,27 @@
 1. メニュー名とともに`list-menu-info-pulldown`ツールを使用してください
 2. 結果から列名を見つける
 3. 返されたマッピングから値（キーではない）を使用してください
+
+## 破棄（Discard）・復元（Restore）（重要）
+`Discard`/`Restore`の`parameter`には、**主キー列と`last_update_date_time`の2つだけ**を渡すこと。主キー列の名前はメニューごとに異なる（`list-menu-info`で確認。例: `rule_id`、`filter_id`、`action_id`、`labeling_settings_id`、`label_key_id`）。
+
+```json
+{
+  "menu": "rule",
+  "records": [{
+    "type": "Discard",
+    "parameter": {
+      "rule_id": "<menu-filterで取得したID>",
+      "last_update_date_time": "<menu-filterで取得した値をそのまま>"
+    }
+  }]
+}
+```
+- `Restore`も同じ形で`"type": "Restore"`にする。復元対象は廃止済みなので、`menu-filter`では`{"discard": {"NORMAL": "1"}}`を指定して取得すること（`menu-filter.md`参照）。
+
+**`parameter`に`discard`を含めてはいけない。** `menu-filter`の戻り値には`"discard": "0"`（有効）/`"1"`（廃止済み）が入っており、これをそのまま渡すと`type`より優先されて次のようになる。
+- `Discard`に`"discard": "0"`を含めると、**「Maintenance all completed successfully」と成功が返るのに廃止されない**（更新扱いになる）。エラーにならないため気づきにくい。
+- `Restore`に`"discard": "1"`を含めると`Processing has been canceled because the target record has been deprecated.`（499-00201）になる。
+- 主キーだけに`"discard": "0"`を足した`Discard`は、メニューによっては通常の更新として検証され、無関係なバリデーションエラー（例: ruleの`Duplicate filters are selected.`）になる。
+
+**実行後は必ず`menu-filter`で読み直し、`discard`の値（廃止なら`"1"`、復元なら`"0"`）を確認してから完了を報告すること。** 成功メッセージだけで完了と判断してはいけない。

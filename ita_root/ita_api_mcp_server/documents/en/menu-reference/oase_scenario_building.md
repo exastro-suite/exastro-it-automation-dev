@@ -399,3 +399,40 @@ Procedure for requests like "when rule X matches, run Conductor Y". For details,
 - "Creating a second rule with the same filter" or "creating another filter with the same conditions" cannot be registered because of unique constraints. Even if it could, only one rule runs per event.
 - `_exastro_rule_name` cannot be used in the chaining filter condition (it is not in the pulldown). Always add your own label key through `conclusion_label_settings`.
 - Pass `records` of `maintenance-all` as an array. Passing it as a JSON string results in `Records array is required`.
+
+## Discarding OASE settings / restoring them from discard
+
+Procedure for requests like "discard rule X" or "restore X from discard". For the call format, see the "Discard / Restore" section of `documents-tools/maintenance-all.md`; for finding discarded records, see "Handling discarded records" in `documents-tools/menu-filter.md`.
+
+### Specifications to grasp first (most important)
+
+- **The six OASE menus do not check references when discarding.** A filter or action used by an active rule can still be discarded. The rule then **stops working without any error** (during evaluation it is skipped because its filter is missing).
+- **Restoring does not check whether referenced records are active either.** Restoring a rule whose filter or action is still discarded leaves the rule non-functional.
+- When a referenced record is discarded, the referencing item is shown as `Failed to exchange ID. (<ID>)`.
+
+### Dependencies and order
+
+```
+label_creation ◀── labeling ◀── filter ◀── rule ──▶ action
+(label key)       (labeling)    (filter)   (rule)   (action)
+```
+
+- **Discard**: stop the user side first. `rule` → (`filter` / `action`) → `labeling` → `label_creation`
+- **Restore**: bring back the used side first. `label_creation` → `labeling` → (`filter` / `action`) → `rule`
+
+### Steps
+
+1. **Retrieve `documents-tools/maintenance-all.md` and `documents-tools/menu-filter.md` with `get-document`.**
+2. Retrieve the target with `menu-filter`. For restore, add `{"discard": {"NORMAL": "1"}}`. If several discarded records share the name, narrow down by `last_update_date_time` and by whether the referenced records are active; if still not unique, confirm with the user.
+3. **Investigate and present the impact.**
+    - When discarding a filter / action: look for active `rule`s using it with `menu-filter`. If any, explain that the rule will stop working, and confirm with `ask_user_choice` whether to discard the rule too or only the filter / action.
+    - When restoring a rule: check that `filter_a` / `filter_b` / `action_id` are active. If they are discarded, explain that they must be restored first.
+    - When discarding a label key: check the `labeling`, `filter` conditions and `rule` `conclusion_label_settings` that use it.
+4. Execute `Discard` / `Restore` after obtaining the user's approval. Put **only the primary key and `last_update_date_time`** in `parameter`; do not include `discard`.
+5. **Re-read with `menu-filter` and confirm that the `discard` value changed before reporting completion.**
+
+### Notes
+
+- "Discard" and "physical delete (`Delete`)" are different. When the user says "discard" (廃止), use `Discard`.
+- The filter and action linked to a discarded rule remain. Tell the user they can be discarded next if unnecessary (do not discard them on your own).
+- If another rule's `conclusion_label_settings` adds a label for this rule (as in the chaining setup of scenario 1-5), that label remains unused (harmless). Mention it if you notice it.
