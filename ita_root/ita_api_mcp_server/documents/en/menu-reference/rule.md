@@ -23,6 +23,28 @@ An OASE rule. Based on filter results, decides which action to execute and what 
 - A rule can specify only one `action_id`.
 - Therefore a request such as "when the existing rule matches, run another Conductor **in addition to** the current action" cannot be met just by adding rules or filters. Use the method in the section "Running another Conductor when an existing rule matches" below.
 
+
+## AND correlation (A and B) — acting only when two events occur "at the same time"
+
+- `filter_operator: "A and B"` is satisfied when **both filter A and filter B have a valid event that has not been used yet**.
+- **"At the same time" does not mean "at the same instant".** The event that arrived first keeps waiting until the event collection setting's `ttl` (default 3600 seconds) expires. If the other event arrives in the meantime, the rule is satisfied. In the proposal, explain that it means "act if both arrive within N seconds", citing the actual `ttl` value.
+- One of the filters may reuse an existing one (e.g. for CPU high load). Create the labeling setting and filter for the other one (e.g. memory high load) if they do not exist.
+
+### When sharing a filter with an existing single-filter rule (most important)
+
+For example, if a rule that "runs on CPU high load alone" already exists and you add an AND correlation rule (CPU and memory) that uses the same CPU filter as `filter_a`, **one of the following happens depending on the priorities** (behaviour confirmed with the product's rule evaluation engine).
+
+| Priority | CPU and memory both arrived within `ttl` | Only CPU arrived |
+|---|---|---|
+| AND correlation is higher (with equal priorities too, the AND rule, which has `filter_b`, is evaluated first) | The AND correlation runs | The single rule **does not run immediately**. It runs only when the CPU event times out after `ttl` (the response is delayed by up to `ttl` seconds) |
+| The single rule is higher | The single rule uses the CPU event, so **the AND correlation does not run** | The single rule runs immediately |
+
+- In other words, you cannot "keep the existing single rule and also have the AND correlation behave as expected". For a request like "act only when X and Y occur at the same time", **always confirm with the user how to handle the existing single rule**. The options are:
+    1. **Change the existing rule into the AND correlation** (`Update` adding `filter_b` and `filter_operator`; re-send every column without changing `rule_label_name` etc.). Matches the "only when" requirement with no side effects. **First choice**
+    2. Disable (`available_flag: False`) or discard the existing rule, and create a new AND correlation rule
+    3. Keep the existing rule. In this case, explain the side effects in the table above (with the AND rule higher, the CPU-only response is delayed by up to `ttl` seconds; with the single rule higher, the AND correlation never runs) **with the concrete number of seconds**, and obtain the user's agreement
+- Do not leave the priorities equal. With equal priorities, the evaluation order is decided by the order of filter IDs and the intent becomes unpredictable.
+
 ## action_id column
 
 - Specify the name of an action already created in the `action` menu. Optional (a rule can also be created that only generates a conclusion event without executing any action).
@@ -97,6 +119,7 @@ Notes:
 
 - An integer, minimum value 1. **A smaller number means a higher priority** (`1` is the highest). The on-screen column description also says "Prioritize the one with the smaller number."
 - When one event satisfies the conditions of several rules, only the highest-priority rule runs and the event is consumed there (it is not passed to other rules).
+- **When several rules use the same filter, events of that filter are first evaluated only by the highest-priority rule.** While that rule is not satisfied (e.g. an AND correlation waiting for the other event), lower rules cannot use the event, and **only when the event times out** is it passed to the lower rules. See the section "AND correlation (A and B)" for details.
 
 ## ttl column
 

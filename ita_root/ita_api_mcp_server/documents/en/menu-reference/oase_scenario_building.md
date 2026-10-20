@@ -486,3 +486,21 @@ Procedure for requests like "physically delete the unnecessary labeling settings
 ### Notes
 
 - **If you discard all labeling settings while the event collection setting stays active, events from that collection get no labels at all** (not even `_exastro_host`). If the monitoring tool itself is being retired, confirm whether to discard the event collection setting (`event_collection`) as well. Discard in the order `labeling` → `event_collection`.
+
+## Acting only when two events occur at the same time (AND correlation)
+
+Procedure for requests like "act only when X and Y occur at the same time". For details, see the section "AND correlation (A and B)" in `rule.md`.
+
+### Steps
+
+1. **Retrieve `documents-menu/rule.md` with `get-document` and read the section "AND correlation (A and B)".**
+2. Retrieve `labeling` / `filter` / `rule` with `menu-filter`, and check for each of X and Y whether the labeling settings and filters exist, and **whether an existing rule uses one of those filters on its own**.
+3. Create the missing labeling settings and filters (if the event field name/value is a guess, say so and confirm).
+4. If an existing single-filter rule exists, confirm how to handle it with `ask_user_choice`. The first choice is "change the existing rule into the AND correlation". When proposing to keep the existing rule, write the side effects caused by the priorities (the table in `rule.md`) with the concrete number of seconds. Do not settle for vague explanations such as "it may run before the existing rule".
+5. Explain that "at the same time" means "if both arrive within the event collection setting's `ttl` seconds", citing the actual `ttl` value.
+6. Register / update after approval, and re-read to confirm before reporting.
+
+### Notes
+
+- When changing an existing rule into the AND correlation with `Update`, re-send `conclusion_label_settings` (e.g. the chaining label of scenario 1-5) with its existing value. Changing it stops the subsequent chain.
+- Labeling settings are required per event collection setting. If there are several collection settings (scenario 1-7), confirm which collection's events are targeted.
