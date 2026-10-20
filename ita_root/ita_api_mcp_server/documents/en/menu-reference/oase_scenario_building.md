@@ -462,3 +462,27 @@ Procedure for requests like "copy the same labeling settings as X (existing coll
 
 - If you only add the collection setting without copying the labeling settings, events from the new collection get no labels at all, including `_exastro_host`, and match no rule.
 - Give the destination `labeling_settings_name` a name distinguishable from the source (e.g. append ` (zabbix-02)`).
+
+## Cleaning up labeling settings that are no longer needed (physical delete requests)
+
+Procedure for requests like "physically delete the unnecessary labeling settings linked to X (collection)".
+
+### Specifications to grasp first (most important)
+
+- **OASE menus (including `labeling`) cannot be physically deleted.** `row_delete_flag` in `list-menu-info` is `"0"`, and `Delete` fails with `401-00001`. This is not a role permission issue, so do not tell the user to get more permissions (see "Physical delete (Delete)" in `documents-tools/maintenance-all.md`).
+- Only discarding (`Discard`) is possible, and **discarded records remain in the database, so the record count does not decrease**. If the purpose of the request is "reducing the number of records", honestly explain that it cannot be achieved with ITA functions.
+
+### Steps
+
+1. **Retrieve `documents-tools/maintenance-all.md` and `documents-tools/menu-filter.md` with `get-document`, and check `row_delete_flag` / `row_disuse_flag` of `labeling` with `list-menu-info`.** Check first instead of noticing from an error after trying `Delete`.
+2. Retrieve the labeling settings linked to the target collection with `menu-filter`.
+3. **Confirm with the user what "unnecessary" means.** As material for the decision, check and present whether the labels each labeling setting attaches are used:
+    - conditions in `filter_condition_json` of `filter`, and `group_label_key_ids`
+    - `conclusion_label_settings` of `rule`
+    - `_exastro_host` is used by `event_collaboration: True` of `action` (deciding the execution host) even if it is not in any filter condition
+4. Since physical deletion is not possible, confirm with `ask_user_choice` whether discarding is acceptable instead.
+5. Discard using the same procedure as the section "Discarding OASE settings / restoring them from discard" in `documents-menu/oase_scenario_building.md`, and re-read to confirm before reporting.
+
+### Notes
+
+- **If you discard all labeling settings while the event collection setting stays active, events from that collection get no labels at all** (not even `_exastro_host`). If the monitoring tool itself is being retired, confirm whether to discard the event collection setting (`event_collection`) as well. Discard in the order `labeling` → `event_collection`.

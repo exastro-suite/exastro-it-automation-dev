@@ -462,3 +462,27 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 - 収集設定だけ追加してラベル付与設定をコピーしないと、新しい収集設定のイベントには`_exastro_host`を含めてラベルが1つも付かず、どのルールにもマッチしない。
 - コピー先の`labeling_settings_name`は、コピー元と区別できる名前にする（例: 末尾に` (zabbix-02)`）。
+
+## 不要になったラベル付与設定を整理する（物理削除の依頼）
+
+「〇〇（収集設定名）に紐づく不要なラベル付与設定を物理削除して」への対応手順。
+
+### 最初に押さえる仕様（最重要）
+
+- **OASEのメニュー（`labeling`を含む）は物理削除できない。** `list-menu-info`の`row_delete_flag`が`"0"`で、`Delete`は`401-00001`になる。これはロール権限の問題ではないので、権限の付与を案内してはいけない（`documents-tools/maintenance-all.md`の「物理削除（Delete）」節）。
+- できるのは廃止（`Discard`）だけで、**廃止してもレコードはDBに残り、レコード数は減らない**。依頼の目的が「レコード数の削減」なら、ITAの機能では達成できないことを正直に伝えること。
+
+### 手順
+
+1. **`get-document`で`documents-tools/maintenance-all.md`と`documents-tools/menu-filter.md`を取得し、`list-menu-info`で`labeling`の`row_delete_flag`/`row_disuse_flag`を確認する。** `Delete`を試してからエラーで気づくのではなく、先に確認すること。
+2. 対象の収集設定に紐づくラベル付与設定を`menu-filter`で取得する。
+3. **「不要」の中身をユーザーに確認する。** 判断の材料として、各ラベル付与設定が付けるラベルが使われているかを調べて提示する。
+    - `filter`の`filter_condition_json`の条件、`group_label_key_ids`
+    - `rule`の`conclusion_label_settings`
+    - `_exastro_host`はフィルター条件に無くても、`action`の`event_collaboration: True`（実行先ホストの決定）に使われる
+4. 物理削除はできないので、代わりに廃止でよいかを`ask_user_choice`で確認する。
+5. 廃止は`documents-menu/oase_scenario_building.md`の「OASE設定を廃止する／廃止から復元する」節と同じ手順で行い、読み直して確認してから報告する。
+
+### 注意点
+
+- **収集設定が有効なままラベル付与設定をすべて廃止すると、その収集設定のイベントにはラベルが1つも付かなくなる**（`_exastro_host`も入らない）。監視ツール自体を撤去するのであれば、収集設定（`event_collection`）も廃止するかを確認すること。廃止の順序は`labeling` → `event_collection`。

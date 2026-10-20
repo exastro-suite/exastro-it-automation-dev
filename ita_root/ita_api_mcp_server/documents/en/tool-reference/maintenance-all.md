@@ -44,7 +44,7 @@ Performs bulk registration, update, discard, restore, and physical deletion of r
     - Set the BASE64-encoded value of the file in `.records[].file.column_name_rest`, and set the file name in `records[].parameter.column_name_rest`.
 - If no changes have been made to a `FileUploadColumn` field, the `.records[].file.column_name_rest` and `.records[].fileid.column_name_rest` fields are not required.
 - For items where `column_type` is `IDColumn`, set the value (the name value), not the key value (the ID value).
-- When deleting a record, use `Discard` instead of `Delete`.
+- When deleting a record, use `Discard` instead of `Delete` (for whether physical deletion is possible, see "Physical delete (Delete)" below).
 - `maintenance-all` batch operations are atomic. If one operation fails, the entire batch is rolled back.
 
 ## FileUploadColumn: Which method to use (fileid vs file)
@@ -105,3 +105,11 @@ For `Discard` / `Restore`, pass **only two things in `parameter`: the primary ke
 - A `Discard` with only the primary key plus `"discard": "0"` is validated as an ordinary update on some menus and fails with an unrelated validation error (e.g. `Duplicate filters are selected.` on rule).
 
 **After executing, always re-read the record with `menu-filter` and confirm the `discard` value (`"1"` for discard, `"0"` for restore) before reporting completion.** Do not judge completion from the success message alone.
+
+## Physical delete (Delete)
+- **Physical deletion is possible only for menus whose `row_delete_flag` in `list-menu-info` is `"1"`.** Always check it with `list-menu-info` before executing `Delete`. Many menus (including every OASE menu) have `"0"`, meaning physical deletion is not allowed.
+- Sending `Delete` to a menu whose `row_delete_flag` is `"0"` fails with `You do not have access privileges to the target menu. (menu: <menu>) (401-00001)`.
+    - **This is not a problem with the user's role permissions.** The menu itself does not allow physical deletion, so granting "Maintenance" in the role-menu link settings does not solve it. Do not tell the user to ask an administrator for more permissions.
+    - `row_delete_flag` cannot be changed from the screen or the API.
+- When `row_delete_flag` is `"0"`, explain that physical deletion is not possible, citing `row_delete_flag`, and propose discarding (`Discard`, possible when `row_disuse_flag` is `"1"`) instead. Be honest that **discarded records remain in the database, so the record count does not decrease**.
+- Whether each operation is allowed (`row_insert_flag` / `row_update_flag` / `row_disuse_flag` / `row_reuse_flag` / `row_delete_flag`) is known in advance from `list-menu-info`. Check it before saying "I don't know whether we have permission".

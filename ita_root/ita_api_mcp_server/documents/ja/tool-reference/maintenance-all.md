@@ -44,7 +44,7 @@
     - ファイルのBASE64エンコード値を`.records[].file.column_name_rest`に設定し、ファイル名を`records[].parameter.column_name_rest`に設定します
 - `FileUploadColumn` フィールドに変更が加えられていない場合、`.records[].file.column_name_rest` および `.records[].fileid.column_name_rest` フィールドは不要です
 - `column_type`が`IDColumn`である項目については、キー値（ID値）ではなく値（名前値）を設定します
-- レコードを削除する際は、`Delete` ではなく`Discard`を使用してください
+- レコードを削除する際は、`Delete` ではなく`Discard`を使用してください（物理削除の可否は下記「物理削除（Delete）」を参照）
 - `maintenance-all` バッチ操作はアトミックです。1 つの操作が失敗した場合、バッチ全体がロールバックされます
 
 ## FileUploadColumn: Which method to use (fileid vs file)
@@ -105,3 +105,11 @@
 - 主キーだけに`"discard": "0"`を足した`Discard`は、メニューによっては通常の更新として検証され、無関係なバリデーションエラー（例: ruleの`Duplicate filters are selected.`）になる。
 
 **実行後は必ず`menu-filter`で読み直し、`discard`の値（廃止なら`"1"`、復元なら`"0"`）を確認してから完了を報告すること。** 成功メッセージだけで完了と判断してはいけない。
+
+## 物理削除（Delete）
+- **物理削除できるのは、`list-menu-info`の`row_delete_flag`が`"1"`のメニューだけ。** `Delete`を実行する前に必ず`list-menu-info`で確認すること。多くのメニュー（OASEの全メニューを含む）は`"0"`で、物理削除は許可されていない。
+- `row_delete_flag`が`"0"`のメニューに`Delete`を送ると、`You do not have access privileges to the target menu. (menu: <menu>) (401-00001)`になる。
+    - **これはユーザーのロール権限の問題ではない。** メニュー自体が物理削除を許可していないため、ロール・メニュー紐付管理で「メンテナンス可」を付けても解決しない。「管理者に権限を付けてもらってください」と案内してはいけない。
+    - `row_delete_flag`は画面やAPIからは変更できない。
+- `row_delete_flag`が`"0"`のときは、物理削除できないことを根拠（`row_delete_flag`）とともに伝え、代わりに廃止（`Discard`、`row_disuse_flag`が`"1"`なら可能）を提案すること。**廃止したレコードはDBに残るため、レコード数は減らない**ことも正直に伝えること。
+- 権限の可否（`row_insert_flag`/`row_update_flag`/`row_disuse_flag`/`row_reuse_flag`/`row_delete_flag`）は`list-menu-info`で事前に分かる。「権限があるか分からない」と言う前に確認すること。
