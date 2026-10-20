@@ -504,3 +504,18 @@ Procedure for requests like "act only when X and Y occur at the same time". For 
 
 - When changing an existing rule into the AND correlation with `Update`, re-send `conclusion_label_settings` (e.g. the chaining label of scenario 1-5) with its existing value. Changing it stops the subsequent chain.
 - Labeling settings are required per event collection setting. If there are several collection settings (scenario 1-7), confirm which collection's events are targeted.
+
+## Responding when only one of two events occurs (XOR correlation)
+
+Procedure for requests like "act when only one of X or Y occurs". For details, see the section "XOR correlation (A xor B)" in `rule.md`.
+
+### Steps
+
+1. **Retrieve `documents-menu/rule.md` with `get-document` and read the section "XOR correlation (A xor B)".** The "wait until `ttl`" in the AND correlation section does not apply to XOR.
+2. Retrieve `labeling` / `filter` / `rule` with `menu-filter`, and check whether labeling settings and filters for X and Y exist, and whether an existing rule uses one of those filters on its own.
+3. **Confirm the meaning of "only one" with `ask_user_choice`.** Write the following behaviours as-is in the options:
+    - XOR: respond as soon as each arrives; do nothing only when both arrive in the same evaluation cycle (with even a small time difference, both are responded to)
+    - Absorbing rule configuration: do nothing if both arrive within `ttl` seconds; respond when only one arrives, but the response is delayed by `ttl` seconds
+    - Two single-filter rules: respond whichever occurs
+4. If an existing single-filter rule exists, explain the side effects following the XOR table in `rule.md` and confirm how to handle it.
+5. Before approval, present the registration contents (including rule priorities) as a list; after approval, register, and re-read to confirm before reporting.

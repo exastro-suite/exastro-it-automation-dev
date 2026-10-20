@@ -9,7 +9,7 @@ An OASE rule. Based on filter results, decides which action to execute and what 
 - The same filter cannot be specified for both `filter_a` and `filter_b`.
 - `filter_operator` can only take one of these 3 values:
   - `A and B`: condition is met only when both filter A and B match
-  - `A xor B`: condition is met when exactly one of filter A or B matches
+  - `A xor B`: condition is met when exactly one of filter A or B matches **in that evaluation cycle** (it does not wait for the other; see the section "XOR correlation (A xor B)")
   - `A -> B`: condition is met when filter A matches, followed later by filter B matching (time-series correlation)
 - To judge based on a single filter only, specify only `filter_a` and leave `filter_b`/`filter_operator` empty.
 - **The unique constraint is the combination of `filter_a` + `filter_operator` + `filter_b`.** In other words, **two rules with the same filter configuration cannot be created** (`The combination is incorrect.` / 499-00201 / MSG-00006).
@@ -44,6 +44,46 @@ For example, if a rule that "runs on CPU high load alone" already exists and you
     2. Disable (`available_flag: False`) or discard the existing rule, and create a new AND correlation rule
     3. Keep the existing rule. In this case, explain the side effects in the table above (with the AND rule higher, the CPU-only response is delayed by up to `ttl` seconds; with the single rule higher, the AND correlation never runs) **with the concrete number of seconds**, and obtain the user's agreement
 - Do not leave the priorities equal. With equal priorities, the evaluation order is decided by the order of filter IDs and the intent becomes unpredictable.
+
+
+## XOR correlation (A xor B) — when asked for "only one of the two" (important)
+
+**XOR does not mean "act when only one occurs, and do not act when both occur".** The behaviour confirmed with the product's rule evaluation engine is as follows (unlike AND correlation, it does not wait for the other event).
+
+| How the events arrive | Result of a standalone XOR rule |
+|---|---|
+| Only one arrived | **Satisfied immediately within that evaluation cycle** (it does not wait within `ttl` to see whether the other arrives) |
+| Both arrived in the same evaluation cycle | Both events become **undetected** and nothing runs (they are not passed to other rules either) |
+| One arrived, and the other arrived a little later (within `ttl`) | **XOR is satisfied twice**, responding to both |
+
+- In other words, XOR "runs every time each one arrives on its own, and does nothing only when both arrive in the same cycle". **Never explain it as "no response if both arrive within `ttl` seconds"** (the "wait until `ttl`" behaviour of AND correlation does not apply to XOR).
+- When asked "act when only one of X or Y occurs", **confirm with the user which meaning is intended**:
+    1. "Respond as soon as each occurs; it is fine to skip only when they occur almost simultaneously" → XOR is enough
+    2. "Do not respond if both occur within a certain time; respond only when just one occurs" → XOR cannot do this. Guide the user to the "absorbing rule" configuration below
+    3. "Respond whichever occurs (both if both)" → create two single-filter rules (equivalent to OR)
+
+### Configuration that strictly implements "only one" (absorbing rule)
+
+Place an AND correlation rule without an action at a higher priority, and the single-filter rules at a lower priority. Behaviour confirmed with the rule evaluation engine:
+
+| Rule | Priority | Content |
+|---|---|---|
+| Absorbing AND correlation rule | Higher (e.g. 1) | `filter_a`=X, `filter_b`=Y, `A and B`, **no `action_id`** |
+| Single rule for X | Lower (e.g. 2) | `filter_a`=X, the response action |
+| Single rule for Y | Lower (e.g. 2) | `filter_a`=Y, the response action |
+
+- Both arrive within `ttl` → the absorbing rule uses the matched events and nothing is done
+- Only one arrives → it waits for the other until `ttl`; if the other does not come, the single rule runs at timeout. **The response is delayed by `ttl` seconds**
+- Always tell the user about this delay (the number of seconds of the current collection setting's `ttl`) and obtain agreement.
+
+### When sharing a filter with an existing single-filter rule
+
+| Priority | Only X arrived | Only Y arrived | Both in the same cycle |
+|---|---|---|---|
+| XOR is higher | XOR runs. **The existing single rule never runs** | XOR runs | Both undetected. The existing rule does not run either |
+| The existing single rule is higher | The single rule runs | **Nothing runs** (the XOR rule effectively never runs) | — |
+
+- If you add XOR while keeping the existing single rule, neither priority order behaves as expected. Always confirm how to handle the existing rule (change it into XOR / disable it / reorganize into the absorbing configuration). **Do not apply the AND correlation table ("delayed by up to `ttl` seconds") to XOR.**
 
 ## action_id column
 
