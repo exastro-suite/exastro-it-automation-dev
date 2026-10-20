@@ -519,3 +519,16 @@ Procedure for requests like "act when only one of X or Y occurs". For details, s
     - Two single-filter rules: respond whichever occurs
 4. If an existing single-filter rule exists, explain the side effects following the XOR table in `rule.md` and confirm how to handle it.
 5. Before approval, present the registration contents (including rule priorities) as a list; after approval, register, and re-read to confirm before reporting.
+
+## Escalating if X is not recovered within a certain time (time-series correlation)
+
+Procedure for requests like "escalate if Y (recovery) does not arrive within N minutes after X occurs". For details, see the section "Time-series correlation (A -> B)" in `rule.md`.
+
+### Steps
+
+1. **Retrieve `documents-menu/rule.md` with `get-document` and read the section "Time-series correlation (A -> B)".**
+2. Retrieve `event_collection` (`ttl`), `labeling`, `filter`, `rule` and `action` with `menu-filter`, and check whether labeling settings and filters for the failure and the recovery exist, and whether an existing rule uses the failure filter on its own.
+3. Use the configuration "higher: absorbing rule with `A -> B` (failure → recovery, no action); lower: escalation rule for the failure only". Do not use `A and B` for the absorbing rule.
+4. **Compare the requested "N minutes" with the collection setting's `ttl`.** If they differ, explain that the waiting time is decided by the collection setting's `ttl`, and confirm whether to change the `ttl` (also presenting the affected rules) or keep the current `ttl`.
+5. Confirm the escalation content (Conductor / notification). Notification requires a destination and a template.
+6. Before approval, present the registration contents (including rule priorities and whether the collection `ttl` is changed) as a list; after approval, register, and re-read to confirm before reporting.

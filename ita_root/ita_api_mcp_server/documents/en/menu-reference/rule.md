@@ -10,7 +10,7 @@ An OASE rule. Based on filter results, decides which action to execute and what 
 - `filter_operator` can only take one of these 3 values:
   - `A and B`: condition is met only when both filter A and B match
   - `A xor B`: condition is met when exactly one of filter A or B matches **in that evaluation cycle** (it does not wait for the other; see the section "XOR correlation (A xor B)")
-  - `A -> B`: condition is met when filter A matches, followed later by filter B matching (time-series correlation)
+  - `A -> B`: condition is met when filter A matches, followed later by filter B matching (time-series correlation). "If B does not arrive" cannot be expressed (see the section "Time-series correlation (A -> B)")
 - To judge based on a single filter only, specify only `filter_a` and leave `filter_b`/`filter_operator` empty.
 - **The unique constraint is the combination of `filter_a` + `filter_operator` + `filter_b`.** In other words, **two rules with the same filter configuration cannot be created** (`The combination is incorrect.` / 499-00201 / MSG-00006).
   - When duplicating an existing rule for another host, **you cannot just add a rule; a separate filter is always required.** Create a new filter with an `_exastro_host` condition added to `filter_condition_json` and specify it as `filter_a` (see `filter.md`).
@@ -84,6 +84,40 @@ Place an AND correlation rule without an action at a higher priority, and the si
 | The existing single rule is higher | The single rule runs | **Nothing runs** (the XOR rule effectively never runs) | — |
 
 - If you add XOR while keeping the existing single rule, neither priority order behaves as expected. Always confirm how to handle the existing rule (change it into XOR / disable it / reorganize into the absorbing configuration). **Do not apply the AND correlation table ("delayed by up to `ttl` seconds") to XOR.**
+
+
+## Time-series correlation (A -> B) and "if Y does not arrive within N minutes" (important)
+
+- `filter_operator: "A -> B"` is satisfied when an event of filter B arrives **after** an event of filter A (confirmed with the rule evaluation engine).
+    - A then B (within `ttl`) → satisfied
+    - Only A → nothing happens (A times out after `ttl`)
+    - B then A (reverse order) → not satisfied
+- In other words, `A -> B` expresses "**when the recovery notification arrives**"; "**if it does not arrive**" cannot be written directly.
+
+### How to build "escalate if Y (recovery) does not arrive within N minutes after X occurs"
+
+Place an `A -> B` rule without an action at a higher priority, and an escalation rule for A alone at a lower priority (confirmed with the rule evaluation engine).
+
+| Rule | Priority | Content |
+|---|---|---|
+| Absorbing rule | Higher (e.g. 1) | `filter_a`=X (failure), `filter_b`=Y (recovery), `A -> B`, **no `action_id`** |
+| Escalation rule | Lower (e.g. 2) | `filter_a`=X (failure) only, the escalation action |
+
+| How the events arrive | Result |
+|---|---|
+| Recovery within `ttl` after the failure | The absorbing rule is satisfied; no escalation |
+| Failure only (no recovery) | When the failure event times out after `ttl`, the escalation rule runs |
+| Recovery later than `ttl` after the failure | Escalates when `ttl` expires (the late recovery is not absorbed) |
+| A recovery was left over first, then a failure | Not absorbed; escalates when the failure's `ttl` expires |
+
+- **Do not use `A and B` for the absorbing rule.** AND ignores order, so if a recovery notification of a previous failure is left unused within `ttl`, a new failure is absorbed the moment it arrives and **is not escalated** (confirmed with the rule evaluation engine). Always use `A -> B` (`filter_a` is the failure, `filter_b` is the recovery).
+- **The waiting time "N minutes" cannot be set on the rule.** The expiry of an event is decided by **the `ttl` of the event collection setting (`event_collection`)**, and the failure event times out after that many seconds. The rule's `ttl` column is the expiry of the conclusion event and has nothing to do with the waiting time.
+    - If the requested "N minutes" differs from the collection setting's `ttl`, always say so and confirm which of the following to do:
+        1. Change the collection setting's `ttl` to N minutes (in seconds). **This changes the expiry of every event from that collection, affecting the waiting time of AND / XOR correlations and the timeout timing of other rules**, so look up the affected rules with `menu-filter` and present them
+        2. Keep the current `ttl` (the waiting time becomes `ttl` seconds)
+    - Do not make "create another collection setting for the same monitoring tool with a different `ttl`" the first choice, because **the same events may be fetched twice** (only when the targets can be separated by the fetch conditions).
+- **If an existing rule already uses the escalation rule's filter (failure only) on its own**, a second rule with the same filter configuration cannot be created because of the unique constraint. Confirm with the user how to handle the existing rule.
+- If the escalation is done by notification, the rule's before/after notification (destination and notification template) must be configured. If no destination is configured, explain that it must be set up first.
 
 ## action_id column
 

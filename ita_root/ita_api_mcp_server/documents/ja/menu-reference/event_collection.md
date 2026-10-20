@@ -18,6 +18,7 @@ OASEのイベント収集設定。監視ツール等のエージェントがど�
 - `No Agent Used`以外を選んだ場合、`url`（接続先）が空だと登録できない。
 - `connection_method_name`が`IMAP password authentication`の場合、`response_list_flag`は自動的に`True`へ強制設定される（指定しても上書きされる）。
 - 更新時に接続方式を変更し、かつ`password`を指定しなかった場合、既存の`password`はクリアされる（再入力が必要）。
+- 接続方式を変えない更新（例: `ttl`だけの変更）では、認証情報の項目を送らなければ**既存の値がそのまま残る**（DBで確認）。`menu-filter`では`null`と返るが、消えたわけではないので、ユーザーに再入力や確認を求めなくてよい。
 
 ## request_header column
 

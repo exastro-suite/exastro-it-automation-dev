@@ -18,6 +18,7 @@ OASE event collection settings. Defines where and how an agent such as a monitor
 - If anything other than `No Agent Used` is selected, `url` (connection destination) must not be empty.
 - When `connection_method_name` is `IMAP password authentication`, `response_list_flag` is automatically forced to `True` (any specified value is overwritten).
 - If the connection method is changed on update and `password` is not specified, the existing `password` is cleared (it must be re-entered).
+- In an update that does not change the connection method (e.g. changing only `ttl`), credential items that are not sent **keep their existing values** (confirmed in the database). `menu-filter` returns `null` for them, but that does not mean they were cleared, so there is no need to ask the user to re-enter or check them.
 
 ## request_header column
 
