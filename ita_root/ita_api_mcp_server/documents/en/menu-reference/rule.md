@@ -164,6 +164,33 @@ Notes:
 - The conclusion event also automatically gets `_exastro_rule_name` (the original rule's `rule_label_name`), but **`_exastro_rule_name` cannot be used as a filter condition** (it is not in the `filter_condition_json.label_name` pulldown). To chain, you must add your own label key through `conclusion_label_settings` as above.
 - Make sure the existing filter contains `["_exastro_type", "≠", "conclusion"]`. Without it, the conclusion event could match the existing rule itself again.
 
+## Multi-stage judgement (secondary judgement using the conclusion event of a primary rule) (important)
+
+"Use the result of rule X and further judge with condition Y" is built by picking up the primary rule's conclusion event with the secondary rule's filter (the chaining mechanism is the same as the section "Add: chaining rules via the conclusion event").
+
+### Putting the labels used for the secondary judgement on the conclusion event
+
+The labels on a conclusion event are decided as follows (confirmed in `ita_by_oase_conclusion/libs/action.py`):
+- Labels specified in `conclusion_label_settings` (the value **can use Jinja2**; `A` is the labels of filter A's event, `B` of filter B's event)
+- When `event_label_inheritance_flag` is `True`, additionally **all** labels of the original event (except some system labels starting with `_exastro_`; `_exastro_host` and user-assigned labels are inherited)
+
+To use `severity` for the secondary judgement, do one of the following. **Option 1, passing only the required labels, has a smaller impact and is safer.**
+1. Add `["severity", "{{ A.severity }}"]` to the primary rule's `conclusion_label_settings` (keep the existing chaining label)
+2. Set the primary rule's `event_label_inheritance_flag` to `True` (all labels of the original event are put on the conclusion event, so check that it does not unintentionally match existing conclusion-event filters)
+
+### Relationship with existing conclusion-event rules
+
+- A conclusion event can also be used by only one rule. If another rule (e.g. the chained file copy) already uses the primary rule's conclusion event, you must decide which runs, that rule or the secondary judgement rule (prioritise the secondary judgement / add the condition to the existing one / chain further from the existing one's conclusion event). Confirm with the user.
+- The secondary judgement runs only **when the primary rule's Conductor completes successfully**, **sequentially** (for a primary rule without an action, the conclusion event is created immediately).
+
+### Preventing infinite loops (mandatory check)
+
+If a conclusion event **again satisfies** the filter of the rule that created it (or of a rule in an earlier stage of the chain), it keeps running: rule → conclusion event → same rule... With the rule evaluation engine, a configuration where the secondary rule's conclusion event satisfies the secondary rule's own condition **made a single evaluation run never finish** (there is a loop limit `EVALUATE_LATENT_INFINITE_LOOP_LIMIT`, but do not rely on it). Before proposing, always check the following and write the result of the check in the proposal:
+- Write down the labels of the conclusion event each stage's rule creates (including inherited ones), and check one by one **which conclusion-event filters (filters containing `_exastro_type == conclusion`) they match**. They must not match their own filter or an earlier stage's filter
+- Give each stage a **different marker label** via conclusion labels (e.g. `stage=1` for the primary, `stage=2` for the secondary), and make each stage's filter use only the marker of the stage before it
+- Do not set `event_label_inheritance_flag` to `True` on the secondary (last-stage) rule. The earlier stage's marker and the judgement-condition labels would be inherited and cause it to match itself again
+- Put `["_exastro_type", "≠", "conclusion"]` in filters for monitoring events so that they do not pick up conclusion events
+
 ## before_notification_destination / after_notification_destination columns
 
 - When specifying notification destinations (multi-select), the corresponding notification template (`before_notification`/`after_notification`, a file-upload field) and `action_id` must always be specified together. Specifying only the destination without a template or action_id results in an error.

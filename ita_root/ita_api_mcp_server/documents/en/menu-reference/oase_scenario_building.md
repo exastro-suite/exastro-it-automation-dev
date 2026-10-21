@@ -569,3 +569,16 @@ Procedure for requests like "when Y (event type) recurs on X (host), merge them 
 3. Change the existing filter's search method to `Grouping`, specifying `group_label_key_ids` (e.g. `["_exastro_host", "alert_type"]`) and `group_condition_id` (`is the target`). With period extension, do not send the `group_period` key at all.
 4. Explain the behaviour before and after (now the response runs every time / all become undetected when they arrive simultaneously → after the change, once per incident) and where an incident ends (the same incident until it is quiet for `ttl` seconds after the last event), citing the actual `ttl` value, and obtain approval.
 5. Re-read after the update to confirm before reporting.
+
+## Secondary judgement using a primary rule's result (multi-stage judgement)
+
+Procedure for requests like "use the result of rule X and further judge with condition Y". For details, see the section "Multi-stage judgement" in `rule.md`.
+
+### Steps
+
+1. **Retrieve `documents-menu/rule.md` with `get-document` and read the sections "Multi-stage judgement" and "Add: chaining rules via the conclusion event".**
+2. Check X's `conclusion_label_settings`, `event_label_inheritance_flag` and action, and the filters containing `_exastro_type == conclusion` and the rules using them, with `menu-filter`.
+3. If the labels needed for judging Y are not on the conclusion event, make the first choice adding only the required labels to `conclusion_label_settings` with Jinja2 (e.g. `["severity", "{{ A.severity }}"]`).
+4. If a rule already uses X's conclusion event, confirm with the user how it relates to the secondary judgement.
+5. **Infinite loop check**: match each stage's conclusion-event labels against the conclusion-event filters, confirm they do not match their own or an earlier stage's filter, and write the result in the proposal.
+6. Register after approval, and re-read to confirm before reporting.
