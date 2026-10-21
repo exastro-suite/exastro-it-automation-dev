@@ -169,6 +169,45 @@ OASEのルール。フィルター結果に基づき「どのアクションを�
 - 通知先（複数選択）を指定する場合、**対応する通知テンプレート（`before_notification`/`after_notification`、ファイルアップロード項目）と`action_id`を必ずセットで指定する**こと。通知先だけ指定してテンプレートやaction_idが無いとエラーになる。
 - 通知テンプレートファイルには`[TITLE]`と`[BODY]`の両方のセクションが必要（Jinja2構文も使用可）。
 
+## ルールの通知（事前通知・事後通知）を設定する（重要）
+
+### 通知先（宛先）はExastro Platformで登録する
+
+- `before_notification_destination`/`after_notification_destination`の選択肢は、**Exastro Platformのワークスペースに登録された通知先**。ITAのメニューではないため、**MCPのツールからは登録できない**。
+    - 登録場所: Exastro Platformのメニュー「**通知管理**」→ 通知先ワークスペース一覧 → 対象ワークスペース →「新規通知先設定」
+    - メールで送る場合は、さらに「**オーガナイゼーション設定**」→「**メール送信サーバー設定**」が必要（未設定だとメールは送られない）
+- `list-menu-info-pulldown`（`menu: "rule"`）で`before_notification_destination`の候補が空なら、通知先は1件も登録されていない。ユーザーに上記の登録を依頼し、**登録した通知先の名前**を教えてもらうこと。メールアドレスをそのまま`before_notification_destination`に入れることはできない。
+- 通知先が未登録でも、**テンプレート（`before_notification`/`after_notification`）だけ先に登録することはできる**（通知先が空なら通知は送られない）。通知先を指定するときは、テンプレートと`action_id`が必須。
+- テンプレートはファイルアップロード項目なので、文面を`create-text-file`で作って`file_id`を発行し、`maintenance-all`の`fileid`で渡す。ルールの`Update`なので、変更しない列も全て再送すること。
+
+### テンプレートに渡るデータ（共通テンプレートとは形が違う）
+
+ルールの事前通知・事後通知のテンプレートには、次のデータがまとめて渡る（`ita_by_oase_conclusion/libs/notification_data.py`で確認）。**最上位に`labels`は無い**ので、共通テンプレート（`notification_template_common`）の変数（`{{ labels._exastro_host }}`等）をそのまま使うと空欄になる。
+
+| 変数 | 内容 |
+|---|---|
+| `events` | ルールが使ったイベントの**リスト**。各要素の`labels`にラベル（`_exastro_host`、ユーザーが付けたラベル、`_exastro_fetched_time`（日時に変換済み）、`_exastro_event_collection_settings_name`等）、`_exastro_events`に元のイベントJSON |
+| `rule` | `rule_name`、`filter_a_name`、`filter_b_name`、`filter_operator` など |
+| `action` | 事前: `action_name`、`conductor_name`、`operation_name`、`host_id` など／事後: `operation_name`、`status` など |
+| `action_log` | 評価結果（`rule_name`、`status`、`time_register` など） |
+| `conductor` | 事後通知のみ。`status`、`time_start`、`time_end` など |
+
+```
+[TITLE]
+【運用チーム】CPU高負荷を検知しました（{{ events[0].labels._exastro_host }}）
+[BODY]
+ルール: {{ rule.rule_name }}
+実行する対処: {{ action.action_name }}（Conductor: {{ action.conductor_name }}）
+{% for event in events %}
+・ホスト: {{ event.labels._exastro_host }} ／ 種別: {{ event.labels.alert_type }} ／ 検知時刻: {{ event.labels._exastro_fetched_time }}
+{% endfor %}
+```
+
+### 「イベント種別ごとに通知を変えたい」と言われたとき
+
+- アラートの種類（例: CPU高負荷）ごとに文面や宛先を変えたい → **そのアラートを扱うルール**の事前・事後通知を設定する。どのルールに付けるか（同じアラートを複数のルールが扱っている場合）と、事前・事後のどちらにするかを確認する。
+- 共通テンプレート（`notification_template_common`）の`event_type`は、**OASEの通知の種類**（新規受信・新規・既知（判定済み）・既知（時間切れ）・未知 など）であって、アラートの種類ではない。共通テンプレートを書き換えると**すべてのアラート**の通知に影響するので、アラートの種類ごとに変えたい依頼で第一候補にしてはいけない。
+
 ## conclusion_label_settings column
 
 - REST入力値は `[[label_key, label_value], ...]` という**2要素配列のリストをJSON文字列化**したもの。マッチ時に生成する結論イベントへ付与するラベルを定義する。

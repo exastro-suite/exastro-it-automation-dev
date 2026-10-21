@@ -169,6 +169,45 @@ Notes:
 - When specifying notification destinations (multi-select), the corresponding notification template (`before_notification`/`after_notification`, a file-upload field) and `action_id` must always be specified together. Specifying only the destination without a template or action_id results in an error.
 - The notification template file must contain both a `[TITLE]` and a `[BODY]` section (Jinja2 syntax may also be used).
 
+## Configuring rule notifications (before / after notification) (important)
+
+### Notification destinations are registered in Exastro Platform
+
+- The choices of `before_notification_destination` / `after_notification_destination` are **the notification destinations registered in the Exastro Platform workspace**. They are not an ITA menu, so **they cannot be registered with the MCP tools**.
+    - Where to register: Exastro Platform menu "**Notification management**" → workspace list → target workspace → "New notification destination"
+    - To send by email, "**Organization settings**" → "**Mail server settings**" is also required (no mail is sent if it is not configured)
+- If `list-menu-info-pulldown` (`menu: "rule"`) shows no candidates for `before_notification_destination`, no destination is registered. Ask the user to register one as above and tell you **the name of the registered destination**. An email address cannot be put into `before_notification_destination` directly.
+- Even without a registered destination, **the templates (`before_notification` / `after_notification`) can be registered first** (no notification is sent while the destination is empty). Specifying a destination requires a template and `action_id`.
+- The template is a file-upload item: create the text with `create-text-file` to obtain a `file_id`, and pass it with `fileid` in `maintenance-all`. Because it is an `Update` of the rule, re-send every unchanged column too.
+
+### Data passed to the template (different shape from the common templates)
+
+The following data is passed together to the rule's before/after notification templates (confirmed in `ita_by_oase_conclusion/libs/notification_data.py`). **There is no top-level `labels`**, so using the variables of the common templates (`notification_template_common`, e.g. `{{ labels._exastro_host }}`) as-is renders blanks.
+
+| Variable | Content |
+|---|---|
+| `events` | A **list** of the events used by the rule. Each element's `labels` holds the labels (`_exastro_host`, user-assigned labels, `_exastro_fetched_time` (converted to a date-time), `_exastro_event_collection_settings_name`, etc.), and `_exastro_events` holds the original event JSON |
+| `rule` | `rule_name`, `filter_a_name`, `filter_b_name`, `filter_operator`, etc. |
+| `action` | Before: `action_name`, `conductor_name`, `operation_name`, `host_id`, etc. / After: `operation_name`, `status`, etc. |
+| `action_log` | Evaluation result (`rule_name`, `status`, `time_register`, etc.) |
+| `conductor` | After notification only. `status`, `time_start`, `time_end`, etc. |
+
+```
+[TITLE]
+[Ops team] CPU high load detected ({{ events[0].labels._exastro_host }})
+[BODY]
+Rule: {{ rule.rule_name }}
+Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
+{% for event in events %}
+- Host: {{ event.labels._exastro_host }} / Type: {{ event.labels.alert_type }} / Detected: {{ event.labels._exastro_fetched_time }}
+{% endfor %}
+```
+
+### When asked to "change notifications per event type"
+
+- To change the text or destination per alert type (e.g. CPU high load) → configure the before/after notification of **the rule handling that alert**. Confirm which rule (if several rules handle the same alert) and whether before, after or both.
+- The `event_type` of the common templates (`notification_template_common`) is **the OASE notification type** (new (received), new, known (evaluated), known (timeout), undetected, etc.), not the alert type. Rewriting a common template affects the notifications of **every alert**, so do not make it the first choice for a per-alert-type request.
+
 ## conclusion_label_settings column
 
 - The REST input value is a JSON string of a list of 2-element arrays: `[[label_key, label_value], ...]`. Defines the labels to attach to the conclusion event generated on a match.

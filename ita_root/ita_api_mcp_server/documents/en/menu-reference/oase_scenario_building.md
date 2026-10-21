@@ -544,3 +544,16 @@ Procedure for requests like "the same alerts arrive twice from both X and Y, so 
 3. Check whether each label has the same value across the monitoring tools, and propose the judgement condition (none / `is matched` / `is ignored`) with the reasoning.
 4. Before approval, present the registration contents as a list. Pass multi-select items as a JSON array of display names **as a string** (passing an array as-is results in `System Error (999-99999)`).
 5. Re-read after registration to confirm, and report that "duplicate events are merged into the first event and the rule's response runs only once" and that "it applies to events received after registration".
+
+## Changing the notification text / destination per alert type (notification settings)
+
+Procedure for requests like "change the notification mail text for X (event type) for Y, and send it to Z". For details, see the section "Configuring rule notifications (before / after notification)" in `rule.md`.
+
+### Steps
+
+1. **Retrieve `documents-menu/rule.md` with `get-document` and read the notification section.**
+2. Determine whether "event type" means the alert type (e.g. CPU high load) or the OASE notification type (new, known, undetected, etc.). If it is the alert type, identify the rules handling that alert with `menu-filter`.
+3. Check the destination candidates with `list-menu-info-pulldown` (`menu: "rule"`). If Z is not among them, explain that the destination must be registered in Exastro Platform "Notification management" (and "Mail server settings" for email). It cannot be registered with the tools.
+4. Write the text with the variables in the table in `rule.md` (`events`, `rule`, `action`, `conductor`). Do not use the common-template style such as `{{ labels.xxx }}`.
+5. If the destination is not registered, confirm whether to register only the templates first or to wait for the registration.
+6. `Update` the rule (pass the template via the `file_id` of `create-text-file`, re-sending every unchanged column). Re-read to confirm before reporting.
