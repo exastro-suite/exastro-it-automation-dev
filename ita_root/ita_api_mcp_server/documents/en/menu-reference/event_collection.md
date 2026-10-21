@@ -95,3 +95,27 @@ OASE event collection settings. Defines where and how an agent such as a monitor
 3. **Check whether the requested value is really "shorter".** The default is 5 seconds, so unless the agent setting has been changed, "shorten it to 30 seconds" actually makes it **longer and detection even slower**. The current value is not visible from MCP, so ask the user to have the person who manages the agent check the current `EXECUTE_INTERVAL`, and do not assert that it becomes shorter while the current value is unknown.
 4. Tell the user that it also applies to the other collection settings handled by the same agent (and show how to change only that collection setting).
 5. Among causes of delay other than the interval, investigate **the ones that can be checked in ITA** with `menu-filter` and show them. In particular, check whether rules that use events from that collection setting are AND correlation (`A and B`) or an absorb configuration (the "AND correlation" and "XOR correlation" sections of `rule.md`), which make one event wait up to `ttl` seconds. Also mention that the evaluation interval on the monitoring tool side and the execution interval of ITA's evaluation process may be causes.
+
+## When changing credentials (password, token)
+
+For a request such as "the password of X has changed, so update the collection settings", proceed in the following order.
+
+1. **Identify the target collection settings.** Retrieve `event_collection` with `menu-filter`. If several collection settings correspond to the monitoring tool in the request (e.g. two servers in a redundant configuration), confirm which ones to update with `ask_user_choice` (include an "all of them" option).
+2. **Decide which item to change from the connection method.**
+
+| connection_method_name | Item to change |
+|---|---|
+| `Bearer Authentication` | `auth_token` |
+| `password authentication` / `IMAP password authentication` | `password` (also `username` if the user name changed) |
+| `Optional Authentication` | The credentials written in `parameter` or `request_header` |
+| `No Agent Used` | No credentials (change the settings on the sending side) |
+
+- Even if the user says "the password changed", a collection setting with `Bearer Authentication` does not use a password. Whether a password change invalidates a token depends on the monitoring tool (e.g. a Zabbix API token is not invalidated when the user's password changes). Tell the user this **before asking whether to update**, and confirm whether the token was regenerated.
+
+3. **Confirm how to receive the new value (important).** A value entered in the chat is sent to the LLM and also remains in plain text in the conversation history (the `conversations` menu). Present the following two options with `ask_user_choice` and let the user choose.
+    - The user enters it on the ITA screen (OASE Management > Event collection) (recommended; the value does not remain in the chat). In this case, the agent tells the user the target collection setting name and the item to change, and after the input re-reads the record and confirms that the last update date/time has changed.
+    - The agent receives the value in the chat and updates it (after the user agrees that it remains in the conversation history).
+4. Update with `Update`, sending the primary key, `last_update_date_time` and the other columns retrieved with `menu-filter` as they are, with only the credential item being changed set to the new value. **Do not send credential items that are not being changed** (they keep their existing values when not sent). Never resend the `null` that `menu-filter` returns.
+5. **Do not write the received value back in the response** (not even masked; say "the value you entered").
+6. Re-read the record and confirm that the last update date/time has changed. Credential items are returned as `null` by `menu-filter`, so tell the user that the value itself cannot be checked through MCP.
+7. **Tell the user when it takes effect.** The OASE agent re-fetches the collection settings from ITA every `ITERATION` loops, so the new value is used at most `EXECUTE_INTERVAL x ITERATION` seconds later (with the defaults, 5 seconds x 10 = about 50 seconds). To apply it immediately, deleting `event_collection_settings.json` in the agent container makes the agent re-fetch on the next loop (work on the agent's server). Ask the user to confirm the connection with the new value by checking that events arrive afterwards.
