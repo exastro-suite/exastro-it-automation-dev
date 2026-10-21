@@ -582,3 +582,37 @@ Procedure for requests like "use the result of rule X and further judge with con
 4. If a rule already uses X's conclusion event, confirm with the user how it relates to the secondary judgement.
 5. **Infinite loop check**: match each stage's conclusion-event labels against the conclusion-event filters, confirm they do not match their own or an earlier stage's filter, and write the result in the proposal.
 6. Register after approval, and re-read to confirm before reporting.
+
+## Automatic recovery, and notifying if it does not recover (auto-recovery + escalation)
+
+Procedure for requests like "when Y (failure type) occurs on X (server), recover it automatically with Z (Conductor), and notify W if it does not recover". For a new failure type, combine the bulk construction of labeling, filter, action and rule (first half of this document) with notification (the notification section of `rule.md`) and escalation.
+
+### First confirm what "does not recover" means
+
+| Meaning | How to build | Note |
+|---|---|---|
+| Notify if the automatic recovery (Conductor) **fails** | Add an **after notification** to the recovery rule and show `{{ conductor.status }}` in the body | **The after notification is sent every time, whether the Conductor completes normally or abnormally** (it cannot be limited to failures) |
+| Notify if, after the automatic recovery, **no recovery notification arrives within a certain time** | "Escalation based on the conclusion event" below | If the automatic recovery fails, no conclusion event is created and the escalation does not run either (combine with the after notification above) |
+
+### Escalation based on the conclusion event (confirmed with the rule evaluation engine)
+
+The failure event is used by the recovery rule, so the "failure → recovery" absorbing configuration of 2-3 cannot be applied to the same failure event. Use **the recovery rule's conclusion event** as the starting point.
+
+```
+failure event ─▶ rule 1: automatic recovery (runs Z; marker recovery_tried=true via conclusion labels)
+                   │ when Z completes successfully, a conclusion event is created
+                   ▼
+   ┌─ rule 2 (higher): conclusion event (recovery_tried) -> recovery event (A -> B, no action) … does nothing
+   └─ rule 3 (lower): conclusion event (recovery_tried) only … notifies W
+```
+
+| How events arrive | Result |
+|---|---|
+| A recovery event within the waiting time after the automatic recovery | Rule 2 absorbs it; no notification |
+| No recovery event / it arrives after the waiting time | When the conclusion event expires, rule 3 runs and notifies |
+
+- **The waiting time is decided by rule 1's `ttl` column** (the expiry of the conclusion event), not the collection setting's `ttl`, so "if not recovered within N minutes" can be set without changing the collection setting. Put the requested minutes, converted to seconds, into rule 1's `ttl`.
+- Put `["_exastro_type", "≠", "conclusion"]` in the recovery-event filter, and make rule 2's filter A the conclusion event (`_exastro_type == conclusion` and the marker label).
+- **A rule that specifies a notification destination requires `action_id`.** Rule 3 cannot be "notification only", so confirm with the user what its action should be (e.g. run Z again).
+- Because this is a multi-stage chain, perform the infinite loop check of the "Multi-stage judgement" section of `rule.md` (the conclusion events of rules 2 and 3 must not match the filters of rules 2 and 3 again) and write the result in the proposal.
+- If the destination is not registered, explain that it must be registered in Platform (the notification section of `rule.md`).
