@@ -680,3 +680,28 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 | アクションを一時的に外す | ルールの`action_id`を空にして`Update`し、イベント（テストイベントなど）を送って評価結果を確認 → 元の`action_id`に戻して読み直す | **外している間に届いた本物のイベントも、対処されないままこのルールで使われる。** 結論イベントはすぐできるので、結論イベントで動く後続のルールが無いかも確認する。通知先を設定しているルールは`action_id`を空にできない |
 
 - 外す前に元の`action_id`を回答に書いておき、確認後に必ず戻す。戻すまで何が起きないかを伝える。
+
+### テストイベントを送るとき
+
+- 送り先はOASEの受信API `POST /api/{organization_id}/workspaces/{workspace_id}/oase_agent/events`（Exastroの認証。Bearerトークンで確認済み。ユーザーにはイベント履歴をメンテナンスできるロールが要る）。本文の例:
+
+```json
+{
+  "events": [
+    {
+      "event": [ {"event": {"type": "cpu_high", "cpu_usage": 95, "host": "ssh-server-1", "message": "OASE test event"}} ],
+      "fetched_time": 1793000000,
+      "event_collection_settings_name": "Zabbix CPU Alert Collection",
+      "event_collection_settings_id": "<収集設定のID>",
+      "agent": {"name": "manual-test", "version": "2.x"}
+    }
+  ]
+}
+```
+
+- **`event`配列の1要素が1件のイベント**で、ラベル付与の`search_key_name`（JMESPath）はこの要素に対して評価される。`search_key_name`が`event.type`なら`{"event": {"type": ...}}`の形にする（`{"type": ...}`ではラベルが付かず、どのフィルターにもマッチしない。確認済み）。`labeling`を`menu-filter`で読み、対象のフィルターの条件になるラベルがすべて付く形と値でJSONを作って示すこと。
+- ラベル付与は収集設定ごとなので、`event_collection_settings_name`と`event_collection_settings_id`には、そのラベル付与設定がある収集設定を指定する。`fetched_time`は送る時刻のUNIX時間（秒）。
+- **アクションを外していなければ、テストイベントでも本当にアクション（Conductor）が動く。** 動かしてよいかを確認し、動かしたくなければ上の「アクションを一時的に外す」と組み合わせる。
+- フィルターの検索方法が`Unique`なら、テストイベントは1件だけ送る（同じ判定周期に2件以上あると全部が未知になる）。
+- テストイベントはイベント履歴に残り、消せない。収集設定の`ttl`の間はほかのルール（吸収ルールなど）にも使われうるので、送る内容と影響をユーザーに伝える。
+- 送ってもらったら、`menu-filter`で`evaluation_results`を対象のルール名で絞って読み、`status`・使われたイベント・`action_parameters`・結論ラベルを示す。出ていなければ、イベントフロー画面でイベントが届いたか・ラベルが付いたかを見てもらう。

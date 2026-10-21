@@ -680,3 +680,28 @@ Let the user choose one of the following (`ask_user_choice`).
 | Temporarily remove the action | `Update` the rule with an empty `action_id`, send an event (such as a test event) and check the evaluation result -> restore the original `action_id` and re-read | **Real events that arrive while it is removed are also used by this rule without any response.** A conclusion event is created immediately, so also check that no subsequent rule runs on the conclusion event. A rule with notification destinations cannot have an empty `action_id` |
 
 - Before removing it, write the original `action_id` in the response, and always restore it after the check. Tell the user what will not happen until it is restored.
+
+### When sending a test event
+
+- Send it to the OASE receiving API `POST /api/{organization_id}/workspaces/{workspace_id}/oase_agent/events` (Exastro authentication; confirmed with a Bearer token; the user needs a role that can maintain the event history). Example body:
+
+```json
+{
+  "events": [
+    {
+      "event": [ {"event": {"type": "cpu_high", "cpu_usage": 95, "host": "ssh-server-1", "message": "OASE test event"}} ],
+      "fetched_time": 1793000000,
+      "event_collection_settings_name": "Zabbix CPU Alert Collection",
+      "event_collection_settings_id": "<ID of the collection setting>",
+      "agent": {"name": "manual-test", "version": "2.x"}
+    }
+  ]
+}
+```
+
+- **One element of the `event` array is one event**, and the labeling `search_key_name` (JMESPath) is evaluated against that element. If `search_key_name` is `event.type`, use the shape `{"event": {"type": ...}}` (with `{"type": ...}` no label is attached and it matches no filter; confirmed). Read `labeling` with `menu-filter` and build and show JSON whose shape and values attach every label used in the target filter's conditions.
+- Labeling is per collection setting, so specify, in `event_collection_settings_name` and `event_collection_settings_id`, the collection setting that has those labeling settings. `fetched_time` is the UNIX time (seconds) of sending.
+- **Unless the action is removed, a test event really runs the action (Conductor).** Confirm whether it may run; if not, combine with "Temporarily remove the action" above.
+- If the filter's search method is `Unique`, send only one test event (two or more in the same evaluation cycle all become undetected).
+- Test events remain in the event history and cannot be deleted. During the collection setting's `ttl` they can also be used by other rules (e.g. absorbing rules), so tell the user what will be sent and its impact.
+- After the user sends it, read `evaluation_results` with `menu-filter` narrowed by the target rule name, and show `status`, the used events, `action_parameters` and conclusion labels. If nothing appears, ask the user to check on the Event flow screen whether the event arrived and got labels.
