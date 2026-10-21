@@ -602,14 +602,19 @@ The failure event is used by the recovery rule, so the "failure → recovery" ab
 failure event ─▶ rule 1: automatic recovery (runs Z; marker recovery_tried=true via conclusion labels)
                    │ when Z completes successfully, a conclusion event is created
                    ▼
-   ┌─ rule 2 (higher): conclusion event (recovery_tried) -> recovery event (A -> B, no action) … does nothing
+   ┌─ rule 2 (higher): conclusion event (recovery_tried) and recovery event (A and B, no action) … does nothing
    └─ rule 3 (lower): conclusion event (recovery_tried) only … notifies W
 ```
 
-| How events arrive | Result |
-|---|---|
-| A recovery event within the waiting time after the automatic recovery | Rule 2 absorbs it; no notification |
-| No recovery event / it arrives after the waiting time | When the conclusion event expires, rule 3 runs and notifies |
+| How events arrive | Rule 2 is `A and B` (recommended) | Rule 2 is `A -> B` |
+|---|---|---|
+| A recovery event within the waiting time after the automatic recovery | Absorbed; no notification | Absorbed; no notification |
+| **A recovery event while the automatic recovery (Z) is running** (before the conclusion event) | Absorbed when the conclusion event is created; no notification | **Neither absorbed nor notified.** The recovery event stays unused until the collection setting's `ttl` and silently stops the escalation of the next failure in that period too |
+| No recovery event / it arrives after the waiting time | When the conclusion event expires, rule 3 runs and notifies | Same |
+| An unused recovery event from an earlier failure is left over | Absorbed; no notification (see the note below) | Neither absorbed nor notified |
+
+- **Make rule 2 `A and B`.** Recovery during the automatic recovery is common (e.g. the monitoring tool detects the recovery right after a process restart), and with `A -> B` the recovery event then arrives before the conclusion event. Because the conclusion event has a shorter expiry than the recovery event, the prohibition of `A and B` in the "Time-series correlation" section of `rule.md` (which is about a failure and a recovery from the same collection setting) does not apply here (confirmed with the rule evaluation engine).
+- Note: in both configurations, if an **unused leftover recovery event** (e.g. when the automatic recovery failed and no conclusion event was created, or a recovery that arrived without a failure) meets the next conclusion event within the collection setting's `ttl`, no escalation happens. Also propose notifying failures of the automatic recovery with rule 1's after notification (table above), and tell the user about this limitation.
 
 - **The waiting time is decided by rule 1's `ttl` column** (the expiry of the conclusion event), not the collection setting's `ttl`, so "if not recovered within N minutes" can be set without changing the collection setting. Put the requested minutes, converted to seconds, into rule 1's `ttl`.
 - Put `["_exastro_type", "≠", "conclusion"]` in the recovery-event filter, and make rule 2's filter A the conclusion event (`_exastro_type == conclusion` and the marker label).
