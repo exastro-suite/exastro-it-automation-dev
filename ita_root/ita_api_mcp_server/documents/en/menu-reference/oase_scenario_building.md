@@ -124,7 +124,7 @@ Request: "When Zabbix reports a high load alert, automatically restart the servi
       "rule_priority": "1",
       "filter_a": "High load alert filter",
       "action_id": "Restart service",
-      "conclusion_label_settings": "[]",
+      "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
       "action_label_inheritance_flag": "True",
       "event_label_inheritance_flag": "False",
       "ttl": "3600"
@@ -271,7 +271,7 @@ The value for `_exastro_host` is **the host name only** (do not add the `[H]` pr
       "rule_priority": "1",
       "filter_a": "High load alert filter (web-server-02)",
       "action_id": "Restart service (web-server-02)",
-      "conclusion_label_settings": "[]",
+      "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
       "action_label_inheritance_flag": "True",
       "event_label_inheritance_flag": "False",
       "ttl": "3600"
@@ -656,3 +656,27 @@ Procedure for "when X happens, run Z (Conductor name) after approval". This is o
 3. So that the approver notices that approval is needed, propose adding **an advance notification to the target rule** (to the approver, with text such as "release the pause in the Conductor work status check"). The destination must be registered in Platform (the notification section of `rule.md`). At the time of the advance notification the Conductor instance ID does not exist yet, so put the rule name, action name, host, etc. in the body.
 4. When combined with deduplication, explain that the Conductor runs only once after deduplication merges the events into one, so approval is needed only once.
 5. Before approval, list separately what will be registered/updated (deduplication, action, replacing the rule's `action_id`, advance notification) and what the user needs to do on the screen (duplicating the Conductor and adding the pause, approving/rejecting). After approval, register the parts MCP can do, re-read to confirm, and then report.
+
+## Checking only the evaluation without actually running the rule / checking with a test event
+
+Procedure for "I want to check only the evaluation result of ◇◇ (rule name) without actually running it" and "send a test event to check whether ◇◇ works".
+
+### Premises (confirmed by running the evaluation process)
+
+- **OASE has no dry-run (evaluation-only) feature.** Evaluation results remain in the **Evaluation Results** (`evaluation_results`) menu and can be read with `menu-filter` (`rule_name`, `status`, `event_id_list`, `action_parameters`, `conclusion_event_labels`, `register_time`, etc.).
+    - A rule without an action becomes `status` `Completed` immediately when it matches, and a conclusion event is created. A rule with an action starts at `Executing` and becomes `Completed` / `Completed (abnormal)` when the Conductor ends.
+- **The events themselves (`event_history`) cannot be read through MCP** (`menu-filter` returns `System Error (999-99999)`). Ask the user to check on the "Event flow" screen whether an event arrived and which labels it got.
+- **The MCP tools cannot send events.** A test event is sent to the OASE receiving API by the user (or a script) (see below).
+- Evaluation does not happen unless ITA's evaluation process (the OASE evaluation backyard) is running. If no evaluation result appears after sending, also ask the user to check that the process is running.
+- Check the `conclusion_label_settings` section of `rule.md` first. If even one rule has `NULL` (registered with `"[]"`), evaluation stops for the whole workspace and no evaluation result appears whatever is sent.
+
+### When asked to "check only the evaluation without actually running it"
+
+Let the user choose one of the following (`ask_user_choice`).
+
+| Method | What to do | Caution |
+|---|---|---|
+| Check the settings only (no change) | Read `labeling` -> `filter` -> `rule` with `menu-filter` and show what kind of event matches (the JSON shape and values of the event), whether a higher-priority rule uses the same event, and whether a rule runs on the conclusion event | No actual evaluation is performed |
+| Temporarily remove the action | `Update` the rule with an empty `action_id`, send an event (such as a test event) and check the evaluation result -> restore the original `action_id` and re-read | **Real events that arrive while it is removed are also used by this rule without any response.** A conclusion event is created immediately, so also check that no subsequent rule runs on the conclusion event. A rule with notification destinations cannot have an empty `action_id` |
+
+- Before removing it, write the original `action_id` in the response, and always restore it after the check. Tell the user what will not happen until it is restored.

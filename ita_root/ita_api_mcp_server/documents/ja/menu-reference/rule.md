@@ -254,10 +254,13 @@ OASEのルール。フィルター結果に基づき「どのアクションを�
 - REST入力値は `[[label_key, label_value], ...]` という**2要素配列のリストをJSON文字列化**したもの。マッチ時に生成する結論イベントへ付与するラベルを定義する。
 - **登録時に必須**なので、キーは必ず渡すこと。省略すると`{"conclusion_label_settings": ["Required fields."]}`（499-00201）で失敗する。
 - **`label_value`を空にしてはいけない。** `[["_exastro_host", ""]]`は`{"conclusion_label_settings": ["Value is required."]}`（499-01707）で拒否される。画面ではその行が値空のデフォルトとして表示されるが、APIは受け付けない。
-- 結論ラベルが不要な場合は、空リストを文字列として渡す。
+- **空リスト`"[]"`を渡してはいけない（最重要）。** 登録・更新は成功するが、DBには`NULL`で保存され（`common_libs/column/conclusion_event_dialog_column.py`）、判定処理がそのルールで`TypeError`になって（`ita_by_oase_conclusion/libs/judgement.py`）、**そのワークスペースのルール判定がすべて止まる**（イベントがあるたびに「The rule matching process failed」となり、どのルールも動かない。判定処理を動かして確認済み）。画面と`menu-filter`では`NULL`が`"[]"`と表示されるので、見ただけでは気づけない。
+- 結論ラベルが不要な場合は、ホスト名を引き継ぐ次の値を渡す（判定処理で動作を確認済み）。
   ```json
-  "conclusion_label_settings": "[]"
+  "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]"
   ```
+    - 結論イベントに`_exastro_host`が付くので、`_exastro_type`の条件が無く`_exastro_host`だけで絞るフィルターがあると、結論イベントがそれにマッチする。`["_exastro_type", "≠", "conclusion"]`の無いフィルターが無いかを`menu-filter`で確認すること。
+- **既存ルールを`Update`するとき、`menu-filter`の`conclusion_label_settings`が`"[]"`なら、DBでは`NULL`になっている。** そのまま送り返さず、上の値（または必要な結論ラベル）に置き換えて送ること。置き換えることと理由（このままだと判定処理が止まる）をユーザーに伝える。
 - `label_key`は`label_creation`に登録済みのラベルキー（または`_exastro_host`等の予約キー）であること。有効なキーは`list-menu-info-pulldown`で確認できる。未知のキーは`MSG-00032`で失敗する。
 - 例: 結論イベントに`severity=high`を付与したい場合
   ```json
@@ -303,7 +306,7 @@ OASEのルール。フィルター結果に基づき「どのアクションを�
         "rule_priority": "1",
         "filter_a": "<既存と同じフィルター名>",
         "action_id": "<新しいアクション名>",
-        "conclusion_label_settings": "[]",
+        "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
         "action_label_inheritance_flag": "True",
         "event_label_inheritance_flag": "False",
         "ttl": "3600"
@@ -327,7 +330,7 @@ OASEのルール。フィルター結果に基づき「どのアクションを�
         "rule_priority": "1",
         "filter_a": "高負荷アラートフィルター",
         "action_id": "サービス再起動",
-        "conclusion_label_settings": "[]",
+        "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
         "action_label_inheritance_flag": "True",
         "event_label_inheritance_flag": "False",
         "ttl": "3600"

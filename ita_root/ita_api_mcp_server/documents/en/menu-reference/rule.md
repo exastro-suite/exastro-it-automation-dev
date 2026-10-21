@@ -254,10 +254,13 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
 - The REST input value is a JSON string of a list of 2-element arrays: `[[label_key, label_value], ...]`. Defines the labels to attach to the conclusion event generated on a match.
 - **Required on registration**, so always pass the key. Omitting it fails with `{"conclusion_label_settings": ["Required fields."]}` (499-00201).
 - **`label_value` must not be empty.** `[["_exastro_host", ""]]` is rejected with `{"conclusion_label_settings": ["Value is required."]}` (499-01707) — the screen shows that row as a blank-value default, but the API does not accept it.
-- When you do not need any conclusion label, pass an empty list as a string:
+- **Never pass an empty list `"[]"` (most important).** Registration and update succeed, but the value is stored as `NULL` in the database (`common_libs/column/conclusion_event_dialog_column.py`), the evaluation process raises a `TypeError` on that rule (`ita_by_oase_conclusion/libs/judgement.py`), and **rule evaluation stops for the whole workspace** (every time there are events it logs "The rule matching process failed" and no rule runs; confirmed by running the evaluation process). The screen and `menu-filter` display `NULL` as `"[]"`, so it cannot be noticed just by looking.
+- When you do not need any conclusion label, pass the following value, which carries over the host name (behavior confirmed with the evaluation process):
   ```json
-  "conclusion_label_settings": "[]"
+  "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]"
   ```
+    - The conclusion event gets `_exastro_host`, so a filter that narrows only by `_exastro_host` without a `_exastro_type` condition would match the conclusion event. Check with `menu-filter` that there is no filter lacking `["_exastro_type", "≠", "conclusion"]`.
+- **When you `Update` an existing rule and `menu-filter` returns `"[]"` for `conclusion_label_settings`, the database value is `NULL`.** Do not send it back as is; replace it with the value above (or the needed conclusion labels). Tell the user about the replacement and the reason (otherwise evaluation stops).
 - `label_key` must be an existing label key registered in `label_creation` (or a reserved key such as `_exastro_host`); check the valid keys with `list-menu-info-pulldown`. An unknown key fails with `MSG-00032`.
 - Example: to attach `severity=high` to the conclusion event:
   ```json
@@ -303,7 +306,7 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
         "rule_priority": "1",
         "filter_a": "<same filter name as existing>",
         "action_id": "<new action name>",
-        "conclusion_label_settings": "[]",
+        "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
         "action_label_inheritance_flag": "True",
         "event_label_inheritance_flag": "False",
         "ttl": "3600"
@@ -327,7 +330,7 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
         "rule_priority": "1",
         "filter_a": "High load alert filter",
         "action_id": "Restart service",
-        "conclusion_label_settings": "[]",
+        "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
         "action_label_inheritance_flag": "True",
         "event_label_inheritance_flag": "False",
         "ttl": "3600"

@@ -124,7 +124,7 @@
       "rule_priority": "1",
       "filter_a": "高負荷アラートフィルター",
       "action_id": "サービス再起動",
-      "conclusion_label_settings": "[]",
+      "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
       "action_label_inheritance_flag": "True",
       "event_label_inheritance_flag": "False",
       "ttl": "3600"
@@ -271,7 +271,7 @@
       "rule_priority": "1",
       "filter_a": "高負荷アラートフィルター（web-server-02）",
       "action_id": "サービス再起動（web-server-02）",
-      "conclusion_label_settings": "[]",
+      "conclusion_label_settings": "[[\"_exastro_host\", \"{{ A._exastro_host }}\"]]",
       "action_label_inheritance_flag": "True",
       "event_label_inheritance_flag": "False",
       "ttl": "3600"
@@ -656,3 +656,27 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 3. 承認者が承認の必要に気づけるように、**対象のルールに事前通知**（承認者あて。「Conductor作業状態確認で停止解除してください」等の文面）を付ける案を出す。通知先はPlatformでの登録が必要（`rule.md`の通知の節）。事前通知の時点ではConductorのインスタンスIDはまだ無いので、本文にはルール名・アクション名・ホストなどを入れる。
 4. 重複排除と組み合わせる場合は、重複排除で1件にまとめたうえでConductorが1回だけ動き、承認も1回で済むことを説明する。
 5. 承認前に登録・更新する内容（重複排除、アクション、ルールの`action_id`の差し替え、事前通知）と、ユーザーに画面でやってもらう作業（Conductorの複製・一時停止の追加、承認・却下の操作）を分けて一覧で示し、承認後にMCPでできる部分を登録して、読み直して確認してから報告する。
+
+## ルールを実際には実行せず判定だけ確認する／テストイベントで確認する
+
+「◇◇（ルール名）を実際には実行せず、判定結果だけ確認したい」「◇◇が動くかテストイベントを送って確認して」への対応手順。
+
+### 前提（判定処理を動かして確認）
+
+- **OASEにはドライラン（判定だけ行う）機能は無い。** 判定の結果は**評価結果**（`evaluation_results`）メニューに残り、`menu-filter`で読める（`rule_name`・`status`・`event_id_list`・`action_parameters`・`conclusion_event_labels`・`register_time`など）。
+    - アクションの無いルールは、マッチするとすぐ`status`が`Completed`になり、結論イベントができる。アクションのあるルールは`Executing`から、Conductorの終了で`Completed`／`Completed (abnormal)`になる。
+- **イベント自体（`event_history`）はMCPでは読めない**（`menu-filter`は`System Error (999-99999)`）。届いたか・どのラベルが付いたかは、画面の「イベントフロー」で見てもらう。
+- **MCPツールではイベントを送れない。** テストイベントは、ユーザー（またはスクリプト）がOASEの受信APIへ送る（下記）。
+- 判定はITAの判定処理（OASEの判定のバックヤード）が動いていないと行われない。送っても評価結果が出ない場合は、判定処理の稼働も確認してもらう。
+- 先に`rule.md`の`conclusion_label_settings`節を確認すること。`NULL`（`"[]"`で登録したもの）のルールが1つでもあると、ワークスペースの判定がすべて止まり、何を送っても評価結果は出ない。
+
+### 「実際には実行せず判定だけ確認したい」とき
+
+次の2つから選んでもらう（`ask_user_choice`）。
+
+| 方法 | やること | 注意 |
+|---|---|---|
+| 設定の確認だけ（変更なし） | `labeling`→`filter`→`rule`を`menu-filter`で読み、どんなイベントならマッチするか（イベントのJSONの形と値）、優先順位が上で同じイベントを使うルールが無いか、結論イベントで動くルールがあるかを示す | 実際の判定は行わない |
+| アクションを一時的に外す | ルールの`action_id`を空にして`Update`し、イベント（テストイベントなど）を送って評価結果を確認 → 元の`action_id`に戻して読み直す | **外している間に届いた本物のイベントも、対処されないままこのルールで使われる。** 結論イベントはすぐできるので、結論イベントで動く後続のルールが無いかも確認する。通知先を設定しているルールは`action_id`を空にできない |
+
+- 外す前に元の`action_id`を回答に書いておき、確認後に必ず戻す。戻すまで何が起きないかを伝える。
