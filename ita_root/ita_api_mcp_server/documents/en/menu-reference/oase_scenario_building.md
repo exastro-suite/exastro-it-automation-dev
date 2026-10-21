@@ -532,3 +532,15 @@ Procedure for requests like "escalate if Y (recovery) does not arrive within N m
 4. **Compare the requested "N minutes" with the collection setting's `ttl`.** If they differ, explain that the waiting time is decided by the collection setting's `ttl`, and confirm whether to change the `ttl` (also presenting the affected rules) or keep the current `ttl`.
 5. Confirm the escalation content (Conductor / notification). Notification requires a destination and a template.
 6. Before approval, present the registration contents (including rule priorities and whether the collection `ttl` is changed) as a list; after approval, register, and re-read to confirm before reporting.
+
+## Merging the same events from redundant monitoring tools into one (deduplication)
+
+Procedure for requests like "the same alerts arrive twice from both X and Y, so merge them into one". For details, see `documents-menu/deduplication.md`.
+
+### Steps
+
+1. **Retrieve `documents-menu/deduplication.md` with `get-document`.**
+2. Retrieve `event_collection`, `labeling` and `deduplication` with `menu-filter`, and check the collection settings for X and Y, their labeling settings, and whether any collection setting already belongs to a deduplication setting.
+3. Check whether each label has the same value across the monitoring tools, and propose the judgement condition (none / `is matched` / `is ignored`) with the reasoning.
+4. Before approval, present the registration contents as a list. Pass multi-select items as a JSON array of display names **as a string** (passing an array as-is results in `System Error (999-99999)`).
+5. Re-read after registration to confirm, and report that "duplicate events are merged into the first event and the rule's response runs only once" and that "it applies to events received after registration".
