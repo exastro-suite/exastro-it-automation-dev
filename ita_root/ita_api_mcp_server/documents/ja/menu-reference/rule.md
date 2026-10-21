@@ -192,6 +192,11 @@ OASEのルール。フィルター結果に基づき「どのアクションを�
 - 二次ルール（最後の段）では`event_label_inheritance_flag`を`True`にしない。前の段の目印や判定条件のラベルが引き継がれ、自分自身に再びマッチする原因になる
 - 監視イベント用のフィルターには`["_exastro_type", "≠", "conclusion"]`を入れ、結論イベントを拾わないようにする
 
+## before_approval_pending / after_approval_pending columns（承認待ち。未実装）
+
+- 画面とAPIに「承認待ち」（事前通知・事後通知の下）の列はあるが、**入力できない**（`list-menu-info`で`input_item`が`"0"`、項目説明は「今後機能追加予定」）。判定エンジンの承認待ちの処理もコメントアウトされている（`ita_by_oase_conclusion/libs/action.py`）。
+- そのため、**OASEのルールだけでは「承認してから実行」はできない。** この列に値を入れようとしないこと。代わりの方法は`oase_scenario_building.md`の「承認してから対処を実行する（作業前承認）」節を参照。
+
 ## before_notification_destination / after_notification_destination columns
 
 - 通知先（複数選択）を指定する場合、**対応する通知テンプレート（`before_notification`/`after_notification`、ファイルアップロード項目）と`action_id`を必ずセットで指定する**こと。通知先だけ指定してテンプレートやaction_idが無いとエラーになる。

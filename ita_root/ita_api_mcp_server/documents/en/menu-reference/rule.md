@@ -192,6 +192,11 @@ If a conclusion event **again satisfies** the filter of the rule that created it
 - Do not set `event_label_inheritance_flag` to `True` on the secondary (last-stage) rule. The earlier stage's marker and the judgement-condition labels would be inherited and cause it to match itself again
 - Put `["_exastro_type", "≠", "conclusion"]` in filters for monitoring events so that they do not pick up conclusion events
 
+## before_approval_pending / after_approval_pending columns (approval pending; not implemented)
+
+- The screen and API have "Approval Pending" columns (under the advance and post-event notifications), but **they cannot be entered** (`input_item` is `"0"` in `list-menu-info`, and the item description says "More features will be added in the future."). The approval-pending processing of the rule evaluation engine is also commented out (`ita_by_oase_conclusion/libs/action.py`).
+- Therefore **"run after approval" cannot be done with OASE rules alone.** Do not try to set these columns. For the alternative, see the "Running the response after approval (pre-work approval)" section of `oase_scenario_building.md`.
+
 ## before_notification_destination / after_notification_destination columns
 
 - When specifying notification destinations (multi-select), the corresponding notification template (`before_notification`/`after_notification`, a file-upload field) and `action_id` must always be specified together. Specifying only the destination without a template or action_id results in an error.

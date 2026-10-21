@@ -621,3 +621,38 @@ failure event ─▶ rule 1: automatic recovery (runs Z; marker recovery_tried=t
 - **A rule that specifies a notification destination requires `action_id`.** Rule 3 cannot be "notification only", so confirm with the user what its action should be (e.g. run Z again).
 - Because this is a multi-stage chain, perform the infinite loop check of the "Multi-stage judgement" section of `rule.md` (the conclusion events of rules 2 and 3 must not match the filters of rules 2 and 3 again) and write the result in the proposal.
 - If the destination is not registered, explain that it must be registered in Platform (the notification section of `rule.md`).
+
+## Running the response after approval (pre-work approval)
+
+Procedure for "when X happens, run Z (Conductor name) after approval". This is often combined with deduplication (the "Merging the same events from redundant monitoring tools into one" section).
+
+### OASE has no approval-pending feature
+
+- The rule's "Approval Pending" columns are not implemented and cannot be entered (the `before_approval_pending` section of `rule.md`). Tell the user first that approval cannot be inserted with OASE alone.
+- Instead, use **the Conductor "pause" (Conductor pause) node** as a substitute for approval.
+
+| Operation | Result (confirmed in the product code) |
+|---|---|
+| OASE runs the Conductor | It stops at the pause node. The OASE evaluation result stays "Executing" and waits |
+| The approver presses "Release pause" in the Conductor work status check | The rest runs. If it completes normally, the evaluation result becomes "Completed" and a conclusion event is created |
+| The approver presses "Emergency stop" (rejection) | The evaluation result becomes "Completed (abnormal)". The after notification is sent, but no conclusion event is created (rules chained by conclusion events do not run) |
+
+- A pause has no time limit. It stays stopped until the approver acts.
+- **A pause node cannot be placed right after Start** (Conductor connection rule: only a Movement, Conductor call, parallel branch, merge or status file branch can precede a pause; right after Start, registration fails with a "node that cannot be connected" error ending in "(start->pause)". Confirmed in `common_libs/conductor/classes/util.py` and with the registration API).
+    - In a Conductor with only one Movement (Start -> Movement -> End), "a pause before the Movement" cannot be built. Put **a Movement that may run before approval** (one that changes nothing, such as checking the state or collecting information) first, and insert the pause after it (before the response Movement).
+    - If there is no such Movement, tell the user first that one needs to be prepared.
+
+### What MCP cannot do
+
+- **Creating or editing a Conductor (adding a pause node) cannot be done with the MCP tools.** `conductor_class_list` does not allow registration, and `menu-filter` does not return the flow content (`setting`), so you cannot even check whether a pause node is included. Ask the user to do it in the Conductor editor screen.
+- Even if the user says "I added it" afterwards, the content cannot be checked, so tell the user that it cannot be verified.
+
+### Procedure
+
+1. Find the actions and rules that use the target Conductor with `menu-filter` (`conductor_class_id` of `action`, `action_id` of `rule`).
+2. **If other rules also use that Conductor, adding a pause makes all of them wait for approval.** Confirm which of the following with `ask_user_choice`.
+    - Create a separate Conductor for approval (recommended): ask the user to duplicate the original Conductor in the Conductor editor screen, insert a pause node after a Movement that may run before approval (before the response Movement), and save it under another name -> ask for that name, register a new action for approval, and replace only the target rule's `action_id` with `Update`.
+    - Add a pause to the original Conductor: list the affected rules and get the user's agreement.
+3. So that the approver notices that approval is needed, propose adding **an advance notification to the target rule** (to the approver, with text such as "release the pause in the Conductor work status check"). The destination must be registered in Platform (the notification section of `rule.md`). At the time of the advance notification the Conductor instance ID does not exist yet, so put the rule name, action name, host, etc. in the body.
+4. When combined with deduplication, explain that the Conductor runs only once after deduplication merges the events into one, so approval is needed only once.
+5. Before approval, list separately what will be registered/updated (deduplication, action, replacing the rule's `action_id`, advance notification) and what the user needs to do on the screen (duplicating the Conductor and adding the pause, approving/rejecting). After approval, register the parts MCP can do, re-read to confirm, and then report.
