@@ -203,6 +203,14 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
 {% endfor %}
 ```
 
+### When asked to "also notify Y only when X" (adding a destination conditionally)
+
+- Destinations are decided per rule, and the destination cannot be switched inside a template. Create a **dedicated filter and rule** with the extra condition (e.g. `severity == Critical`), and place the dedicated rule above the existing rule (lower the existing rule's priority).
+- Events matched by the dedicated rule are **not processed by the existing rule** (only one rule runs per event). Therefore give the dedicated rule everything the existing rule has.
+    - **Set the destinations to "the existing rule's destinations + Y".** With Y alone, **notifications stop reaching the original destination (e.g. the ops team) under that condition**. If the request is "**also** Y", include both; if it is "**only** Y", Y alone. Even if the existing rule has no destination yet, explain that when the original destination is set later, it must also be added to the dedicated rule
+    - Make the action (`action_id`), notification templates and `conclusion_label_settings` (chaining labels) the same as the existing rule. If any is missing, the response or the chain stops only under that condition
+- When lowering the existing rule's priority with `Update`, re-send every unchanged column too.
+
 ### When asked to "change notifications per event type"
 
 - To change the text or destination per alert type (e.g. CPU high load) → configure the before/after notification of **the rule handling that alert**. Confirm which rule (if several rules handle the same alert) and whether before, after or both.
