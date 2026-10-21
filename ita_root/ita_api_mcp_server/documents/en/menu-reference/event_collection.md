@@ -77,3 +77,21 @@ OASE event collection settings. Defines where and how an agent such as a monitor
   - `secret_access_key`
 - If the monitoring tool is a different machine, `url` should also differ, so confirm `url` with the user as well. `connection_method_name` / `request_method_name` / `request_header` / `parameter` / `ttl` / `response_key` / `event_id_key` and so on may be reused from the existing values (state in the proposal that they are reused).
 - Adding an event collection setting alone does not attach any labels. Labeling settings are required per event collection setting, so also see the section "Copying existing labeling settings to another event collection setting" in `labeling.md`.
+
+## Collection interval (how often the agent fetches events)
+
+- **This menu has no collection interval field.** The only field in seconds is `ttl`, which is how long an event is treated as a target for rule evaluation, not the collection interval. Shortening `ttl` does not make detection faster; it shortens the wait of AND correlation and "if ... does not arrive" rules and changes how existing rules behave, so never change `ttl` for a collection interval request.
+- The collection interval is determined by the environment variable (`.env`) `EXECUTE_INTERVAL` (seconds) of the OASE agent, which runs separately from ITA. The behavior confirmed in the product code (`agent/agent_init.py`) is as follows.
+    - The default when not specified is **5 seconds**. A value of 3 or less becomes 3 seconds (lower limit 3 seconds).
+    - One agent cycles through all collection settings listed in `EVENT_COLLECTION_SETTINGS_NAMES` at the same interval. **The interval cannot be set per collection setting.** To change it for only one collection setting, run a separate agent dedicated to that collection setting and remove it from the original agent's `EVENT_COLLECTION_SETTINGS_NAMES`.
+    - Every `ITERATION` loops (default 10, rounded into 10-120), the agent re-fetches the collection settings from ITA. If `EXECUTE_INTERVAL x ITERATION` is 86400 seconds or more, `ITERATION` is reduced automatically.
+    - To change it, edit `.env` (or the container environment variables) on the server running the agent and restart the agent. **The MCP tools can neither change it nor read its current value.**
+- A collection setting whose `connection_method_name` is `No Agent Used` is not polled by an agent (events are sent from outside to the ITA API). The collection interval does not apply; timing depends on the sender.
+
+### When asked "detection is slow, so change the collection interval to N seconds"
+
+1. Retrieve the target collection setting with `menu-filter` and check `connection_method_name` (if it is `No Agent Used`, there is no interval setting as described above).
+2. Tell the user that the collection interval cannot be changed in the ITA settings, and that `ttl` is a different thing and will not be changed.
+3. **Check whether the requested value is really "shorter".** The default is 5 seconds, so unless the agent setting has been changed, "shorten it to 30 seconds" actually makes it **longer and detection even slower**. The current value is not visible from MCP, so ask the user to have the person who manages the agent check the current `EXECUTE_INTERVAL`, and do not assert that it becomes shorter while the current value is unknown.
+4. Tell the user that it also applies to the other collection settings handled by the same agent (and show how to change only that collection setting).
+5. Among causes of delay other than the interval, investigate **the ones that can be checked in ITA** with `menu-filter` and show them. In particular, check whether rules that use events from that collection setting are AND correlation (`A and B`) or an absorb configuration (the "AND correlation" and "XOR correlation" sections of `rule.md`), which make one event wait up to `ttl` seconds. Also mention that the evaluation interval on the monitoring tool side and the execution interval of ITA's evaluation process may be causes.
