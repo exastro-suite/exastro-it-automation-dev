@@ -1,5 +1,8 @@
 # conductor tool reference
-Create and execute Movements that run on various ITA drivers, combining them through sequential, parallel, and conditional branch flows.
+ITAの各種ドライバーで動作するMovementを、連続や並列、条件分岐を通り抜ける組み合わせで作成・実行します。
+
+## general attention for conductor control
+Conductorの内容を参照したい場合にはツール`get_conductor_class`を使用して、Conductorの構造を調査してください。
 
 ## Minimal conductor_data Example
 ```json
@@ -107,7 +110,186 @@ Create and execute Movements that run on various ITA drivers, combining them thr
 }
 ```
 
-## Minimal conductor_data Example using Conductor Control
+## Minimal conductor_data Example using Conductor pause
+```json
+{
+    "conductor": {
+        "conductor_name": "sample conductor",
+        "grid_snap": true,
+        "id": "auto-increment id of conductor",
+        "last_update_date_time": "2026/12/31 23:59:59.000000",
+        "movement_white_space": "wrap",
+        "movement_width": "auto",
+        "note": null,
+        "notice_info": {}
+    },
+    "config": {
+        "edgeNumber": 5,
+        "editorVersion": "2.0.0",
+        "nodeNumber": 6,
+        "terminalNumber": 9
+    },
+    "line-1": {
+        "id": "line-1",
+        "inNode": "node-3",
+        "inTerminal": "terminal-3",
+        "outNode": "node-1",
+        "outTerminal": "terminal-1",
+        "type": "edge"
+    },
+    "line-2": {
+        "id": "line-2",
+        "inNode": "node-5",
+        "inTerminal": "terminal-7",
+        "outNode": "node-3",
+        "outTerminal": "terminal-4",
+        "type": "edge"
+    },
+    "line-3": {
+        "id": "line-3",
+        "inNode": "node-4",
+        "inTerminal": "terminal-5",
+        "outNode": "node-5",
+        "outTerminal": "terminal-8",
+        "type": "edge"
+    },
+    "line-4": {
+        "id": "line-4",
+        "inNode": "node-2",
+        "inTerminal": "terminal-2",
+        "outNode": "node-4",
+        "outTerminal": "terminal-6",
+        "type": "edge"
+    },
+    "node-1": {
+        "h": 58,
+        "id": "node-1",
+        "terminal": {
+            "terminal-1": {
+                "edge": "line-1",
+                "id": "terminal-1",
+                "targetNode": "node-3",
+                "type": "out",
+                "x": 7331,
+                "y": 8000
+            }
+        },
+        "type": "start",
+        "w": 198.194,
+        "x": 7150,
+        "y": 7971
+    },
+    "node-2": {
+        "end_type": "6",
+        "h": 58,
+        "id": "node-2",
+        "terminal": {
+            "terminal-2": {
+                "edge": "line-4",
+                "id": "terminal-2",
+                "targetNode": "node-4",
+                "type": "in",
+                "x": 8217,
+                "y": 8000
+            }
+        },
+        "type": "end",
+        "w": 198.194,
+        "x": 8200,
+        "y": 7971
+    },
+    "node-3": {
+        "h": 58,
+        "id": "node-3",
+        "movement_id": "auto increment id of movement",
+        "movement_name": "sample movement",
+        "operation_id": null,
+        "orchestra_id": "1",
+        "skip_flag": 0,
+        "terminal": {
+            "terminal-3": {
+                "edge": "line-1",
+                "id": "terminal-3",
+                "targetNode": "node-1",
+                "type": "in",
+                "x": 7417,
+                "y": 8000
+            },
+            "terminal-4": {
+                "edge": "line-2",
+                "id": "terminal-4",
+                "targetNode": "node-5",
+                "type": "out",
+                "x": 7641,
+                "y": 8000
+            }
+        },
+        "type": "movement",
+        "w": 257.778,
+        "x": 7400,
+        "y": 7971
+    },
+    "node-4": {
+        "h": 58,
+        "id": "node-4",
+        "movement_id": "auto increment id of movement",
+        "movement_name": "sample movement",
+        "operation_id": null,
+        "orchestra_id": "1",
+        "skip_flag": 0,
+        "terminal": {
+            "terminal-5": {
+                "edge": "line-3",
+                "id": "terminal-5",
+                "targetNode": "node-5",
+                "type": "in",
+                "x": 7917,
+                "y": 8000
+            },
+            "terminal-6": {
+                "edge": "line-4",
+                "id": "terminal-6",
+                "targetNode": "node-2",
+                "type": "out",
+                "x": 8141,
+                "y": 8000
+            }
+        },
+        "type": "movement",
+        "w": 257.778,
+        "x": 7900,
+        "y": 7971
+    },
+    "node-5": {
+        "h": 34,
+        "id": "node-5",
+        "terminal": {
+            "terminal-7": {
+                "edge": "line-2",
+                "id": "terminal-7",
+                "targetNode": "node-3",
+                "type": "in",
+                "x": 7717,
+                "y": 8000
+            },
+            "terminal-8": {
+                "edge": "line-3",
+                "id": "terminal-8",
+                "targetNode": "node-4",
+                "type": "out",
+                "x": 7848,
+                "y": 8000
+            }
+        },
+        "type": "pause",
+        "w": 164.708,
+        "x": 7700,
+        "y": 7983
+    }
+}
+```
+
+## Minimal conductor_data Example using Conductor call
 ```json
 {
     "conductor": {
@@ -893,3 +1075,46 @@ Create and execute Movements that run on various ITA drivers, combining them thr
     }
 }
 ```
+
+## Confirmation before update-conductor / create-conductor
+Before calling `update-conductor` (or `create-conductor`), always ask the user for
+approval with `ask_user_choice`, following the rules below.
+
+1. Build a diff between the current and new conductor_data
+   - Compare the current definition (if `conductor_class_edit` can't be read, use the
+     `conductor_class` returned by `get-conductor-instance`) with the new conductor_data,
+     and pick out only the changed items:
+     - conductor_name / note / notice_info
+     - movements added, removed, or replaced on each node (show movement_name)
+     - changes to the per-node operation_id / skip_flag / note
+     - added or removed branches, merges, or lines (structure changes)
+     - end_type
+   - Do not list unchanged items one by one. Group them into a single line such as
+     "everything else unchanged".
+
+2. Put a short summary in the `question` of `ask_user_choice`
+   - Keep the question to about 3–5 lines, in the format "change target + up to 3 key changes".
+   - Example:
+     「Conductor『sample_conductor_name_before』を次の内容で更新します。
+       ・名前 → sample_conductor_name_after
+       ・node-3 Movement：movement_name_before → movement_name_after
+      ほかの構成は変更なし。更新してよいですか？」
+
+3. Spell out irreversible effects or risks
+   - If any of the following apply, add one line about them to the question:
+     - it is an overwrite, so the original content is lost
+     - the base definition is older than the latest one (e.g. last_update_date_time is
+       newer than the base execution)
+     - nodes or lines are deleted
+
+4. For large changes, show the structure diagram before confirming
+   - Only when the structure changes (e.g. 3+ nodes added/removed, or a branch added),
+     show a before/after diagram of the flow with `display_html` before calling
+     `ask_user_choice`.
+   - If only movements are replaced or names changed, a Markdown table is enough;
+     don't use `display_html`.
+
+
+## Attention for execution of conductor
+- Request Bodyの`conductor_data`はoptionalとなっていますが、ここには対象のConductorが持つ`Setting`(JSON形式)の値を必ず送り込んでください。
+- ツール`execute-conductor`を使用した後はConducorの処理開始をユーザーに知らせます。その後、払い出された`conductor_instance_id`に基づいてツール`get-conductor-instance`をメニュー`conductor_confirmation`として5秒間隔で自分で呼び出し、作業実行状況を追跡・ユーザーに状況を開示してください。
