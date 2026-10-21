@@ -557,3 +557,15 @@ Procedure for requests like "change the notification mail text for X (event type
 4. Write the text with the variables in the table in `rule.md` (`events`, `rule`, `action`, `conductor`). Do not use the common-template style such as `{{ labels.xxx }}`.
 5. If the destination is not registered, confirm whether to register only the templates first or to wait for the registration.
 6. `Update` the rule (pass the template via the `file_id` of `create-text-file`, re-sending every unchanged column). Re-read to confirm before reporting.
+
+## Merging events that recur on the same host into one incident (grouping)
+
+Procedure for requests like "when Y (event type) recurs on X (host), merge them into one incident". For details, see the section "Merging frequently recurring events into one incident (grouping)" in `filter.md`.
+
+### Steps
+
+1. **Retrieve `documents-menu/filter.md` with `get-document` and read the grouping section.**
+2. Check the filters and rules handling Y on X and the collection setting's `ttl` with `menu-filter`. Check the choices of `search_condition_id` (whether with/without period extension exist) with `list-menu-info-pulldown`.
+3. Change the existing filter's search method to `Grouping`, specifying `group_label_key_ids` (e.g. `["_exastro_host", "alert_type"]`) and `group_condition_id` (`is the target`). With period extension, do not send the `group_period` key at all.
+4. Explain the behaviour before and after (now the response runs every time / all become undetected when they arrive simultaneously → after the change, once per incident) and where an incident ends (the same incident until it is quiet for `ttl` seconds after the last event), citing the actual `ttl` value, and obtain approval.
+5. Re-read after the update to confirm before reporting.

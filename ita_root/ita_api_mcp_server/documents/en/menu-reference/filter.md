@@ -98,7 +98,7 @@ Whether `group_label_key_ids` / `group_condition_id` / `group_period` are requir
 
 | search_condition_id | Behavior | group_label_key_ids / group_condition_id | group_period |
 |---|---|---|---|
-| `Unique` | Only a uniquely matching event is evaluated. If multiple events match, all are treated as undetected events | Prohibited | Prohibited |
+| `Unique` | Only a uniquely matching event is evaluated. If multiple events match **in the same evaluation cycle**, all are treated as undetected events (if they arrive one by one with time gaps, each is evaluated as it arrives) | Prohibited | Prohibited |
 | `Queuing` | When multiple events match, they are evaluated in order from oldest (note: a rule may match multiple times) | Prohibited | Prohibited |
 | `Grouping` types | Consecutive events with the same attributes are treated as the same group, and only the first event is used | Both required | **Prohibited** with period extension / allowed without period extension (if omitted, the TTL of the first event is used) |
 
@@ -109,6 +109,24 @@ Whether `group_label_key_ids` / `group_condition_id` / `group_period` are requir
 ## group_label_key_ids column
 
 - The REST input value is a JSON string of an array of label names. Example: `["process", "host"]`
+
+## Merging frequently recurring events into one incident (grouping) (important)
+
+Behaviour confirmed with the rule evaluation engine:
+
+| Search method | When the same alert keeps arriving from the same host |
+|---|---|
+| `Unique` | If they arrive with time gaps, the rule runs **every time** (the response runs repeatedly). If several arrive in the same evaluation cycle, **all become undetected** and nothing runs |
+| `Grouping` | **Only the first event** is used by the rule; the second and later ones are merged as "subsequent events" (the response runs once) |
+
+- How groups are formed (`group_condition_id`):
+    - `is the target`: events whose values of the labels specified in `group_label_key_ids` are the same belong to the same group. For "per host and per alert type", use `["_exastro_host", "alert_type"]`
+    - is not a target: events whose values of the labels **other than** the specified ones (excluding system labels starting with `_exastro_`; `_exastro_host` is included) are the same belong to the same group
+- Group period:
+    - `Grouping` (with period extension; `search_condition_id` value `3`): the period is extended every time a subsequent event arrives. **As long as the next event arrives within `ttl` (the collection setting's value; default 3600 seconds) of the last event, it is the same incident**; an event arriving after a longer quiet period starts a new incident and the rule runs again. It is not "merge only for `ttl` seconds from the first event"
+    - Without period extension (value `4`; may not be offered in some environments): merges only during `group_period` (the first event's `ttl` when omitted)
+- **With `Grouping` (period extension), do not send the `group_period` key at all.** `menu-filter` results do not include `group_period`, but if you add `"group_period": null` yourself and `Update`, an unexplained `System Error (999-00003)` occurs (`""` gives `Not an integer value.`, and a value gives an error that the period cannot be specified with period extension).
+- Changing an existing filter's search method from `Unique` to `Grouping` changes the behaviour of **every rule** using that filter (no response for subsequent events), so look up the affected rules with `menu-filter` and present them.
 
 ## Wildcard (`*`) usage
 
