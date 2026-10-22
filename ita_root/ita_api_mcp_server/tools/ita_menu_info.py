@@ -57,11 +57,12 @@ and
 "/api/{organization_id}/workspaces/{workspace_id}/ita/menu/{menu}/info/pulldown/".
 """
 import os
+from urllib.parse import quote
 
 import requests
 from flask import g
 
-from libs import tool, HTTPException, build_forward_headers
+from libs import tool, HTTPException, build_forward_headers, get_downstream_timeout
 
 
 @tool(
@@ -125,7 +126,7 @@ def tool_list_menu_info(arguments: dict, payload: dict) -> dict:
     # プロトコルは常にhttp固定とする(ITAサービス間通信はhttpを使用する)
     # Protocol is always fixed to http (inter-service communication within ITA uses http)
     url = "http://{}:{}/api/{}/workspaces/{}/ita/menu/{}/info/".format(
-        ita_api_host, ita_api_port, organization_id, workspace_id, menu
+        ita_api_host, ita_api_port, organization_id, workspace_id, quote(str(menu), safe="")
     )
 
     # 転送用ヘッダーを組み立てる
@@ -134,7 +135,7 @@ def tool_list_menu_info(arguments: dict, payload: dict) -> dict:
 
     # ITAのAPIへメニュー情報取得のGETリクエストを送信する
     # Send a GET request to ITA's API to fetch the menu info
-    req = requests.get(url, headers=headers)
+    req = requests.get(url, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
@@ -226,7 +227,7 @@ def tool_list_menu_info_pulldown(arguments: dict, payload: dict) -> dict:
     # プロトコルは常にhttp固定とする(ITAサービス間通信はhttpを使用する)
     # Protocol is always fixed to http (inter-service communication within ITA uses http)
     url = "http://{}:{}/api/{}/workspaces/{}/ita/menu/{}/info/pulldown/".format(
-        ita_api_host, ita_api_port, organization_id, workspace_id, menu
+        ita_api_host, ita_api_port, organization_id, workspace_id, quote(str(menu), safe="")
     )
 
     # 転送用ヘッダーを組み立てる
@@ -235,7 +236,7 @@ def tool_list_menu_info_pulldown(arguments: dict, payload: dict) -> dict:
 
     # ITAのAPIへプルダウン一覧取得のGETリクエストを送信する
     # Send a GET request to ITA's API to fetch the pulldown list
-    req = requests.get(url, headers=headers)
+    req = requests.get(url, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception

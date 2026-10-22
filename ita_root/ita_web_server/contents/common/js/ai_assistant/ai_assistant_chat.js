@@ -94,7 +94,11 @@ async init() {
     // （認証切れで設定を開けるようにしているのは、認証情報を更新してもらうためだけ）。
     this.setting = new AiAssistantSetting( this.params, {
         onClose: () => this.reloadSetting(),
-        isServiceChangeLocked: () => this.newChat !== true
+        isServiceChangeLocked: () => this.newChat !== true,
+        // 認証が通らなかった場合は、設定の一覧でも使用できない旨を表示する
+        getAuthError: () => ( this.isAuthError() )? this.auth.message: null,
+        // 認証を確認中の場合は、結果が出てから一覧を表示させる
+        waitAuthCheck: () => this.waitAiAssistantAuth()
     });
 
     // 先に画面の枠を作る（このあとの取得が失敗しても、フッターと通知は表示できる）
@@ -167,6 +171,8 @@ initVariable() {
     //   error   … 確認そのものに失敗したか（通信エラーなど。認証情報が無効と判断できた
     //             わけではないため、会話中の認証切れの判定には使わない）
     this.auth = { checked: false, valid: false, message: '', error: false };
+    // 実行中の認証確認（確認中でなければnull。完了を待てるようにPromiseを保持する）
+    this.authCheck = null;
     // 初期化のうち、失敗しても画面は表示できる処理のエラー内容（新規チャット画面に表示する）
     //   mcpError     … MCPツール一覧の取得に失敗（ITAの操作ができない）
     //   settingError … AI利用設定の読み込みに失敗（チャットを開始できない）
@@ -195,6 +201,10 @@ initVariable() {
     // 先に実行した通常ツールの tool_result を保持しておき、ユーザーが選択肢に
     // 回答したときに選択肢の tool_result とまとめて返すためのバッファ。
     this.pendingToolResults = [];
+    // 回答待ちの選択肢の内容（{ question, labels }）。
+    // tool_result を送れずテキスト送信にフォールバックする場合、LLMは対応する tool_use を
+    // 参照できないため、何を聞かれてどの選択肢から答えたのかを本文に添えるために保持する。
+    this.pendingChoiceContext = null;
     // このターンで更新された ITA メニュー（menu_name_rest → 表示情報）。
     // maintenance-all / create-menu が成功するたびにここへ集約し、応答が完了した
     // タイミングで「更新されたページ」への（別タブで開く）リンクとしてまとめて表示する。
@@ -287,7 +297,8 @@ async initMcp() {
 static get uiToolClasses() {
     return [
         AiAssistantToolAskUserChoice,
-        AiAssistantToolDisplayHtml
+        AiAssistantToolDisplayHtml,
+        AiAssistantToolDownloadAttachmentFile
     ];
 }
 initUiTools() {
@@ -316,6 +327,13 @@ uiTool( name ) {
 isUiChoiceTool( name ) {
     return name === AiAssistantToolAskUserChoice.toolName;
 }
+// 回答待ちの選択肢・退避中ツール結果などの保留状態をすべて破棄する
+clearPendingChoiceState() {
+    this.pendingChoiceToolId = null;
+    this.pendingExtraChoiceToolIds = [];
+    this.pendingToolResults = [];
+    this.pendingChoiceContext = null;
+}
 // 選択肢を表示してユーザーの回答を待つ（tool_result は次の送信で返す）
 askUserChoice( toolUse ) {
     return this.uiTool( AiAssistantToolAskUserChoice.toolName )?.execute( toolUse ) ?? null;
@@ -334,9 +352,21 @@ mergeChoiceBlocks( blocks ) {
     return this.uiTool( AiAssistantToolAskUserChoice.toolName )?.mergeBlocks( blocks )
         ?? { id: '', _extraIds: [], arguments: { question: '', options: []}};
 }
+// 選択肢 tool_use の input から、回答時に LLM へ添える内容（{ question, labels }）を作る
+buildChoiceContext( input ) {
+    return this.uiTool( AiAssistantToolAskUserChoice.toolName )?.buildContext( input ) ?? null;
+}
+// 未回答の選択肢のボタンを再表示する（履歴からの再開・巻き戻し時）
+resumePendingChoice( toolUse ) {
+    this.uiTool( AiAssistantToolAskUserChoice.toolName )?.resumePending( toolUse );
+}
 // display_html の表示内容をPDFとしてダウンロードする（吹き出しのPDFボタンから呼ばれる）
 printDisplayHtmlAsPdf( button ) {
     this.uiTool( AiAssistantToolDisplayHtml.toolName )?.printAsPdf( button );
+}
+// download_attachment_file の吹き出しから添付ファイルを再ダウンロードする（吹き出しのボタンから呼ばれる）
+downloadAttachmentFile( button ) {
+    return this.uiTool( AiAssistantToolDownloadAttachmentFile.toolName )?.downloadFromButton( button );
 }
 /*
 ##################################################
@@ -687,7 +717,31 @@ checkAiAssistantSetting( assistantCheck = false) {
 // 会話中でも、確認するのは設定で選択中のAIサービスの認証情報でよい（会話は作成時の
 // AIサービスに固定されるが、会話中はAIサービスを変更できないようにしているため、
 // 選択中のAIサービスと会話のAIサービスは一致する）。
-async checkAiAssistantAuth() {
+//
+// 確認中はauthが未確認の状態になり、認証エラーかどうかがわからない。認証の確認は
+// 環境によって時間がかかるため、確認中に設定ダイアログを開かれると、認証が通らない
+// AIサービスを有効と表示してしまう。そうならないよう、確認の完了を待てるようにしておく。
+checkAiAssistantAuth() {
+    const check = this.verifyAiAssistantAuth();
+    this.authCheck = check;
+    this.updateSettingButtonState();
+    const clear = () => {
+        if ( this.authCheck !== check ) return;
+        this.authCheck = null;
+        this.updateSettingButtonState();
+    };
+    check.then( clear, clear );
+    return check;
+}
+// 認証の確認が終わるまで待つ（確認中でなければすぐに返る）
+//   待っている間に次の確認が始まった場合は、それも待つ
+async waitAiAssistantAuth() {
+    while ( this.authCheck ) {
+        await this.authCheck.catch(() => {});
+    }
+    return this.auth;
+}
+async verifyAiAssistantAuth() {
     this.auth = { checked: false, valid: false, message: '', error: false };
 
     // AIサービスが未設定の場合は確認する認証情報がない
@@ -813,6 +867,7 @@ async checkAuthAfterError() {
     // （エラーの内容は送信エラーとして表示済み）
     if ( this.auth.error === true ) {
         this.auth = before;
+        this.updateSettingButtonState();
         return false;
     }
 
@@ -849,10 +904,18 @@ async reloadSetting() {
     // 判定するために、開く前の状態を控えておく
     const wasAuthError = this.isAuthError();
 
-    if ( this.settingError ) {
-        await this.loadSetting();
-    } else {
-        await this.checkAiAssistantAuth();
+    // 認証の確認は環境によって時間がかかるため、確認中であることを表示する
+    // （確認する認証情報がない場合はすぐに終わるため表示しない）
+    const processing = ( this.settingError || this.checkAiAssistantSetting( true ) )
+        ? fn.processingModal( getMessage.FTE14441 ): null;
+    try {
+        if ( this.settingError ) {
+            await this.loadSetting();
+        } else {
+            await this.checkAiAssistantAuth();
+        }
+    } finally {
+        if ( processing ) processing.close();
     }
 
     // 新規チャット画面のみ作り直す（チャット中は表示を維持し、フッターだけ更新する）
@@ -926,10 +989,11 @@ createHeaderMenuHtml() {
 // 会話中はAI利用設定を変更できないようにしている（使用するAIサービスが入れ替わると
 // 進行中の会話と噛み合わなくなるため）。ただし認証が切れている場合は、認証情報を
 // 更新しないと会話を続けられないため、会話中でも設定を開けるようにする。
+// 認証の確認中は、認証エラーかどうかがわからないため開けないようにする。
 updateSettingButtonState() {
     const button = this.elements?.settingButton;
     if ( !button ) return;
-    button.disabled = ( this.newChat !== true && !this.isAuthError() );
+    button.disabled = ( this.authCheck !== null || ( this.newChat !== true && !this.isAuthError() ) );
 }
 /*
 ##################################################
@@ -1109,6 +1173,9 @@ setNewChat() {
     this.chatId = this.chatIdCounter++;
     // 新しい会話を始めるので、中断再開マーカーは破棄する（前の会話を自動再開しない）。
     this._clearActiveChat();
+    // 前の会話の選択肢・退避中ツール結果などの保留状態も破棄する
+    // （残っていると、最初の送信が前の会話の選択肢への回答として扱われてしまう）。
+    this.clearPendingChoiceState();
     this.clearFile();
     // 破棄する吹き出しの画像プレビュー（objectURL）を解放する。
     this.revokeAttachmentPreviews();
@@ -1554,7 +1621,10 @@ formatErrorMessage( error ) {
 // rewindable : このメッセージを起点に会話を巻き戻せる（＝ユーザが実際に送信した
 //   発言）場合に true。true のときだけ、吹き出し右上に操作メニュー（巻き戻し等）を出す。
 //   選択肢への回答（tool_result）やシステム通知には出さない。
-createUserMessageElement( text, attachments, rewindable = false ) {
+// choice     : 選択肢への回答の場合に { labels, selected }（提示された選択肢と、ボタンで選んだか）。
+//   指定があれば、吹き出しの下部に提示された選択肢の一覧（開閉式）を表示する。
+// carryOver  : 前の会話から引き継いだ要約。指定があれば、吹き出しの下部に開閉式で表示する。
+createUserMessageElement( text, attachments, rewindable = false, choice = null, carryOver = null ) {
     const el = document.createElement('li');
     el.classList.add('aiAssistantChatItem', 'aiAssistantChatUserMessage');
     el.innerHTML = `<div class="aiAssistantChatItemInner aiAssistantChatUserMessageInner"></div>`;
@@ -1592,7 +1662,60 @@ createUserMessageElement( text, attachments, rewindable = false ) {
         });
         inner.appendChild( list );
     }
+
+    // 選択肢への回答であれば、提示された選択肢の一覧を表示
+    if ( Array.isArray( choice?.labels ) && choice.labels.length ) {
+        el.querySelector('.aiAssistantChatItemInner').appendChild( this.createUserMessageChoicesElement( text, choice ) );
+    }
+
+    // 前の会話から引き継いだ要約があれば表示
+    if ( typeof carryOver === 'string' && carryOver !== '') {
+        el.querySelector('.aiAssistantChatItemInner').appendChild( this.createUserMessageCarryOverElement( carryOver ) );
+    }
     return el;
+}
+// 要約を引き継いで始めた会話の最初の吹き出しに付ける、引き継いだ要約（開閉式。初期状態は閉じる）。
+// 見た目は選択肢の一覧と揃える。
+createUserMessageCarryOverElement( summaryText ) {
+    const details = document.createElement('details');
+    details.classList.add('aiAssistantChatUserMessageChoices', 'aiAssistantChatUserMessageCarryOver');
+
+    const summary = document.createElement('summary');
+    summary.classList.add('aiAssistantChatUserMessageChoicesSummary');
+    summary.innerText = getMessage.FTE14433;
+
+    const body = document.createElement('div');
+    body.classList.add('aiAssistantChatUserMessageCarryOverText');
+    body.innerText = summaryText;
+
+    details.append( summary, body );
+    return details;
+}
+// 選択肢への回答の吹き出しに付ける、提示された選択肢の一覧（開閉式。初期状態は閉じる）。
+// ボタンで選んだ選択肢には印を付ける。自由入力で回答した場合は、その旨を見出しに出す。
+createUserMessageChoicesElement( answer, choice ) {
+    const selected = choice.selected === true;
+    const details = document.createElement('details');
+    details.classList.add('aiAssistantChatUserMessageChoices');
+
+    const summary = document.createElement('summary');
+    summary.classList.add('aiAssistantChatUserMessageChoicesSummary');
+    summary.innerText = selected
+        ? getMessage.FTE14399( choice.labels.length )
+        : getMessage.FTE14400( choice.labels.length );
+
+    const list = document.createElement('ul');
+    list.classList.add('aiAssistantChatUserMessageChoiceList');
+    for ( const label of choice.labels ) {
+        const isAnswer = selected && label === answer;
+        const li = document.createElement('li');
+        li.classList.add('aiAssistantChatUserMessageChoiceItem');
+        if ( isAnswer ) li.classList.add('aiAssistantChatUserMessageChoiceItemSelected');
+        li.innerHTML = `${fn.html.icon( isAnswer ? 'check' : 'minus')}<span class="aiAssistantChatUserMessageChoiceLabel">${fn.escape( label )}</span>`;
+        list.appendChild( li );
+    }
+    details.append( summary, list );
+    return details;
 }
 // ユーザメッセージの操作メニュー（吹き出し下側）を生成する。
 // アイコンのみの操作ボタンを横並びで並べる（ホバー時に表示）。
@@ -1840,7 +1963,7 @@ updateChat( message, scroll = true ) {
     switch ( message.role ) {
         // ユーザメッセージ
         case 'user':
-            el_messege = this.createUserMessageElement( messageText, message.attachments, message.rewindable === true );
+            el_messege = this.createUserMessageElement( messageText, message.attachments, message.rewindable === true, message.choice ?? null, message.carryOver ?? null );
             break;
         // システムメッセージ（操作通知）
         case 'system':
@@ -1992,6 +2115,17 @@ async sendMessage( message, options = {} ) {
     // 選択肢の tool_result と同じ user ターンでまとめて返す必要がある。
     const pendingToolResults = Array.isArray( this.pendingToolResults ) ? this.pendingToolResults : [];
     this.pendingToolResults = [];
+    // 回答待ちの選択肢の内容（テキスト送信へのフォールバック時に本文へ添える）。
+    const pendingChoiceContext = this.pendingChoiceContext ?? null;
+    this.pendingChoiceContext = null;
+    // 履歴に保存する表示用の別文言。選択肢への回答では LLM 向けに本文を補足するため、
+    // 画面（ライブ・復元・巻き戻し）には元の回答だけが出るよう、下で回答そのものを設定する。
+    let historyDisplayText = options.displayText;
+    // 選択肢への回答かどうか（ボタン選択なら true、自由入力なら false）。履歴に保存し、
+    // 復元時も吹き出しの選択肢一覧で「どれを選んだか／自由入力か」を表示できるようにする。
+    // システム操作（会話終了など）はユーザーの回答ではないため、選択肢への回答としては扱わない。
+    const isChoiceAnswer = ( pendingChoiceToolId && options.systemAction !== true );
+    const choiceSelected = isChoiceAnswer ? ( options.choiceSelected === true ) : undefined;
 
     // Textareaの値を消す
     this.elements.message.value = '';
@@ -2020,6 +2154,12 @@ async sendMessage( message, options = {} ) {
             }
             return attachment;
         }),
+        // 選択肢への回答なら、提示された選択肢の一覧を吹き出しに表示する
+        choice: ( isChoiceAnswer && pendingChoiceContext )
+            ? { labels: pendingChoiceContext.labels, selected: choiceSelected }
+            : null,
+        // 前の会話から引き継いだ要約なら、吹き出しに開閉式で表示する
+        carryOver: options.carryOverSummary ?? null,
     };
     // システム操作（会話終了など）以外のユーザ発言は巻き戻しの起点にできる。
     // 選択肢への回答（tool_result になる）も含めて対象にする。
@@ -2051,17 +2191,36 @@ async sendMessage( message, options = {} ) {
             ( id ) => lastAssistantToolUseIds.has( id )
         );
 
-        if ( validChoiceId ) {
+        if ( validChoiceId && !isChoiceAnswer ) {
+            // 選択肢に回答しないままシステム操作（会話終了など）を送る場合。
+            // tool_use には tool_result を返す必要があるため、回答せずに終了した旨を tool_result で返し、
+            // 指示文はユーザーの回答と取り違えられないよう、同じ user ターンの後ろに text として続ける
+            // （tool_result はターンの先頭に置く必要がある）。表示用の文言（displayText）はそのまま保存する。
+            sendPayload = [
+                ...validPendingToolResults,
+                { type: 'tool_result', tool_use_id: validChoiceId, content: getMessage.FTE14440 },
+                ...validExtraIds.map(( id ) => ({
+                    type: 'tool_result',
+                    tool_use_id: id,
+                    content: getMessage.FTE14273,
+                })),
+                { type: 'text', text: message },
+            ];
+        } else if ( validChoiceId ) {
             // 選択肢と同じ応答で先に実行済みの通常ツール結果（退避分）を先頭に置き、
             // 続けて選択肢への回答を tool_result として返す。
             // （tool_use の直後の user ターンは、その応答に含まれる全 tool_use 分の
             //   tool_result を含む必要があるため、まとめて1メッセージで送る）
+            // 選択肢の一覧は tool_use 側にあるため、ここではボタン選択か自由入力かだけを添える。
+            // （自由入力が選択肢と無関係な内容でも、無理に選択肢として解釈させないため）
             sendPayload = [
                 ...validPendingToolResults,
                 {
                     type: 'tool_result',
                     tool_use_id: validChoiceId,
-                    content: message,
+                    content: ( options.choiceSelected === true )
+                        ? getMessage.FTE14396( message )
+                        : getMessage.FTE14397( message ),
                 },
                 // 分裂した余分な選択肢 tool_use にも空応答を返し、未応答を防ぐ。
                 ...validExtraIds.map(( id ) => ({
@@ -2070,11 +2229,23 @@ async sendMessage( message, options = {} ) {
                     content: getMessage.FTE14273,
                 })),
             ];
+            historyDisplayText = message;
         } else {
             // 対応する tool_use が履歴に見当たらない（巻き戻し・復元ズレ等）。
             // tool_result は送れないため、通常のテキストメッセージとして送る。
+            // LLM は選択肢の内容を参照できないため、質問と選択肢の一覧を本文に添える。
             console.warn('pendingChoiceToolId に対応する tool_use が履歴末尾に見つからないため、tool_result 送信を取りやめてテキスト送信にフォールバックします。', pendingChoiceToolId );
-            sendPayload = message;
+            if ( pendingChoiceContext && isChoiceAnswer ) {
+                sendPayload = getMessage.FTE14398(
+                    pendingChoiceContext.question,
+                    pendingChoiceContext.labels,
+                    message,
+                    options.choiceSelected === true
+                );
+                historyDisplayText = message;
+            } else {
+                sendPayload = message;
+            }
         }
     }
 
@@ -2144,9 +2315,9 @@ async sendMessage( message, options = {} ) {
         turnStartEl,
         isRewindableUserTurn,
         // 最初のユーザターンにだけ渡す表示情報（displayText / systemAction / timestamp）
-        firstSendOptions: { displayText: options.displayText, systemAction: options.systemAction, timestamp: userTimestamp },
+        firstSendOptions: { displayText: historyDisplayText, choiceSelected, systemAction: options.systemAction, carryOverSummary: options.carryOverSummary, timestamp: userTimestamp },
         // 停止・エラー時に復元する、ターン開始前の保留状態
-        savedPending: { pendingChoiceToolId, pendingExtraChoiceToolIds, pendingToolResults },
+        savedPending: { pendingChoiceToolId, pendingExtraChoiceToolIds, pendingToolResults, pendingChoiceContext },
     });
 }
 /*
@@ -2213,6 +2384,7 @@ async _runResponseLoop( ctx ) {
     const savedPendingChoiceToolId = savedPending?.pendingChoiceToolId ?? null;
     const savedPendingExtraChoiceToolIds = Array.isArray( savedPending?.pendingExtraChoiceToolIds ) ? savedPending.pendingExtraChoiceToolIds : [];
     const savedPendingToolResults = Array.isArray( savedPending?.pendingToolResults ) ? savedPending.pendingToolResults : [];
+    const savedPendingChoiceContext = savedPending?.pendingChoiceContext ?? null;
 
     // LLM（AIサービスの会話）を用意する。新規チャット時に作成できていなかった場合
     // （通信エラーなど）も、送信のたびに作成を試みる。
@@ -2253,6 +2425,8 @@ async _runResponseLoop( ctx ) {
     // 再送時の待機表示に出す文言。処理が止まったように見せないため、
     // 次のループ先頭の待機スピナーへ「再試行中」である旨を伝える。null のときは通常の「思考中」。
     let waitMessage = null;
+    // コンテキスト上限を超えて送信できなかったときの、巻き戻す前の会話履歴（要約して新しいチャットへ引き継ぐ）
+    let overflowHistory = null;
     // 停止時に巻き戻すためのLLM履歴チェックポイント（今回のターン開始前の件数）
     const historyCheckpoint = ( llm?.getChatHistory()?.length ) ?? 0;
     // 巻き戻し起点となるユーザ発言の吹き出しに、対応する履歴ブロックの位置を stamp する。
@@ -2290,7 +2464,12 @@ async _runResponseLoop( ctx ) {
         const sendOptions = ( i === 0 && !alreadyPushed ) ? firstSendOptions : undefined;
         let response;
         try {
-            response = await llm.send( sendPayload, sendFiles, signal, { ...( sendOptions || {} ), alreadyPushed } );
+            // タイムアウト時は、再送の方法（指示を添える・モデルを切り替える等）をダイアログで選ばせる
+            response = await llm.send( sendPayload, sendFiles, signal, {
+                ...( sendOptions || {} ),
+                alreadyPushed,
+                onTimeout: ( status, param ) => this.openTimeoutRetryDialog( status, param )
+            });
         } catch ( error ) {
             // ユーザ都合の停止（AbortError）はエラー扱いしない
             if ( error?.name === 'AbortError' || signal.aborted ) {
@@ -2298,8 +2477,17 @@ async _runResponseLoop( ctx ) {
                 maxAttemptsFlag = false;
                 break;
             }
-            const errorMessage = this.formatErrorMessage( error );
-            alert( errorMessage );
+            // 会話が長くなり、古いツール結果を省略しても入力がモデルのコンテキスト上限を超えた場合は、
+            // 同じ履歴のままでは何度送っても失敗するため、要約して新しいチャットで続けるか、会話を終了するかを
+            // ユーザーに選ばせる（ループの後で行う）。要約には、巻き戻す前の（このターンで実行済みの
+            // ツール呼び出しも含む）履歴を使う。
+            const contextOverflow = AiAssistantLlm.isContextOverflowError( error );
+            if ( contextOverflow ) {
+                console.error( error );
+                overflowHistory = [ ...( llm.getChatHistory() ?? [] ) ];
+            }
+            const errorMessage = ( contextOverflow )? getMessage.FTE14419: this.formatErrorMessage( error );
+            if ( !contextOverflow ) alert( errorMessage );
             errorFlag = true;
             maxAttemptsFlag = false;
             this.updateChat({
@@ -2456,9 +2644,10 @@ async _runResponseLoop( ctx ) {
                         // ユーザ選択肢は集約して後でまとめて処理する
                         choiceBlocks.push( block );
                     } else {
-                        // 即時実行の画面専用ツール（display_html 等）。
+                        // 即時実行の画面専用ツール（display_html / download_attachment_file 等）。
                         // 画面に表示し、LLMには結果（表示した旨）だけを tool_result で返す。
-                        const uiToolResult = this.uiTool( block.name )?.execute( block );
+                        // ファイル取得を伴うツールは非同期のため、完了を待ってから結果を積む。
+                        const uiToolResult = await this.uiTool( block.name )?.execute( block );
                         if ( uiToolResult ) toolsResult.push( uiToolResult );
                     }
                     break;
@@ -2551,6 +2740,7 @@ async _runResponseLoop( ctx ) {
             this.pendingChoiceToolId = savedPendingChoiceToolId;
             this.pendingToolResults = savedPendingToolResults;
             this.pendingExtraChoiceToolIds = savedPendingExtraChoiceToolIds;
+            this.pendingChoiceContext = savedPendingChoiceContext;
         }
 
         // このターンで表示された吹き出し（ユーザ発言～以降のAI/ツール）はすべて履歴から
@@ -2587,6 +2777,22 @@ async _runResponseLoop( ctx ) {
     // 実行が終わったので離脱再開マーカーを「実行中でない」に更新する。
     // （正常完了・停止・エラーいずれもここを通るため、次回読込で誤って自動再開しない）
     this._writeActiveChat( false );
+
+    // コンテキスト上限を超えた場合は、このチャットでは続けられないため、
+    // 会話を要約して新しいチャットで続けるか、会話を終了するかをユーザーに選ばせる。
+    // 要約して続ける場合、送信できなかったユーザーの発言（テキストのみ）は新しいチャットで続けて対応してもらう。
+    // システム操作（会話終了のまとめ等）や選択肢への回答・継続送信は引き継がない。
+    if ( overflowHistory ) {
+        const request = ( typeof ctx.sendPayload === 'string' && firstSendOptions?.systemAction !== true )
+            ? ctx.sendPayload: null;
+        const choice = await this.openContextOverflowDialog( request !== null );
+        if ( choice === 'summary') {
+            await this.continueInNewChatWithSummary( overflowHistory, request );
+        } else {
+            await this.endChatOnContextOverflow();
+        }
+        return;
+    }
 
     // エラーで終わった場合は、原因が認証切れでないかを確認する（認証情報の有効期限は
     // 会話の途中でも切れる）。切れていた場合は会話中でも設定を開けるようにして更新を促す。
@@ -3194,10 +3400,15 @@ _renderChatHistory( history ) {
     // 選択肢（ask_user_choice 等の uiTools）の tool_use_id を集めておく。
     // これらに対応する tool_result は、ユーザの回答テキストとして復元表示する。
     const choiceToolIds = this.collectChoiceToolIds( history );
+    // 回答の吹き出しに表示する選択肢の一覧（tool_use_id → { question, labels }）
+    const choiceContexts = this.collectChoiceContexts( history );
 
     for ( let blockIndex = 0; blockIndex < history.length; blockIndex++ ) {
         const block = history[ blockIndex ];
         const content = block.content ?? [];
+        // 分裂した選択肢には同じ user ターン内に複数の tool_result を返しているため、
+        // 回答の吹き出しは1ターンにつき1つだけ表示する（残りはまとめて処理済みの応答）。
+        let choiceAnswerShown = false;
         if ( fn.typeof( content ) === 'array' && block.role ) {
             for ( const [ itemIndex, item ] of content.entries() ) {
                 const type = item.type;
@@ -3226,6 +3437,8 @@ _renderChatHistory( history ) {
                         text: restoredText,
                         // 添付ファイルのメタ情報を復元（userメッセージのみ持つ）
                         attachments: block._attachments,
+                        // 前の会話から引き継いだ要約を復元（要約を引き継いで始めた会話の最初の発言のみ持つ）
+                        carryOver: block._carryOverSummary ?? null,
                         // 発言時刻を復元（保存済みの _timestamp。無ければ時刻は表示しない）
                         timestamp: block._timestamp
                     };
@@ -3248,16 +3461,43 @@ _renderChatHistory( history ) {
                         // maintenance-all / create-menu なら更新先メニューを控える
                         this.collectUpdatedMenuFromHistory( item, toolResultMap.get( item.id ));
                     }
-                } else if ( type === 'tool_result' && choiceToolIds.has( item.tool_use_id ) ) {
+                } else if ( type === 'tool_result' && choiceToolIds.has( item.tool_use_id ) && !choiceAnswerShown ) {
+                    choiceAnswerShown = true;
                     // 選択肢への回答は応答の区切り。ここまでの更新ページのリンクを先に表示する。
                     this.renderUpdatedMenuLinks( false );
+                    // 選択肢に回答しないまま送られたシステム操作（会話終了など）は、
+                    // 送信時と同じくシステム通知として復元する（巻き戻しの起点にはしない）。
+                    // 指示文の text ブロックを持つターンは、そちらでシステム通知を表示するためここでは表示しない
+                    // （text ブロックを持たないのは、指示文を tool_result に入れて送っていた以前の形式）。
+                    if ( block._displaySystem === true ) {
+                        if ( content.some(( b ) => b.type === 'text') ) continue;
+                        this.updateChat({
+                            role: 'system',
+                            text: ( typeof block._displayText === 'string' && block._displayText !== '')
+                                ? block._displayText
+                                : this.extractChoiceAnswerText( item ),
+                            timestamp: block._timestamp,
+                        }, false );
+                        continue;
+                    }
                     // 選択肢への回答は tool_result として保存されているため、
                     // ユーザメッセージとして復元表示する（送信時と同じ見た目）。
                     // この位置まで巻き戻すと直前の選択肢が未応答（回答待ち）状態に戻るため、
                     // 巻き戻し起点にできる。対応する履歴ブロックの位置を持たせる。
+                    // LLM 向けに補足した本文ではなく、保存済みの回答そのもの（_displayText）を優先する。
+                    const answerText = ( typeof block._displayText === 'string' && block._displayText !== '')
+                        ? block._displayText
+                        : this.extractChoiceAnswerText( item );
+                    // ボタン選択か自由入力か。保存されていない古い履歴は、回答が選択肢と一致するかで判断する。
+                    const choiceContext = choiceContexts.get( item.tool_use_id );
+                    const labels = choiceContext?.labels ?? [];
+                    const selected = ( typeof block._choiceSelected === 'boolean')
+                        ? block._choiceSelected
+                        : labels.includes( answerText );
                     this.updateChat({
                         role: 'user',
-                        text: this.extractChoiceAnswerText( item ),
+                        text: answerText,
+                        choice: labels.length ? { labels, selected } : null,
                         timestamp: block._timestamp,
                         rewindable: true,
                         historyIndex: blockIndex,
@@ -3274,7 +3514,8 @@ _renderChatHistory( history ) {
 }
 // 履歴から再開
 // conversationId … 復元元の会話ID（プラットフォーム側の会話）。この会話へ続きを保存する。
-async resumeChat( savedHistory, conversationId ) {
+// title … 復元する会話のタイトル（分からない場合は省略）
+async resumeChat( savedHistory, conversationId, title = null ) {
     if ( fn.typeof( savedHistory ) !== 'array' ) {
         throw new Error( getMessage.FTE14294 );
     }
@@ -3297,14 +3538,14 @@ async resumeChat( savedHistory, conversationId ) {
     }
     const toolResultMap = this._renderChatHistory( history );
 
-    this.pendingChoiceToolId = null;
+    this.clearPendingChoiceState();
     this.restorePendingChoice( history, toolResultMap );
 
     // 再開ごとに新しいchatIdを採番し、独立した保存state（historyQueues）を持たせる。
     // これをしないと、再開前のチャットのstate（実行中の保存要求）を引き継いでしまう。
     this.chatId = this.chatIdCounter++;
     // 復元元の会話を引き継ぐ（新しい会話は作らず、続きをこの会話へ保存する）
-    llm.attachConversation( conversationId, history );
+    llm.attachConversation( conversationId, history, title );
 
     // 中断された会話の自己修復：
     // インクリメンタル保存や離脱時保存により、履歴末尾が「tool_result 未応答の tool_use」で
@@ -3357,7 +3598,10 @@ async rewindConversation( historyIndex ) {
     // 通常発言は text ブロック、選択肢への回答は tool_result なのでその内容を取り出す。
     const removedBlock = history[ historyIndex ];
     let removedText = '';
-    if ( removedBlock && Array.isArray( removedBlock.content ) ) {
+    if ( removedBlock && typeof removedBlock._displayText === 'string' && removedBlock._displayText !== '') {
+        // 選択肢への回答は LLM 向けに本文を補足しているため、保存済みの回答そのものを戻す。
+        removedText = removedBlock._displayText;
+    } else if ( removedBlock && Array.isArray( removedBlock.content ) ) {
         // 保存時に差し込まれたテキスト（添付ファイルのメタ情報など）は発言ではないため除く
         const textItem = removedBlock.content.find(( item, index ) => item.type === 'text'
             && AiAssistantLlm.isInjectedBlock( item, removedBlock, index ) === null );
@@ -3378,9 +3622,7 @@ async rewindConversation( historyIndex ) {
     if ( typeof llm.setChatHistory === 'function' ) llm.setChatHistory( truncated );
 
     // 途中で切ったため、選択肢・退避中ツール結果などの保留状態はすべて破棄する。
-    this.pendingChoiceToolId = null;
-    this.pendingExtraChoiceToolIds = [];
-    this.pendingToolResults = [];
+    this.clearPendingChoiceState();
 
     // 表示を作り直す（現在の会話を継続するため、chatId と会話IDは維持する）
     const toolResultMap = this._renderChatHistory( truncated );
@@ -3459,6 +3701,21 @@ collectChoiceToolIds( history ) {
     }
     return ids;
 }
+// 履歴全体から、選択肢ツールの tool_use_id → 提示した選択肢の内容（{ question, labels }）の対応を作る。
+// 分裂した選択肢はライブ表示と同じく assistant ターン単位で1つに束ね、どの id からも同じ内容を引けるようにする。
+collectChoiceContexts( history ) {
+    const map = new Map();
+    for ( const block of history ) {
+        if ( block.role !== 'assistant') continue;
+        const content = block.content ?? [];
+        if ( fn.typeof( content ) !== 'array') continue;
+        const choiceBlocks = content.filter(( item ) => item.type === 'tool_use' && this.isUiChoiceTool( item.name ) && item.id );
+        if ( !choiceBlocks.length ) continue;
+        const context = this.buildChoiceContext( this.mergeChoiceBlocks( choiceBlocks ).arguments );
+        for ( const item of choiceBlocks ) map.set( item.id, context );
+    }
+    return map;
+}
 // 選択肢の tool_result からユーザの回答テキストを取り出す。
 // content は文字列、またはテキストブロックの配列のことがある。
 extractChoiceAnswerText( toolResult ) {
@@ -3511,18 +3768,23 @@ restorePendingChoice( history, toolResultMap ) {
         // この assistant ターンの選択肢ツール（uiTools）のうち、未応答のものを集める。
         // フォーマット崩れで1ターンに複数の選択肢 tool_use が出ることがあるため、
         // 先頭を代表（pendingChoiceToolId）、残りを pendingExtraChoiceToolIds に復元する。
-        const unansweredChoiceIds = [];
+        const unansweredChoiceBlocks = [];
         let hasToolUse = false;
         for ( const item of content ) {
             if ( item.type !== 'tool_use') continue;
             hasToolUse = true;
             if ( this.isUiChoiceTool( item.name ) && !toolResultMap.has( item.id ) ) {
-                unansweredChoiceIds.push( item.id ?? '');
+                unansweredChoiceBlocks.push( item );
             }
         }
-        if ( unansweredChoiceIds.length ) {
+        if ( unansweredChoiceBlocks.length ) {
+            const unansweredChoiceIds = unansweredChoiceBlocks.map(( item ) => item.id ?? '');
             this.pendingChoiceToolId = unansweredChoiceIds[ 0 ];
             this.pendingExtraChoiceToolIds = unansweredChoiceIds.slice( 1 );
+            // 分裂した選択肢もライブ表示と同じく1つに束ねてから、内容の保持とボタンの再表示を行う。
+            const merged = this.mergeChoiceBlocks( unansweredChoiceBlocks );
+            this.pendingChoiceContext = this.buildChoiceContext( merged.arguments );
+            this.resumePendingChoice( merged );
         }
         // この assistant ターンに tool_use があれば、それが直近の未応答対象。ここで確定。
         if ( hasToolUse ) return;
@@ -3676,7 +3938,8 @@ _activeChatKey() {
 _writeActiveChat( running ) {
     try {
         const conversationId = this.llm?.conversationId ?? null;
-        const payload = { conversationId, running: !!running, chatId: this.chatId };
+        // 会話のタイトルも控え、自動再開後も要約を引き継ぐときのタイトルに使えるようにする
+        const payload = { conversationId, title: this.llm?.title ?? null, running: !!running, chatId: this.chatId };
         localStorage.setItem( this._activeChatKey(), JSON.stringify( payload ) );
     } catch ( error ) {
         // localStorage が使えない環境でも致命的ではない（自動再開が効かないだけ）。
@@ -3693,7 +3956,7 @@ _clearActiveChat() {
 }
 // 停止・エラー時に _runResponseLoop へ渡す「空の保留状態」。
 _emptyPending() {
-    return { pendingChoiceToolId: null, pendingExtraChoiceToolIds: [], pendingToolResults: [] };
+    return { pendingChoiceToolId: null, pendingExtraChoiceToolIds: [], pendingToolResults: [], pendingChoiceContext: null };
 }
 // 履歴保存（historyEnqueue）を待たずに投げる際の安全ラッパー。
 // 応答ループ中に何度も呼ぶため、保存失敗が未処理の Promise 拒否にならないよう握りつぶす
@@ -3793,7 +4056,7 @@ async _tryAutoResume() {
     //   resumeChat 後に改めて書き戻されるため問題ない。
     try {
         await this.newChatStart();
-        await this.resumeChat( history, marker.conversationId );
+        await this.resumeChat( history, marker.conversationId, marker.title ?? null );
     } catch ( error ) {
         console.warn('自動再開: 会話の復元に失敗しました。新規チャットを開始します。', error );
         this._clearActiveChat();
@@ -3822,7 +4085,12 @@ async _offerResumeContinuation() {
 
     // 選択肢の回答待ちで復元された場合は、ユーザーの回答を待つ（自動継続しない）。
     if ( this.pendingChoiceToolId ) {
+        // updateChat は表示中の選択肢を取り除くため、復元済みの選択肢ボタンを退避して
+        // 案内の後ろ（末尾）へ戻す（選択肢は常に一番最後に表示する）。
+        const choiceItem = this.elements.chatList.querySelector('.aiAssistantChatUserChoice');
+        choiceItem?.remove();
         this.updateChat({ role: 'system', text: getMessage.FTE14304 });
+        if ( choiceItem ) this.elements.chatList.appendChild( choiceItem );
         // 回答待ち＝実行中ではないので、マーカーを実行中でないに更新する。
         this._writeActiveChat( false );
         return;
@@ -4048,6 +4316,95 @@ async closeChatEvent() {
     } else if ( this.elements.closeChatButton ) {
         this.elements.closeChatButton.disabled = false;
     }
+}
+/*
+##################################################
+    タイムアウト時の再送方法を選ぶダイアログ
+##################################################
+*/
+// AIの応答がタイムアウトしたときに、再送の方法をユーザーに選ばせる（AiAssistantLlm.send の onTimeout）。
+// 同じ内容をそのまま送り直すと同じ長考が始まって再びタイムアウトしやすいため、
+// 簡潔に応答する指示を添える／別のモデルに切り替える、といった条件を変えた再送を既定にする。
+// param = { canHint, modelId } … canHint=false なら指示は添え済み、modelId は使用中のモデル
+// 戻り値: { hint, modelId }（modelId は切り替える場合のみ）、中止した場合は null。
+// モデルを切り替えた場合は、フッターのモデル選択にも反映して以降の問い合わせでも使う。
+openTimeoutRetryDialog( status, param = {} ) {
+    return new Promise(( resolve ) => {
+        const config = {
+            position: 'center',
+            width: '520px',
+            header: { title: getMessage.FTE14402 },
+            footer: {
+                button: {
+                    execute: { text: getMessage.FTE14403, action: 'positive', className: 'dialogPositive'},
+                    cancel: { text: getMessage.FTE14404, action: 'normal'}
+                }
+            }
+        };
+        let dialog = new Dialog( config );
+        let settled = false;
+        const finish = ( result ) => {
+            if ( settled ) return;
+            settled = true;
+            dialog.close();
+            dialog = null;
+            resolve( result );
+        };
+
+        // 選択肢（value は "種別:モデルの連番"。モデルIDには記号が含まれるため連番で持つ）
+        const otherModels = ( this.setting?.currentPickupModels ?? [] )
+            .filter(( item ) => item?.id && item.id !== param.modelId );
+        const options = [];
+        if ( param.canHint ) options.push({ value: 'hint', label: getMessage.FTE14405 });
+        otherModels.forEach(( item, index ) => {
+            options.push({ value: `model:${index}`, label: getMessage.FTE14406( fn.escape( item.name ?? item.id ) ) });
+        });
+        options.push({ value: 'same', label: getMessage.FTE14407 });
+
+        dialog.btnFn = {
+            execute: () => {
+                const value = dialog.$.dialog.find('.aiTimeoutRetryOption:checked').val() ?? 'same';
+                if ( value.startsWith('model:') ) {
+                    const model = otherModels[ Number( value.slice( 6 ) ) ];
+                    if ( model ) {
+                        // 応答処理中は selectModel で切り替えられないため、ここで直接反映する
+                        this.modelId = model.id;
+                        this.updateFooterModelList();
+                        finish({ hint: false, modelId: model.id });
+                        return;
+                    }
+                }
+                finish({ hint: value === 'hint', modelId: null });
+            },
+            cancel: () => finish( null )
+        };
+
+        // 見た目はチャット終了ダイアログの選択肢と揃える
+        const radioItem = ( o, i ) => {
+            const id = `aiTimeoutRetryOption_${i}`;
+            return `
+                <li class="aiCloseChatOptionItem">
+                    <label class="aiCloseChatOptionLabel" for="${id}">
+                        <input type="radio" id="${id}" name="aiTimeoutRetryOption" class="aiTimeoutRetryOption" value="${o.value}"${( i === 0 )? ' checked': ''}>
+                        <span class="aiCloseChatOptionText">${o.label}</span>
+                    </label>
+                </li>`;
+        };
+
+        const html = `
+        <div class="dialogBody">
+            <div class="commonSection">
+                <div class="aiCloseChatDescription">${fn.escape( getMessage.FTE14408( status ), true )}</div>
+                <div class="aiCloseChatGroup commonInputGroup">
+                    <ul class="aiCloseChatOptionList">${options.map( radioItem ).join('')}</ul>
+                </div>
+            </div>
+        </div>`;
+
+        dialog.open( html );
+        // positiveボタン（再送する）は既定で非活性のため、明示的に有効化する
+        dialog.buttonPositiveDisabled( false );
+    });
 }
 /*
 ##################################################
@@ -4381,10 +4738,155 @@ async discardConversation( conversationId, purpose ) {
         console.warn(`${purpose}に使った会話の削除に失敗しました。`, error );
     }
 }
+/*
+##################################################
+    会話の要約を引き継いで新しいチャットで続ける
+##################################################
+*/
+// 要約に渡す会話のテキストの上限文字数（超える分は先頭と末尾を残して中略する）。
+// 要約の問い合わせ自体がコンテキスト上限を超えないよう、モデルの上限より十分小さくする。
+static get summaryTranscriptLength() {
+    return 60000;
+}
+// 会話が長くなりコンテキスト上限を超えたときに、どう続けるかを選ぶダイアログを表示する。
+// hasRequest … 送信できなかった依頼があるか（要約して続ける場合に、その依頼も引き継ぐことを伝える）
+// 戻り値: 'summary'（要約して新しいチャットで続ける）/ 'end'（会話を終了する）
+openContextOverflowDialog( hasRequest ) {
+    return new Promise(( resolve ) => {
+        const config = {
+            position: 'center',
+            width: '520px',
+            header: { title: getMessage.FTE14427 },
+            footer: {
+                button: {
+                    execute: { text: getMessage.FTE14429, action: 'positive', className: 'dialogPositive'},
+                    cancel: { text: getMessage.FTE14430, action: 'normal'}
+                }
+            }
+        };
+        let dialog = new Dialog( config );
+        let settled = false;
+        const finish = ( result ) => {
+            if ( settled ) return;
+            settled = true;
+            dialog.close();
+            dialog = null;
+            resolve( result );
+        };
+        dialog.btnFn = {
+            execute: () => finish('summary'),
+            cancel: () => finish('end')
+        };
+
+        // 下のボタン（要約して続ける／終了する）それぞれの説明
+        const optionItem = ( o ) => `
+            <li class="aiOverflowOption">
+                <div class="aiOverflowOptionTitle">${fn.escape( o.title )}</div>
+                <div class="aiOverflowOptionText">${fn.escape( o.text )}</div>
+                ${( o.note )? `<div class="aiOverflowOptionNote">${fn.escape( o.note )}</div>`: ''}
+            </li>`;
+        const options = [
+            { title: getMessage.FTE14429, text: getMessage.FTE14434, note: ( hasRequest )? getMessage.FTE14436: '' },
+            { title: getMessage.FTE14430, text: getMessage.FTE14435 }
+        ];
+
+        const html = `
+        <div class="dialogBody">
+            <div class="commonSection">
+                <div class="aiOverflowAlert">
+                    <div class="aiOverflowAlertIcon">${fn.html.icon('attention')}</div>
+                    <div class="aiOverflowAlertText">${fn.escape( getMessage.FTE14428, true )}</div>
+                </div>
+                <div class="aiOverflowLead">${fn.escape( getMessage.FTE14439 )}</div>
+                <ul class="aiOverflowOptionList">${options.map( optionItem ).join('')}</ul>
+                <div class="aiOverflowFootnote">${fn.html.icon('circle_info')}<span>${fn.escape( getMessage.FTE14437 )}</span></div>
+            </div>
+        </div>`;
+
+        dialog.open( html );
+        // positiveボタン（要約して続ける）は既定で非活性のため、明示的に有効化する
+        dialog.buttonPositiveDisabled( false );
+    });
+}
+// コンテキスト上限を超えたチャットを、要約せずに終了する。
+// 終了時の処理（要約・レポート）はこの会話へ送る必要があり、上限を超えて送れないため行わない。
+// 送信できなかったターンは巻き戻してあるため、その状態の履歴を保存しておく。
+async endChatOnContextOverflow() {
+    try {
+        await this.historyEnqueue();
+    } catch ( error ) {
+        console.warn('会話を終了する前の履歴保存に失敗しました。', error );
+    }
+    if ( this.elements.closeChatButton ) this.elements.closeChatButton.disabled = true;
+    this.updateChat({ role: 'system', text: getMessage.FTE14431 });
+}
+// 会話が長くなりコンテキスト上限を超えたときに、会話を要約し、新しいチャットを始めて
+// その要約（と送信できなかった依頼）を最初のメッセージとして送る。
+// 元の会話は新しいチャットを始める前に保存されるため、会話履歴から確認・再開できる。
+// 要約できなかった場合は、元の会話のままで、手動で続ける方法を案内する。
+// history … 要約する会話履歴
+// request … 送信できなかったユーザーの依頼（無ければnull）
+async continueInNewChatWithSummary( history, request ) {
+    const transcript = this.buildTranscript( history, AiAssistantChat.summaryTranscriptLength, { includeToolUse: true });
+    if ( !transcript ) {
+        this.updateChat({ role: 'systemNotice', text: getMessage.FTE14424('') });
+        return;
+    }
+
+    // 要約は時間のかかる単発の問い合わせのため、処理中表示を出す
+    let result = { conversationId: null, summary: ''};
+    const processing = fn.processingModal( getMessage.FTE14423 );
+    try {
+        result = await AiAssistantLlm.summarizeConversation( transcript, {
+            aiServiceId: this.setting.currentAiServiceId,
+            modelId: this.modelId,
+            promptProfile: this.promptProfile
+        });
+    } catch ( error ) {
+        processing.close();
+        console.warn('会話の要約に失敗しました。', error );
+        // 失敗しても、要約用の会話には問い合わせ内容が残っていることがあるため消しておく
+        await this.discardConversation( error?.conversationId, '会話の要約');
+        this.updateChat({ role: 'systemNotice',
+            text: getMessage.FTE14424( this.formatErrorMessage( error ) ) });
+        return;
+    }
+    processing.close();
+
+    // 要約用の会話は役目を終えた（引き継ぎ先ではないため、会話一覧に残さない）
+    await this.discardConversation( result.conversationId, '会話の要約');
+
+    if ( !result.summary ) {
+        this.updateChat({ role: 'systemNotice', text: getMessage.FTE14424('') });
+        return;
+    }
+
+    // 新しい会話のタイトルは、元の会話のタイトルに「（続き）」を付けたものにする
+    // （元のタイトルが分からない場合は、元の会話の最初の発言から作る）
+    const title = AiAssistantLlm.continuationTitle( this.llm?.title || AiAssistantLlm.buildTitle( history ) );
+
+    // 「新しいチャット」ボタンと同じく、元の会話を保存してから新しいチャットを始める
+    await this.newChatEvent();
+    if ( !this.llm ) return;
+    this.llm.title = title;
+
+    // 要約は通常のユーザー発言として送る（次に要約するときも引き継いだ内容が含まれるよう、
+    // システム操作扱いにはしない）。吹き出しには引き継いだことを短く表示し、要約は開閉式で表示する。
+    await this.sendMessage( getMessage.FTE14425( result.summary, request ), {
+        displayText: getMessage.FTE14426( request ),
+        carryOverSummary: result.summary
+    });
+}
+// 会話のテキストに含めるツール呼び出しの引数の上限文字数（長い引数は先頭だけ残す）
+static get transcriptToolInputLength() {
+    return 300;
+}
 // 会話履歴を、LLMへ渡す読みやすいテキスト（発言者＋本文）へ変換する。
 // 学習事項の抽出・タイトルの生成のように、今回の会話の内容そのものを渡す処理で使う。
 // maxLength … リクエストが大きくなりすぎないための上限文字数（超える分は中略する）
-buildTranscript( history, maxLength = 8000 ) {
+// options.includeToolUse … true の場合、ツール呼び出し（ツール名と引数の先頭）も含める
+//   （会話の要約で、どの操作を実行済みかを残すため。ツールの実行結果は大きいため含めない）
+buildTranscript( history, maxLength = 8000, options = {} ) {
     if ( !Array.isArray( history ) ) return '';
 
     const lines = [];
@@ -4394,6 +4896,11 @@ buildTranscript( history, maxLength = 8000 ) {
         if ( !Array.isArray( turn?.content ) ) continue;
         const roleLabel = ( turn.role === 'assistant')? getMessage.FTE14352: getMessage.FTE14353;
         for ( const [ blockIndex, block ] of turn.content.entries() ) {
+            if ( options.includeToolUse === true && block?.type === 'tool_use') {
+                const input = JSON.stringify( block.input ?? {});
+                lines.push(`${roleLabel}（${getMessage.FTE14422}）: ${block.name ?? ''} ${input.slice( 0, AiAssistantChat.transcriptToolInputLength )}`);
+                continue;
+            }
             if ( block?.type !== 'text' || typeof block.text !== 'string') continue;
             // 保存時に差し込まれたテキスト（添付ファイルのメタ情報）は発言ではなく
             // ノイズになるため除外する
@@ -4653,6 +5160,7 @@ async generateAndSaveTitle() {
     // 生成できたタイトルをこの会話へ保存する（会話履歴の一覧に反映される）
     try {
         await AiAssistantLlm.updateConversationTitle( conversationId, generated.title );
+        if ( this.llm?.conversationId === conversationId ) this.llm.title = generated.title;
     } catch ( error ) {
         console.warn('会話のタイトルの保存に失敗しました。', error );
         this.updateChat({ role: 'systemNotice',
@@ -4678,7 +5186,8 @@ async aiAssistantSettingEvent() {
 bodyEventActions = {
     // 送信・停止
     send:   { lockButton: true, run:() => this.sendMessage( this.elements.message.value ) },
-    choice: { lockButton: true, run:( button ) => this.sendMessage( button.innerText ) },
+    // ボタンからの回答であることを LLM に伝えるため choiceSelected を付ける（自由入力と区別する）
+    choice: { lockButton: true, run:( button ) => this.sendMessage( button.innerText, { choiceSelected: true }) },
     stop:   { whileRunning: true, run:() => this.stopMessage() },
 
     // 添付ファイル
@@ -4701,7 +5210,10 @@ bodyEventActions = {
     codeCopy:       { whileRunning: true, run:( button ) => this.copyCodeBlock( button ) },
     codeToInput:    { whileRunning: true, run:( button ) => this.setCodeBlockToInput( button ) },
     codeToEditor:   { whileRunning: true, run:( button ) => this.setCodeBlockToEditor( button ) },
-    displayHtmlPdf: { whileRunning: true, run:( button ) => this.printDisplayHtmlAsPdf( button ) }
+    displayHtmlPdf: { whileRunning: true, run:( button ) => this.printDisplayHtmlAsPdf( button ) },
+
+    // 添付ファイルのダウンロード（download_attachment_file の吹き出し）
+    downloadAttachmentFile: { whileRunning: true, run:( button ) => this.downloadAttachmentFile( button ) }
 }
 bindBodyEvents() {
     const body = this.elements.body;
@@ -4943,6 +5455,7 @@ sleep( time ) {
 // fetch の応答エラー／ネットワークエラー時にリトライする共通処理（LLM・ツール実行で共用）。
 // - AbortError（ユーザ都合の停止）はリトライせず即座に throw する。
 // - 一時的なHTTPステータス（408 / 425 / 429 / 5xx）や fetch 例外（ネットワーク断）で再試行する。
+//   retryOptions.retryNetworkError=false なら fetch 例外は再試行しない（LLMの問い合わせは呼び出し側で扱う）。
 // - 指数バックオフ（baseDelay を 2倍ずつ）で待機。Retry-After ヘッダがあればそれを優先し、
 //   signal 経由で待機を即座に中断できる。
 // - リトライを使い切った場合は最後の Response をそのまま返す（呼び出し側の .ok 判定を維持）。
@@ -4950,6 +5463,7 @@ static async fetchWithRetry( url, options = {}, retryOptions = {} ) {
     const retries = retryOptions.retries ?? 2;            // 追加試行回数（初回 + retries 回）
     const baseDelay = retryOptions.baseDelay ?? 1000;     // 初回リトライ前の待機（ミリ秒）
     const retryStatuses = retryOptions.retryStatuses ?? [ 408, 425, 429, 500, 502, 503, 504 ];
+    const retryNetworkError = retryOptions.retryNetworkError !== false;  // fetch 例外（ネットワーク断）も再試行するか
     const signal = options.signal;
 
     // signal が abort されたら待機を即座に打ち切る、リトライ待機用の sleep
@@ -4992,8 +5506,8 @@ static async fetchWithRetry( url, options = {}, retryOptions = {} ) {
             // ユーザ都合の停止はリトライしない
             if ( error?.name === 'AbortError' || signal?.aborted ) throw error;
             lastError = error;
-            // 試行が残っていなければ throw（ネットワークエラーをそのまま呼び出し側へ）
-            if ( attempt >= retries ) throw error;
+            // 試行が残っていない、または再試行しない設定なら throw（ネットワークエラーをそのまま呼び出し側へ）
+            if ( attempt >= retries || !retryNetworkError ) throw error;
             const delay = baseDelay * Math.pow( 2, attempt );
             console.warn(`fetchWithRetry: fetch 失敗。${delay}ms 後にリトライします（${attempt + 1}/${retries}）。`, url, error );
             await wait( delay );

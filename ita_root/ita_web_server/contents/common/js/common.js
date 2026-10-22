@@ -1283,6 +1283,42 @@ createStorageKey: function( key ) {
 },
 /*
 ##################################################
+   WebStorageのクリア
+   前のデータが一瞬表示されるのを防ぐ
+   ・Session storage：ログインユーザ、オーガナイゼーション、ワークスペースが切り替わった場合
+     （データ（パネル画像など）を複数保持しないようにする）
+   ・Local storage：ログインユーザが切り替わった場合
+     （タブ間で共有されるため、ワークスペースごとのタブで交互に消えないようにする）
+   ※認証完了後に呼び出す
+##################################################
+*/
+clearStorageByUser: function() {
+    if ( !windowFlag ) return;
+
+    const userId = cmn.cache.getUserId();
+    if ( userId === null ) return;
+
+    const ownerKey = 'ita_ui_owner',
+          owners = {
+              session: `${organization_id}/${workspace_id}/${userId}`,
+              local: userId
+          };
+
+    for ( const type in owners ) {
+        const owner = owners[ type ];
+        if ( cmn.storage.get( ownerKey, type, false ) === owner ) continue;
+
+        const keys = cmn.storage.getKeys( type );
+        for ( const key of keys ) {
+            if ( key.indexOf('ita_ui_') === 0 ) {
+                cmn.storage.remove( key, type, false );
+            }
+        }
+        cmn.storage.set( ownerKey, owner, type, false );
+    }
+},
+/*
+##################################################
    Shared cache
    複数タブ間で共有するメモリ上のキャッシュ（cache_worker.js）
    ※ディスクには保存されないため、全タブを閉じると破棄される
@@ -2864,6 +2900,39 @@ blackOrWhite: function( hexcolor, num ) {
     b = parseInt( hexcolor.substring( 5, 7 ), 16 );
 
 	return (((( r * 299 ) + ( g * 587 ) + ( b * 114 )) / 1000 ) < 180 * num )? '#FFFFFF': '#333333';
+},
+/*
+##################################################
+    色を少し濃くする（#rrggbb）
+    ※比率だと明るいチャンネル（例：#FF9999のR）の変化が小さく差が出にくいため、
+      各チャンネルから一定量を引く
+##################################################
+*/
+darkenColor: function( hexcolor, amount = 20 ) {
+    if ( !/^#[0-9a-fA-F]{6}$/.test( hexcolor ) ) return '';
+    const rgb = [ 1, 3, 5 ].map( i => Math.max( 0, parseInt( hexcolor.slice( i, i + 2 ), 16 ) - amount ) );
+    return '#' + rgb.map( v => v.toString( 16 ).padStart( 2, '0') ).join('');
+},
+/*
+##################################################
+    背景色から見やすいテキストカラーを判定
+    （WCAGのコントラスト比で白と黒を比較）
+##################################################
+*/
+contrastTextColor: function( hexcolor ) {
+    if ( !/^#[0-9a-fA-F]{6}$/.test( hexcolor ) ) return '';
+    const luminance = function( hex ) {
+        const rgb = [ 1, 3, 5 ].map( i => {
+            const c = parseInt( hex.slice( i, i + 2 ), 16 ) / 255;
+            return ( c <= 0.03928 )? c / 12.92: Math.pow( ( c + 0.055 ) / 1.055, 2.4 );
+        });
+        return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2];
+    };
+    const light = '#FFFFFF', dark = '#1A1B1C';
+    const bg = luminance( hexcolor );
+    const lightRatio = ( luminance( light ) + 0.05 ) / ( bg + 0.05 );
+    const darkRatio = ( bg + 0.05 ) / ( luminance( dark ) + 0.05 );
+    return ( lightRatio >= darkRatio )? light: dark;
 },
 /*
 ##################################################
@@ -5342,24 +5411,6 @@ commonTab: function( $target ) {
 }
 
 }; // end cmn
-
-    // document.referrerが空の場合、WebStorageをクリア
-    if ( windowFlag && !document.referrer.length ) {
-        // Local storage
-        const localKeys = cmn.storage.getKeys('local');
-        for ( const key of localKeys ) {
-            if ( key.indexOf('ita_ui_') === 0 ) {
-                cmn.storage.remove( key, 'local', false );
-            }
-        }
-        // Session storage
-        const sessionKeys = cmn.storage.getKeys('session');
-        for ( const key of sessionKeys ) {
-            if ( key.indexOf('ita_ui_') === 0 ) {
-                cmn.storage.remove( key, 'session', false );
-            }
-        }
-    }
 
     // 共通パラメーター
     const commonParams = {};

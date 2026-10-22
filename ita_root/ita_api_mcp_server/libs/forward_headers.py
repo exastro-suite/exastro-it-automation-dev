@@ -29,7 +29,38 @@ ITA / Exastro Platform API. Placed under libs/ (rather than inside a
 specific tool module such as tools/platform_user.py) so that it can be
 shared across multiple tools.
 """
+import os
+
 from flask import request
+
+# APACHE_TIMEOUT未設定・不正値の場合に使う値(DockerfileのENV APACHE_TIMEOUTの既定値と同じ)
+# Fallback when APACHE_TIMEOUT is unset/invalid (same as the Dockerfile's ENV APACHE_TIMEOUT default)
+_DEFAULT_APACHE_TIMEOUT_SECONDS = 300
+
+# ダウンストリーム側(Apache)のタイムアウトより後に打ち切るための猶予秒数
+# Margin so that we give up only after the downstream (Apache) timeout has elapsed
+_DOWNSTREAM_TIMEOUT_MARGIN_SECONDS = 30
+
+# リクエストボディを持たないHTTPメソッド(大文字で統一)
+# HTTP methods that do not carry a request body (uppercase)
+_BODYLESS_METHODS = {"GET", "HEAD", "DELETE", "OPTIONS", "TRACE"}
+
+
+def get_downstream_timeout() -> int:
+    """
+    ダウンストリームAPI呼び出しのタイムアウト秒数(APACHE_TIMEOUT + 30秒)を返す。
+
+    Return the timeout in seconds for downstream API calls (APACHE_TIMEOUT + 30s).
+
+    Returns:
+        int: タイムアウト秒数 / timeout in seconds
+    """
+    try:
+        apache_timeout = int(os.environ.get("APACHE_TIMEOUT", _DEFAULT_APACHE_TIMEOUT_SECONDS))
+    except ValueError:
+        apache_timeout = _DEFAULT_APACHE_TIMEOUT_SECONDS
+
+    return apache_timeout + _DOWNSTREAM_TIMEOUT_MARGIN_SECONDS
 
 
 def build_forward_headers(method: str = "GET") -> dict:
@@ -43,8 +74,8 @@ def build_forward_headers(method: str = "GET") -> dict:
     改行区切りのロール一覧が入っている。
 
     "Content-Type" はリクエストボディを送るメソッド(POST/PUT/PATCHなど)の
-    場合のみ付与する。GET(デフォルト)のようにボディを送らないメソッドでは
-    不要なため付与しない。
+    場合のみ付与する。GET/HEAD/DELETE/OPTIONS/TRACEのようにボディを送らない
+    メソッドでは不要なため付与しない。
 
     Build the headers used when calling a downstream API.
 
@@ -55,8 +86,8 @@ def build_forward_headers(method: str = "GET") -> dict:
     uses the same Base64-encoded, newline-separated format as "Roles".
 
     "Content-Type" is only added for methods that send a request body
-    (POST/PUT/PATCH, etc.). It is omitted for body-less methods such as GET
-    (the default), where it is not needed.
+    (POST/PUT/PATCH, etc.). It is omitted for body-less methods such as
+    GET/HEAD/DELETE/OPTIONS/TRACE, where it is not needed.
 
     Parameters:
         method (str, optional): 呼び出すダウンストリームAPIのHTTPメソッド
@@ -81,9 +112,11 @@ def build_forward_headers(method: str = "GET") -> dict:
         "Language": "en",
     }
 
-    # GETのようにリクエストボディを送らないメソッドでは "Content-Type" を付与しない
-    # Do not add "Content-Type" for body-less methods such as GET
-    if method.upper() != "GET":
+    # GET/HEAD/DELETE/OPTIONS/TRACEのようにリクエストボディを送らないメソッドでは
+    # "Content-Type" を付与しない
+    # Do not add "Content-Type" for body-less methods such as
+    # GET/HEAD/DELETE/OPTIONS/TRACE
+    if method.upper() not in _BODYLESS_METHODS:
         headers["Content-Type"] = "application/json"
 
     return headers

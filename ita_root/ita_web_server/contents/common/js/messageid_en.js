@@ -394,6 +394,18 @@ export function messageid_en() {
         'FTE01159' : "Group and Item Count",
         'FTE01160' : "An empty group is included. Add items to the group or delete the empty group.",
         'FTE01161' : function(num){ return `Group and Item count exceeds the limit (${num}).`;},
+        'FTE01162' : "Display settings",
+        'FTE01163' : "Open or close the settings used when the parameter sheet is displayed on screen.",
+        'FTE01164' : "Prohibit editing on screen",
+        'FTE01165' : "If checked, this item cannot be edited on the parameter sheet screen.",
+        'FTE01166' : "Header color",
+        'FTE01167' : "Set the background color of this item's header on the parameter sheet screen.",
+        'FTE01168' : "Body color",
+        'FTE01169' : "Set the background color of this item's body (data cells) on the parameter sheet screen.",
+        'FTE01170' : "Not set",
+        'FTE01171' : "Clear the color setting.",
+        'FTE01172' : "Some items are required, have no initial value, and are prohibited from being edited on screen. These items cannot be registered or updated from the parameter sheet screen.",
+        'FTE01173' : "Do you want to register anyway?",
 
         // Conductor
         'FTE02001' : "Conductor instance id is not yet set.",
@@ -922,6 +934,8 @@ export function messageid_en() {
         'FTE10102' : 'If you want to continue, please enter <span style="font-weight: bold;">{0}</span>.',
         'FTE10103' : 'Please enter <span style="font-weight: bold;">{0}</span>.',
         'FTE10104': 'Deletion successful',
+        'FTE10105': 'No matching menus.',
+        'FTE10106': function( count ){ return `${count} hits`;},
 
         // Parameter collection
         'FTE11001': 'Parameter mode',
@@ -1195,7 +1209,7 @@ export function messageid_en() {
         'FTE14122': 'No lesson content is specified.',
         'FTE14123': 'No lesson ID is specified.',
         'FTE14124': 'No lesson to enable or disable is specified.',
-        'FTE14125': function( status ){ return `The response timed out (HTTP ${status}).\nDo you want to try again?`},
+        'FTE14125': function( status ){ return `The response timed out (${( status )? `HTTP ${status}`: 'the connection was lost'}).\nDo you want to try again?`},
         'FTE14126': 'The retry was stopped because of the timeout.',
 
         // AI assistant (text passed to the AI as the information of the attached files)
@@ -1220,7 +1234,7 @@ export function messageid_en() {
         'FTE14149': 'No AI service is registered.',
         'FTE14150': 'Please register the authentication information of the AI service you use.',
         'FTE14151': 'The AI service to use cannot be changed during a conversation. The authentication information can be updated.',
-        'FTE14152': 'Please select the AI service to use and apply it.',
+        'FTE14152': 'To change the AI service, select the AI service you wish to use and click "Apply."',
         'FTE14153': 'Registered AI services',
         'FTE14154': function( num ){ return `${num} items`},
         'FTE14155': function( date ){ return `Expiration date: ${date}`},
@@ -1369,7 +1383,7 @@ export function messageid_en() {
         'FTE14301': 'Ended without being able to determine the execution status.<br>Please check the latest status with "Check the work status".',
         'FTE14302': '(This operation was interrupted because the page was left. It may already have been executed on the server side. Do not carelessly run the same operation again. If necessary, check the current status and then report it to the user.)',
         'FTE14303': function( message ){ return `There is a conversation that was interrupted last time, but it cannot be resumed because the authentication does not pass.\n\n${message}`},
-        'FTE14304': 'The previous conversation has been restored. If you answer the options above, you can resume from there.',
+        'FTE14304': 'The previous conversation has been restored. If you answer the options below, you can resume from there.',
         'FTE14305': 'The previous conversation has been restored.',
         'FTE14306': 'The page was closed in the middle of the work last time.',
         'FTE14307': 'There is work that was interrupted last time. Do you want to resume it?\n\nIf you select "Yes", the AI resumes the processing (operations on ITA (Exastro) and token consumption may occur).\nIf you select "No", the conversation stays in the restored state and you can continue it manually.',
@@ -1403,8 +1417,8 @@ export function messageid_en() {
             '- What kind of work was performed: the request of the user and the content of the work performed for it.',
             '- What changes occurred in the system: the menus and data created, updated, or deleted, the work performed, and other impacts on ITA (Exastro).',
             '- What the result of the work was: whether it succeeded or failed, and the work log that is the basis for it (the tools and processes that were run and their results, and so on).',
-            '- Quantitative analysis: the number of pieces of work performed, the number of successes and failures, the number of calls of the tools and processes used, and other metrics that can be shown as numbers, as far as possible.',
-            '- Qualitative analysis: an evaluation from the viewpoint of the accuracy, the coverage, and the efficiency of the work, and what went well, the issues, and the points to improve.',
+            '- Quantitative analysis: show the quality of the work in numbers, as far as possible: the status of the requested items (the number of items completed, partially handled, and not handled), the number of pieces of data created, updated, or deleted, the number of successes and failures of the work performed, the number of errors and the resulting re-runs and rework, and so on. Do not analyze numbers about the processing of the AI itself, such as the number of LLM responses or the thinking time.',
+            '- Qualitative analysis: evaluate the quality of the work from the viewpoints of whether the work was done as requested (accuracy), whether anything was left undone (coverage), whether there are problems with the consistency of the settings and data or the impact on the existing settings (safety), and whether checks were made before the work and the results were confirmed after the work (reliability), and describe what went well, the risks and concerns, and the points to improve.',
             '- Supplement: the points that were hard to judge, and the matters that the user needs to check or handle.'
         ],
         'FTE14326': [
@@ -1413,8 +1427,8 @@ export function messageid_en() {
             '- What kind of work was performed: the request of the user and the content of the work performed for it.',
             '- What changes occurred in the system: the menus and data created, updated, or deleted, the work performed, and other impacts on ITA (Exastro).',
             '- What the result of the work was: whether it succeeded or failed, and the work log that is the basis for it (the tools and processes that were run and their results, and so on).',
-            '- Quantitative analysis: the number of pieces of work performed, the number of successes and failures, the number of calls of the tools and processes used, and other metrics that can be shown as numbers, as far as possible.',
-            '- Qualitative analysis: an evaluation from the viewpoint of the accuracy, the coverage, and the efficiency of the work, and what went well, the issues, and the points to improve.',
+            '- Quantitative analysis: show the quality of the work in numbers, as far as possible: the status of the requested items (the number of items completed, partially handled, and not handled), the number of pieces of data created, updated, or deleted, the number of successes and failures of the work performed, the number of errors and the resulting re-runs and rework, and so on. Do not analyze numbers about the processing of the AI itself, such as the number of LLM responses or the thinking time.',
+            '- Qualitative analysis: evaluate the quality of the work from the viewpoints of whether the work was done as requested (accuracy), whether anything was left undone (coverage), whether there are problems with the consistency of the settings and data or the impact on the existing settings (safety), and whether checks were made before the work and the results were confirmed after the work (reliability), and describe what went well, the risks and concerns, and the points to improve.',
             '- Supplement: the points that were hard to judge, and the matters that the user needs to check or handle.'
         ],
         'FTE14327': '- Please create the design as follows. Use rich expressions that are hard to express in normal Markdown, such as a card layout, diagrams, and charts. Do not make the appearance different every time. Always follow the common design guidelines shown in the description of the display_html tool (the design tokens, the cards, the stat cards, and the color rules), and output a design with a unified look.',
@@ -1437,8 +1451,8 @@ export function messageid_en() {
         'FTE14339': function( order, sec, model, label ){ return `    - Response No. ${order} (${sec} sec / model: ${model}): ${label}`},
         'FTE14340': '- Thinking time by model (slowest average first):',
         'FTE14341': function( model, count, avg, min, max ){ return `    - ${model}: ${count} responses, average ${avg} sec (shortest ${min} sec / longest ${max} sec)`},
-        'FTE14342': function( modelNote ){ return `Always include this thinking time data in the "Quantitative analysis" of the report. Also mention which responses took long and with which model they were generated. ${modelNote}The above are measured values. Quote them as they are, without changing them or filling them in with guesses. Note that the thinking time is the round-trip time of the LLM response and does not include the execution time of the tools.`},
-        'FTE14343': 'Because the model was changed during the conversation, also mention the tendency of slow and fast by model. ',
+        'FTE14342': function( modelNote ){ return `This thinking time data does not show the quality of the work, so do not include it in the "Quantitative analysis" or the "Qualitative analysis". If you put it in the report, only describe it briefly as reference information at the end of the "Supplement". ${modelNote}The above are measured values. Quote them as they are, without changing them or filling them in with guesses. Note that the thinking time is the round-trip time of the LLM response and does not include the execution time of the tools.`},
+        'FTE14343': 'Because the model was changed during the conversation, also show the values by model if you describe it as reference information. ',
 
         // AI assistant (extracting and registering the lessons)
         'FTE14344': 'There was no lesson that should be recorded from this conversation.',
@@ -1485,6 +1499,60 @@ export function messageid_en() {
         'FTE14391': 'Reflection difference',
         'FTE14392': 'Apply',
         'FTE14393': 'Cancel',
+        'FTE14394': function( name ){ return `${name} (creation status)`},
+        'FTE14395': 'Open the parameter sheet creation history. Menus are created and updated asynchronously, so the menu may not open until the process is complete.',
+        'FTE14396': function( answer ){ return `The user selected "${answer}" with an option button.`},
+        'FTE14397': function( answer ){ return `The user did not use the option buttons and wrote the following in the input field (it may not be one of the options).\n${answer}`},
+        'FTE14398': function( question, labels, answer, selected ){ return `This is the answer to the previous question.\nQuestion: ${question}\nOptions: ${labels.map(( label ) => `"${label}"`).join(', ')}\n`
+            + ( selected ? `Answer: The user selected "${answer}" with an option button.` : `Answer: The user did not use the option buttons and wrote the following in the input field (it may not be one of the options).\n${answer}`)},
+        'FTE14399': function( count ){ return `Selected from ${count} options`},
+        'FTE14400': function( count ){ return `Entered without using the options (${count} options)`},
+
+        // AI Assistant (resending after a response timeout)
+        'FTE14401': 'The previous request timed out because the response took too long. Do not deliberate too deeply; first reply briefly with only the key points (the approach or the single next step). If the task is large, do not do everything in one response; proceed in stages.',
+        'FTE14402': 'The response timed out',
+        'FTE14403': 'Resend',
+        'FTE14404': 'Cancel',
+        'FTE14405': 'Resend with an instruction to respond briefly (recommended)',
+        'FTE14406': function( name ){ return `Switch the model to "${name}" and resend`},
+        'FTE14407': 'Resend as is',
+        'FTE14408': function( status ){ return `The AI response timed out (${( status )? `HTTP ${status}`: 'the connection was lost'}).\nResending the same content as is may time out again. Please choose how to resend.`},
+
+        // AI assistant (attachment file download tool)
+        'FTE14409': function( filename, size ){ return `A download button for the file "${filename}" (${size} bytes) has been displayed in the chat area. The file is not downloaded automatically, so guide the user to press the download button to save the file. The file has a retention period and can no longer be downloaded after it expires, so also advise the user to save it soon. The file content is not returned to the LLM.`},
+        'FTE14410': function( fileId, message ){ return `Failed to download the file (file_id: ${fileId}). ${message}`},
+        'FTE14411': function( status ){ return `Failed to get the attachment file (HTTP ${status}).`},
+        'FTE14412': 'Download',
+        'FTE14413': 'The retention period of the file has expired.',
+        'FTE14414': 'Press the download button to save the file.',
+        'FTE14415': '* Files are kept only for a limited period and can no longer be downloaded after it expires. Please save the file soon.',
+
+        // AI assistant (auth error in AI service settings)
+        'FTE14416': 'Unavailable',
+        'FTE14417': 'This AI service cannot be used because authentication failed. Please update the authentication information with "Update".',
+        'FTE14418': 'No AI service is selected for the chat. Select the AI service you want to use and click "Apply".',
+        'FTE14419': 'The conversation has become too long and exceeds the amount the AI can read at once.',
+        'FTE14420': 'Conversation summary',
+        'FTE14421': function( transcript ){ return `The following conversation has become too long, so it will be continued in a new chat. For the handover, summarize the following concisely without omissions.\n- The user's goal and requests\n- The work performed and its results (menus operated, data registered or updated, execution numbers, etc.)\n- Decisions made, and the user's instructions and conditions\n- Unfinished work and next steps\nDo not use tools; output only the summary text.\n\n----\n${transcript}\n----`},
+        'FTE14422': 'tool call',
+        'FTE14423': 'Summarizing the conversation',
+        'FTE14424': function( message ){ return `Failed to summarize the conversation. Start over with "New chat", or rewind the conversation from a message bubble menu.${( message )? `\n${message}`: ''}`},
+        'FTE14425': function( summary, request ){ return `This is a continuation of a previous conversation. The previous conversation became too long, so a new chat is starting with its summary carried over.\nThe operations described in the summary have already been performed, so do not repeat them.\n\n[Summary of the previous conversation]\n${summary}\n\n${( request )? `[Request to continue with]\n${request}\n\nFor operations that may already have been performed, check the current state before continuing.`: 'Based on the summary, briefly state what to do next and wait for the user\'s instructions.'}`},
+        'FTE14426': function( request ){ return `The previous conversation became too long, so a new chat was started with its summary carried over. The previous conversation can be viewed in the conversation history.${( request )? `\n\n[Request to continue with]\n${request}`: ''}`},
+        'FTE14427': 'The conversation has become too long',
+        'FTE14428': 'The conversation has become too long and exceeds the amount the AI can read at once.\nIt cannot be continued in this chat.',
+        'FTE14429': 'Summarize and continue in a new chat',
+        'FTE14430': 'End the conversation',
+        'FTE14431': 'This chat has ended. The conversation became too long and cannot be continued in this chat. To continue, start a new chat with "New chat".',
+        'FTE14432': ' (continued)',
+        'FTE14433': 'Summary of the previous conversation',
+        'FTE14434': 'The AI summarizes the conversation so far and resumes in a new chat with the summary carried over.',
+        'FTE14435': 'Ends this chat without summarizing.',
+        'FTE14436': '* The request that could not be sent is also sent in the new chat.',
+        'FTE14437': 'In either case, this chat can be viewed in the conversation history.',
+        'FTE14439': 'Choose one of the buttons below.',
+        'FTE14440': 'The user ended the chat without answering the options.',
+        'FTE14441': 'Checking AI service authentication',
 
         //gemini
         'FTE14101': 'API KEY',
