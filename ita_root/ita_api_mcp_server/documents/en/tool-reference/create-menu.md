@@ -234,3 +234,27 @@ The following values cannot be used for `item_name_rest`; use a different name w
     "required": ["item_name", "item_name_rest", "column_class"]
 }
 ```
+
+#### Register Preset
+
+This is an input example when calling `register-parameter-collection-filter` as a new registration.
+Since this is a new registration, empty strings are specified for `uuid` and `last_update_date_time`.
+Even when `mode` is `host`, you must set the UUID of the target operation.
+If you cannot determine the target operation, please confirm with the user.
+
+\```json
+{
+    "uuid": "",
+    "filter_name": "test",
+    "filter_json": "{\"tableDirection\":\"horizontal\",\"mode\":\"operation\",\"mainHost\":\"\",\"operation\":[\"23971849-4fc5-41e5-9ca2-fe3772d995a9\"],\"mainOperation\":\"23971849-4fc5-41e5-9ca2-fe3772d995a9\",\"host\":[\"1\",\"3979ff2d-7393-49e8-b464-807e5d3145fc\",\"8dfb9e60-c9f2-499d-9267-6cad945c1391\"],\"parameter\":[\"c4c72fe6-479a-41a3-bc1f-0b04336bb61f\"]}",
+    "last_update_date_time": ""
+}
+\```
+
+- `filter_name`: Display name of the search condition (with unique constraint)
+- `filter_json`: JSON string representing the search conditions for parameter collection
+    - `mode`: Display mode such as `"operation"` or `"host"`
+    - `operation` / `mainOperation`: UUID of the target operation
+    - `host`: List of UUIDs of target hosts
+    - `parameter`: List of UUIDs of target parameter items
+- For updates, specify the values obtained from `get-parameter-collection-filter` for `uuid` and `last_update_date_time`
