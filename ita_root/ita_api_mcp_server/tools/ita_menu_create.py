@@ -804,7 +804,7 @@ def tool_get_parameter_collection_filter(arguments: dict, payload: dict) -> dict
 
     # ITAのAPIへ検索条件取得のGETリクエストを送信する
     # Send a GET request to ITA's API to fetch the search conditions
-    req = requests.get(url, headers=headers)
+    req = requests.get(url, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
@@ -948,7 +948,7 @@ def tool_register_parameter_collection_filter(arguments: dict, payload: dict) ->
 
     # ITAのAPIへ検索条件登録・更新のPOSTリクエストを送信する
     # Send a POST request to ITA's API to register/update the search condition
-    req = requests.post(url, json=body, headers=headers)
+    req = requests.post(url, json=body, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
@@ -1042,7 +1042,7 @@ def tool_delete_parameter_collection_filter(arguments: dict, payload: dict) -> d
 
     # ITAのAPIへ検索条件削除のDELETEリクエストを送信する
     # Send a DELETE request to ITA's API to delete the search condition
-    req = requests.delete(url, headers=headers)
+    req = requests.delete(url, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
