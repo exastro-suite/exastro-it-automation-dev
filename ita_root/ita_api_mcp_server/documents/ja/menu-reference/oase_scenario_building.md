@@ -198,7 +198,7 @@
   - この時点でユーザーに状況を伝え、次のどれにするか`ask_user_choice`で選ばせる。**失敗してから直すのではなく、書き込む前に確定させる。**
     1. **案Aに切り替える**（既存アクションを`event_collaboration: True`に更新し、フィルター・ルールの追加はしない）… 最もシンプル。ホスト別のフィルター／ルールも不要になる
     2. **オペレーション実行モードで作る**（`operation_list`にホスト用オペレーションを新規作成し、アクションは`operation_id`を指定。`host_id`/`parameter_sheet_id`は指定しない）
-        - オペレーションを新規作成する場合は、その前に`get-document`で`documents-menu/operation_list.md`を取得すること（`scheduled_date_for_execution`が必須のため、省略すると`{"scheduled_date_for_execution": ["Required fields."]}`で失敗する）
+        - オペレーションを新規作成する場合は、その前に`get-document`で`menu-reference/operation_list.md`を取得すること（`scheduled_date_for_execution`が必須のため、省略すると`{"scheduled_date_for_execution": ["Required fields."]}`で失敗する）
     3. **別のConductorを使う**（対処内容自体を分けたい場合のみ）
   - **重要** 1を選んだ場合はフィルターの新規作成も既存フィルターの更新も**不要**。先にフィルターを作ってしまうと後で廃止する手戻りが発生するので、**書き込みはこの判定の後に始めること**。
 - 衝突しない場合（既存がオペレーション実行モード、または別Conductorを使う場合）→ 4-1以降をそのまま実行する。
@@ -316,7 +316,7 @@
 1. `menu-filter`で既存の`label_creation`と`labeling`を取得する。
     - 同じラベルキーが既にあれば新規作成は不要（その旨をユーザーに伝える）。
     - 既存`labeling`の`search_key_name`（例: `event.type`）を見て、イベントJSONの構造の手がかりにする。
-2. **提案を作る前に`get-document`で`documents-menu/labeling.md`を取得する。** 付与パターンが3つあり、この依頼は「パターンC（イベント項目の値をそのまま抽出）」に該当する。値の種類ごとに設定を作るパターンAで代用してはいけない。
+2. **提案を作る前に`get-document`で`menu-reference/labeling.md`を取得する。** 付与パターンが3つあり、この依頼は「パターンC（イベント項目の値をそのまま抽出）」に該当する。値の種類ごとに設定を作るパターンAで代用してはいけない。
 3. `label_creation`でラベルキーを登録する。
 4. `labeling`でパターンCの設定を登録する（`search_key_name`のみ指定し、`type_name`/`comparison_method`/`search_value_name`/`label_value_name`はすべて`null`）。
 5. 「このラベルは今後`filter`の条件に使える」旨をユーザーに伝えて完了とする。
@@ -350,7 +350,7 @@ labeling（ここで大小比較）                      filter（ここは == �
 
 ### 手順
 
-1. **提案を作る前に`get-document`で`documents-menu/filter.md`と`documents-menu/labeling.md`を取得する。** filter側に大小比較が無いことと、`labeling`のパターンA（`type_name`×`comparison_method`の組合せ）を確認する。
+1. **提案を作る前に`get-document`で`menu-reference/filter.md`と`menu-reference/labeling.md`を取得する。** filter側に大小比較が無いことと、`labeling`のパターンA（`type_name`×`comparison_method`の組合せ）を確認する。
 2. `menu-filter`で既存の`label_creation`/`labeling`/`filter`を取得する。**「既にOASEの設定をしていますか」のように、自分で`menu-filter`すれば分かることをユーザーに質問してはいけない。** 既存構成を自分で把握した上で提案を組み立てること。
 3. `label_creation`でしきい値判定用のラベルキーを登録する。
 4. `labeling`でパターンAの設定を登録する。
@@ -383,7 +383,7 @@ labeling（ここで大小比較）                      filter（ここは == �
 
 ### 手順
 
-1. **提案を作る前に`get-document`で`documents-menu/rule.md`と`documents-menu/action.md`を取得する。**
+1. **提案を作る前に`get-document`で`menu-reference/rule.md`と`menu-reference/action.md`を取得する。**
 2. `menu-filter`で対象ルール・既存アクション・フィルターを取得し、ルールに今どのアクションが紐付いているかを把握する（ユーザーに聞かない）。
 3. 既存ルールに既にアクションがある場合は、**差し替え（今のアクションの代わりに△△）か、追加（今のアクションの後に△△も）かを`ask_user_choice`で確認する**。選択肢には次を明記すること。
     - 差し替え: 今のアクション（例: Sleep）は実行されなくなる
@@ -402,7 +402,7 @@ labeling（ここで大小比較）                      filter（ここは == �
 
 ## OASE設定を廃止する／廃止から復元する
 
-「◇◇（ルール名）を廃止にして」「◇◇を廃止から復元させて」への対応手順。書き方そのものは`documents-tools/maintenance-all.md`の「破棄（Discard）・復元（Restore）」節、廃止済みの探し方は`documents-tools/menu-filter.md`の「廃止済みレコードの扱い」節を参照。
+「◇◇（ルール名）を廃止にして」「◇◇を廃止から復元させて」への対応手順。書き方そのものは`tool-reference/maintenance-all.md`の「破棄（Discard）・復元（Restore）」節、廃止済みの探し方は`tool-reference/menu-filter.md`の「廃止済みレコードの扱い」節を参照。
 
 ### 最初に押さえる仕様（最重要）
 
@@ -422,7 +422,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-tools/maintenance-all.md`と`documents-tools/menu-filter.md`を取得する。**
+1. **`get-document`で`tool-reference/maintenance-all.md`と`tool-reference/menu-filter.md`を取得する。**
 2. 対象を`menu-filter`で取得する。復元の場合は`{"discard": {"NORMAL": "1"}}`を付ける。同名の廃止済みが複数あれば、`last_update_date_time`と参照先の有効性で候補を絞り、それでも1件に決まらなければユーザーに確認する。
 3. **影響範囲を調べて提示する。**
     - フィルター／アクションを廃止する場合: それを使っている有効な`rule`を`menu-filter`で探す。あれば「そのルールが動かなくなる」ことを伝え、ルールも廃止するか、フィルター／アクションだけ廃止するかを`ask_user_choice`で確認する。
@@ -443,7 +443,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-menu/event_collection.md`と`documents-menu/labeling.md`を取得する**（それぞれの「複製」「コピー」節）。
+1. **`get-document`で`menu-reference/event_collection.md`と`menu-reference/labeling.md`を取得する**（それぞれの「複製」「コピー」節）。
 2. `menu-filter`でコピー元の収集設定と、そのラベル付与設定を全件取得する。
 3. 複製先の収集設定について、**`url`と認証情報（`auth_token`等）をユーザーに確認する**。認証情報は`menu-filter`で取れないため、既存からはコピーできない。それ以外の項目は既存の値を流用し、流用する旨を提案に書く。
 4. **既存のフィルターとルールが、新しい収集設定のイベントにどう効くかを`menu-filter`で実際に調べてから説明する**（下記「影響の考え方」）。調べずに「フィルターにホスト条件はありません」などと推測で断定してはいけない。
@@ -469,19 +469,19 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 最初に押さえる仕様（最重要）
 
-- **OASEのメニュー（`labeling`を含む）は物理削除できない。** `list-menu-info`の`row_delete_flag`が`"0"`で、`Delete`は`401-00001`になる。これはロール権限の問題ではないので、権限の付与を案内してはいけない（`documents-tools/maintenance-all.md`の「物理削除（Delete）」節）。
+- **OASEのメニュー（`labeling`を含む）は物理削除できない。** `list-menu-info`の`row_delete_flag`が`"0"`で、`Delete`は`401-00001`になる。これはロール権限の問題ではないので、権限の付与を案内してはいけない（`tool-reference/maintenance-all.md`の「物理削除（Delete）」節）。
 - できるのは廃止（`Discard`）だけで、**廃止してもレコードはDBに残り、レコード数は減らない**。依頼の目的が「レコード数の削減」なら、ITAの機能では達成できないことを正直に伝えること。
 
 ### 手順
 
-1. **`get-document`で`documents-tools/maintenance-all.md`と`documents-tools/menu-filter.md`を取得し、`list-menu-info`で`labeling`の`row_delete_flag`/`row_disuse_flag`を確認する。** `Delete`を試してからエラーで気づくのではなく、先に確認すること。
+1. **`get-document`で`tool-reference/maintenance-all.md`と`tool-reference/menu-filter.md`を取得し、`list-menu-info`で`labeling`の`row_delete_flag`/`row_disuse_flag`を確認する。** `Delete`を試してからエラーで気づくのではなく、先に確認すること。
 2. 対象の収集設定に紐づくラベル付与設定を`menu-filter`で取得する。
 3. **「不要」の中身をユーザーに確認する。** 判断の材料として、各ラベル付与設定が付けるラベルが使われているかを調べて提示する。
     - `filter`の`filter_condition_json`の条件、`group_label_key_ids`
     - `rule`の`conclusion_label_settings`
     - `_exastro_host`はフィルター条件に無くても、`action`の`event_collaboration: True`（実行先ホストの決定）に使われる
 4. 物理削除はできないので、代わりに廃止でよいかを`ask_user_choice`で確認する。
-5. 廃止は`documents-menu/oase_scenario_building.md`の「OASE設定を廃止する／廃止から復元する」節と同じ手順で行い、読み直して確認してから報告する。
+5. 廃止は`menu-reference/oase_scenario_building.md`の「OASE設定を廃止する／廃止から復元する」節と同じ手順で行い、読み直して確認してから報告する。
 
 ### 注意点
 
@@ -493,7 +493,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-menu/rule.md`を取得し、「AND相関（A and B）」節を読む。**
+1. **`get-document`で`menu-reference/rule.md`を取得し、「AND相関（A and B）」節を読む。**
 2. `menu-filter`で`labeling`/`filter`/`rule`を取得し、〇〇と△△のそれぞれについて、ラベル付与とフィルターがあるか、**どちらかのフィルターを単独で使っている既存ルールがあるか**を確認する。
 3. 足りないラベル付与・フィルターを作る（イベント項目のフィールド名・値が推測なら申告して確認する）。
 4. 既存の単独ルールがある場合は、その扱いを`ask_user_choice`で確認する。第一候補は「既存ルールをAND相関に変える」。既存ルールを残す案を出すときは、優先順位による副作用（`rule.md`の表）を具体的な秒数とともに書くこと。「既存ルールより先に動く可能性がある」のような曖昧な説明で済ませてはいけない。
@@ -511,7 +511,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-menu/rule.md`を取得し、「XOR相関（A xor B）」節を読む。** AND相関の節の「`ttl`まで待つ」はXORには当てはまらない。
+1. **`get-document`で`menu-reference/rule.md`を取得し、「XOR相関（A xor B）」節を読む。** AND相関の節の「`ttl`まで待つ」はXORには当てはまらない。
 2. `menu-filter`で`labeling`/`filter`/`rule`を取得し、〇〇と△△のラベル付与・フィルターの有無と、どちらかのフィルターを単独で使う既存ルールの有無を確認する。
 3. **「一方だけ」の意味を`ask_user_choice`で確認する。** 選択肢には次の挙動をそのまま書くこと。
     - XOR: それぞれ来たらすぐ対応。同じ判定周期にそろったときだけ何もしない（少しでも時間差があれば両方に対応する）
@@ -526,7 +526,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-menu/rule.md`を取得し、「時系列相関（A -> B）」節を読む。**
+1. **`get-document`で`menu-reference/rule.md`を取得し、「時系列相関（A -> B）」節を読む。**
 2. `menu-filter`で`event_collection`（`ttl`）・`labeling`・`filter`・`rule`・`action`を取得し、障害と復旧のラベル付与・フィルターの有無、障害のフィルターを単独で使う既存ルールの有無を確認する。
 3. 構成は「上位：`A -> B`（障害 → 復旧、アクションなし）の吸収ルール、下位：障害だけのエスカレーションルール」にする。吸収ルールに`A and B`を使わない。
 4. **依頼の「△△分」と収集設定の`ttl`を比べる。** 違えば、待ち時間は収集設定の`ttl`で決まることを伝え、`ttl`を変えるか（影響するルールも提示）、今の`ttl`のままにするかを確認する。
@@ -535,11 +535,11 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ## 冗長構成の監視ツールから届く同じイベントを1件にまとめる（重複排除）
 
-「〇〇と△△の両方から同じアラートが重複して届くので1件にまとめて」への対応手順。詳細は`documents-menu/deduplication.md`を参照。
+「〇〇と△△の両方から同じアラートが重複して届くので1件にまとめて」への対応手順。詳細は`menu-reference/deduplication.md`を参照。
 
 ### 手順
 
-1. **`get-document`で`documents-menu/deduplication.md`を取得する。**
+1. **`get-document`で`menu-reference/deduplication.md`を取得する。**
 2. `menu-filter`で`event_collection`・`labeling`・`deduplication`を取得し、〇〇と△△の収集設定、それぞれのラベル付与設定、既に重複排除設定に入っている収集設定が無いかを確認する。
 3. 各ラベルが監視ツールどうしで同じ値になるかを確認し、判定条件（条件なし／`is matched`／`is ignored`）を根拠とともに提案する。
 4. 承認前に登録内容を一覧で示す。複数選択の項目は表示名のJSON配列を**文字列**にして渡す（配列のまま渡すと`System Error (999-99999)`）。
@@ -551,7 +551,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-menu/rule.md`を取得し、通知の節を読む。**
+1. **`get-document`で`menu-reference/rule.md`を取得し、通知の節を読む。**
 2. 「イベント種別」がアラートの種類（CPU高負荷など）か、OASEの通知の種類（新規・既知・未知など）かを判断する。アラートの種類なら、そのアラートを扱うルールを`menu-filter`で特定する。
 3. `list-menu-info-pulldown`（`menu: "rule"`）で通知先の候補を確認する。候補に□□が無ければ、Exastro Platformの「通知管理」で通知先を登録してもらう必要があること（メールなら「メール送信サーバー設定」も）を伝える。ツールからは登録できない。
 4. 文面は`rule.md`の表の変数（`events`・`rule`・`action`・`conductor`）で作る。`{{ labels.xxx }}`のような共通テンプレートの書き方は使わない。
@@ -564,7 +564,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-menu/filter.md`を取得し、グルーピングの節を読む。**
+1. **`get-document`で`menu-reference/filter.md`を取得し、グルーピングの節を読む。**
 2. `menu-filter`で〇〇の△△を扱うフィルターとルール、収集設定の`ttl`を確認する。`list-menu-info-pulldown`で`search_condition_id`の選択肢（期間延長あり／なしの有無）を確認する。
 3. 既存フィルターの検索方法を`Grouping`に変え、`group_label_key_ids`（例: `["_exastro_host", "alert_type"]`）と`group_condition_id`（`is the target`）を指定する。期間延長ありなら`group_period`はキーごと送らない。
 4. 変更前後の動き（今は来るたびに対処が動く／同時に来ると全部未知になる → 変更後は1インシデントにつき1回）と、インシデントの区切り（最後のイベントから`ttl`秒静かになるまで同じインシデント）を、実際の`ttl`の値で説明して承認を取る。
@@ -576,7 +576,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### 手順
 
-1. **`get-document`で`documents-menu/rule.md`を取得し、「多段判定」節と「追加: 結論イベントでルールを連鎖させる」節を読む。**
+1. **`get-document`で`menu-reference/rule.md`を取得し、「多段判定」節と「追加: 結論イベントでルールを連鎖させる」節を読む。**
 2. `menu-filter`で◇◇の`conclusion_label_settings`・`event_label_inheritance_flag`・アクション、`_exastro_type == conclusion`を含むフィルターとそれを使うルールを確認する。
 3. ☆☆の判定に使うラベルが結論イベントに載っていなければ、`conclusion_label_settings`にJinja2で必要なラベルだけを足す（例: `["severity", "{{ A.severity }}"]`）案を第一候補にする。
 4. 既に◇◇の結論イベントを使っているルールがあれば、二次判定との関係をユーザーに確認する。

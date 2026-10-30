@@ -198,7 +198,7 @@ Actions have a unique constraint, and **older versions only look at the three co
   - At this point, explain the situation to the user and let them choose with `ask_user_choice` among the following. **Settle this before writing, rather than fixing it after a failure.**
     1. **Switch to Option A** (update the existing action to `event_collaboration: True`; do not add a filter or rule) ... the simplest. Per-host filters and rules become unnecessary too
     2. **Create it in operation execution mode** (create a new operation for the host in `operation_list` and specify `operation_id` on the action; do not specify `host_id` / `parameter_sheet_id`)
-        - If you create a new operation, retrieve `documents-menu/operation_list.md` with `get-document` beforehand (`scheduled_date_for_execution` is required; omitting it fails with `{"scheduled_date_for_execution": ["Required fields."]}`)
+        - If you create a new operation, retrieve `menu-reference/operation_list.md` with `get-document` beforehand (`scheduled_date_for_execution` is required; omitting it fails with `{"scheduled_date_for_execution": ["Required fields."]}`)
     3. **Use a different Conductor** (only when you actually want different response content)
   - **Important** If option 1 is chosen, neither creating a new filter nor updating the existing filter is **necessary**. Creating the filter first causes rework (having to discard it later), so **do not start writing until this determination is made**.
 - If there is no conflict (the existing action is in operation execution mode, or you will use a different Conductor) -> proceed with 4-1 onward as written.
@@ -316,7 +316,7 @@ Procedure for a request like "make the <field name> of <event type> usable as a 
 1. Retrieve the existing `label_creation` and `labeling` records with `menu-filter`.
     - If the same label key already exists, no new one is needed (tell the user so).
     - Look at the `search_key_name` of existing `labeling` records (e.g. `event.type`) as a hint about the event JSON structure.
-2. **Retrieve `documents-menu/labeling.md` with `get-document` before building the proposal.** There are three assignment patterns, and this request is "Pattern C (extract the event field's value as-is)". Do not emulate it with Pattern A by creating one record per possible value.
+2. **Retrieve `menu-reference/labeling.md` with `get-document` before building the proposal.** There are three assignment patterns, and this request is "Pattern C (extract the event field's value as-is)". Do not emulate it with Pattern A by creating one record per possible value.
 3. Register the label key in `label_creation`.
 4. Register the Pattern C record in `labeling` (specify only `search_key_name`; pass `type_name`/`comparison_method`/`search_value_name`/`label_value_name` all as `null`).
 5. Tell the user that the label can now be used in `filter` conditions, and finish.
@@ -350,7 +350,7 @@ labeling (magnitude comparison here)            filter (only == here)
 
 ### Steps
 
-1. **Before building the proposal, retrieve `documents-menu/filter.md` and `documents-menu/labeling.md` with `get-document`.** Confirm that the filter side has no magnitude comparison, and check Pattern A of `labeling` (the `type_name` × `comparison_method` combination).
+1. **Before building the proposal, retrieve `menu-reference/filter.md` and `menu-reference/labeling.md` with `get-document`.** Confirm that the filter side has no magnitude comparison, and check Pattern A of `labeling` (the `type_name` × `comparison_method` combination).
 2. Retrieve the existing `label_creation` / `labeling` / `filter` records with `menu-filter`. **Never ask the user something you can find out yourself with `menu-filter`, such as "have you already configured OASE?".** Build the proposal on the existing configuration you retrieved yourself.
 3. Register the label key for the threshold decision in `label_creation`.
 4. Register a Pattern A record in `labeling`.
@@ -383,7 +383,7 @@ Procedure for requests like "when rule X matches, run Conductor Y". For details,
 
 ### Steps
 
-1. **Before drafting a proposal, retrieve `documents-menu/rule.md` and `documents-menu/action.md` with `get-document`.**
+1. **Before drafting a proposal, retrieve `menu-reference/rule.md` and `menu-reference/action.md` with `get-document`.**
 2. Retrieve the target rule, existing actions and filters with `menu-filter`, and determine which action is currently linked to the rule (do not ask the user).
 3. If the existing rule already has an action, **confirm with `ask_user_choice` whether to replace (run Y instead of the current action) or add (also run Y after the current action)**. State the following in the options:
     - Replace: the current action (e.g. Sleep) will no longer run
@@ -402,7 +402,7 @@ Procedure for requests like "when rule X matches, run Conductor Y". For details,
 
 ## Discarding OASE settings / restoring them from discard
 
-Procedure for requests like "discard rule X" or "restore X from discard". For the call format, see the "Discard / Restore" section of `documents-tools/maintenance-all.md`; for finding discarded records, see "Handling discarded records" in `documents-tools/menu-filter.md`.
+Procedure for requests like "discard rule X" or "restore X from discard". For the call format, see the "Discard / Restore" section of `tool-reference/maintenance-all.md`; for finding discarded records, see "Handling discarded records" in `tool-reference/menu-filter.md`.
 
 ### Specifications to grasp first (most important)
 
@@ -422,7 +422,7 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 
 ### Steps
 
-1. **Retrieve `documents-tools/maintenance-all.md` and `documents-tools/menu-filter.md` with `get-document`.**
+1. **Retrieve `tool-reference/maintenance-all.md` and `tool-reference/menu-filter.md` with `get-document`.**
 2. Retrieve the target with `menu-filter`. For restore, add `{"discard": {"NORMAL": "1"}}`. If several discarded records share the name, narrow down by `last_update_date_time` and by whether the referenced records are active; if still not unique, confirm with the user.
 3. **Investigate and present the impact.**
     - When discarding a filter / action: look for active `rule`s using it with `menu-filter`. If any, explain that the rule will stop working, and confirm with `ask_user_choice` whether to discard the rule too or only the filter / action.
@@ -443,7 +443,7 @@ Procedure for requests like "copy the same labeling settings as X (existing coll
 
 ### Steps
 
-1. **Retrieve `documents-menu/event_collection.md` and `documents-menu/labeling.md` with `get-document`** (their "duplication" / "copy" sections).
+1. **Retrieve `menu-reference/event_collection.md` and `menu-reference/labeling.md` with `get-document`** (their "duplication" / "copy" sections).
 2. Retrieve the source event collection setting and all of its labeling settings with `menu-filter`.
 3. For the new collection, **confirm `url` and the credentials (`auth_token`, etc.) with the user**. Credentials cannot be obtained with `menu-filter`, so they cannot be copied from the existing setting. Reuse the existing values for the other items and say so in the proposal.
 4. **Investigate with `menu-filter` how the existing filters and rules will apply to events from the new collection, and only then explain it** (see "How to think about the impact" below). Do not assert guesses such as "the filters have no host condition" without checking.
@@ -469,19 +469,19 @@ Procedure for requests like "physically delete the unnecessary labeling settings
 
 ### Specifications to grasp first (most important)
 
-- **OASE menus (including `labeling`) cannot be physically deleted.** `row_delete_flag` in `list-menu-info` is `"0"`, and `Delete` fails with `401-00001`. This is not a role permission issue, so do not tell the user to get more permissions (see "Physical delete (Delete)" in `documents-tools/maintenance-all.md`).
+- **OASE menus (including `labeling`) cannot be physically deleted.** `row_delete_flag` in `list-menu-info` is `"0"`, and `Delete` fails with `401-00001`. This is not a role permission issue, so do not tell the user to get more permissions (see "Physical delete (Delete)" in `tool-reference/maintenance-all.md`).
 - Only discarding (`Discard`) is possible, and **discarded records remain in the database, so the record count does not decrease**. If the purpose of the request is "reducing the number of records", honestly explain that it cannot be achieved with ITA functions.
 
 ### Steps
 
-1. **Retrieve `documents-tools/maintenance-all.md` and `documents-tools/menu-filter.md` with `get-document`, and check `row_delete_flag` / `row_disuse_flag` of `labeling` with `list-menu-info`.** Check first instead of noticing from an error after trying `Delete`.
+1. **Retrieve `tool-reference/maintenance-all.md` and `tool-reference/menu-filter.md` with `get-document`, and check `row_delete_flag` / `row_disuse_flag` of `labeling` with `list-menu-info`.** Check first instead of noticing from an error after trying `Delete`.
 2. Retrieve the labeling settings linked to the target collection with `menu-filter`.
 3. **Confirm with the user what "unnecessary" means.** As material for the decision, check and present whether the labels each labeling setting attaches are used:
     - conditions in `filter_condition_json` of `filter`, and `group_label_key_ids`
     - `conclusion_label_settings` of `rule`
     - `_exastro_host` is used by `event_collaboration: True` of `action` (deciding the execution host) even if it is not in any filter condition
 4. Since physical deletion is not possible, confirm with `ask_user_choice` whether discarding is acceptable instead.
-5. Discard using the same procedure as the section "Discarding OASE settings / restoring them from discard" in `documents-menu/oase_scenario_building.md`, and re-read to confirm before reporting.
+5. Discard using the same procedure as the section "Discarding OASE settings / restoring them from discard" in `menu-reference/oase_scenario_building.md`, and re-read to confirm before reporting.
 
 ### Notes
 
@@ -493,7 +493,7 @@ Procedure for requests like "act only when X and Y occur at the same time". For 
 
 ### Steps
 
-1. **Retrieve `documents-menu/rule.md` with `get-document` and read the section "AND correlation (A and B)".**
+1. **Retrieve `menu-reference/rule.md` with `get-document` and read the section "AND correlation (A and B)".**
 2. Retrieve `labeling` / `filter` / `rule` with `menu-filter`, and check for each of X and Y whether the labeling settings and filters exist, and **whether an existing rule uses one of those filters on its own**.
 3. Create the missing labeling settings and filters (if the event field name/value is a guess, say so and confirm).
 4. If an existing single-filter rule exists, confirm how to handle it with `ask_user_choice`. The first choice is "change the existing rule into the AND correlation". When proposing to keep the existing rule, write the side effects caused by the priorities (the table in `rule.md`) with the concrete number of seconds. Do not settle for vague explanations such as "it may run before the existing rule".
@@ -511,7 +511,7 @@ Procedure for requests like "act when only one of X or Y occurs". For details, s
 
 ### Steps
 
-1. **Retrieve `documents-menu/rule.md` with `get-document` and read the section "XOR correlation (A xor B)".** The "wait until `ttl`" in the AND correlation section does not apply to XOR.
+1. **Retrieve `menu-reference/rule.md` with `get-document` and read the section "XOR correlation (A xor B)".** The "wait until `ttl`" in the AND correlation section does not apply to XOR.
 2. Retrieve `labeling` / `filter` / `rule` with `menu-filter`, and check whether labeling settings and filters for X and Y exist, and whether an existing rule uses one of those filters on its own.
 3. **Confirm the meaning of "only one" with `ask_user_choice`.** Write the following behaviours as-is in the options:
     - XOR: respond as soon as each arrives; do nothing only when both arrive in the same evaluation cycle (with even a small time difference, both are responded to)
@@ -526,7 +526,7 @@ Procedure for requests like "escalate if Y (recovery) does not arrive within N m
 
 ### Steps
 
-1. **Retrieve `documents-menu/rule.md` with `get-document` and read the section "Time-series correlation (A -> B)".**
+1. **Retrieve `menu-reference/rule.md` with `get-document` and read the section "Time-series correlation (A -> B)".**
 2. Retrieve `event_collection` (`ttl`), `labeling`, `filter`, `rule` and `action` with `menu-filter`, and check whether labeling settings and filters for the failure and the recovery exist, and whether an existing rule uses the failure filter on its own.
 3. Use the configuration "higher: absorbing rule with `A -> B` (failure → recovery, no action); lower: escalation rule for the failure only". Do not use `A and B` for the absorbing rule.
 4. **Compare the requested "N minutes" with the collection setting's `ttl`.** If they differ, explain that the waiting time is decided by the collection setting's `ttl`, and confirm whether to change the `ttl` (also presenting the affected rules) or keep the current `ttl`.
@@ -535,11 +535,11 @@ Procedure for requests like "escalate if Y (recovery) does not arrive within N m
 
 ## Merging the same events from redundant monitoring tools into one (deduplication)
 
-Procedure for requests like "the same alerts arrive twice from both X and Y, so merge them into one". For details, see `documents-menu/deduplication.md`.
+Procedure for requests like "the same alerts arrive twice from both X and Y, so merge them into one". For details, see `menu-reference/deduplication.md`.
 
 ### Steps
 
-1. **Retrieve `documents-menu/deduplication.md` with `get-document`.**
+1. **Retrieve `menu-reference/deduplication.md` with `get-document`.**
 2. Retrieve `event_collection`, `labeling` and `deduplication` with `menu-filter`, and check the collection settings for X and Y, their labeling settings, and whether any collection setting already belongs to a deduplication setting.
 3. Check whether each label has the same value across the monitoring tools, and propose the judgement condition (none / `is matched` / `is ignored`) with the reasoning.
 4. Before approval, present the registration contents as a list. Pass multi-select items as a JSON array of display names **as a string** (passing an array as-is results in `System Error (999-99999)`).
@@ -551,7 +551,7 @@ Procedure for requests like "change the notification mail text for X (event type
 
 ### Steps
 
-1. **Retrieve `documents-menu/rule.md` with `get-document` and read the notification section.**
+1. **Retrieve `menu-reference/rule.md` with `get-document` and read the notification section.**
 2. Determine whether "event type" means the alert type (e.g. CPU high load) or the OASE notification type (new, known, undetected, etc.). If it is the alert type, identify the rules handling that alert with `menu-filter`.
 3. Check the destination candidates with `list-menu-info-pulldown` (`menu: "rule"`). If Z is not among them, explain that the destination must be registered in Exastro Platform "Notification management" (and "Mail server settings" for email). It cannot be registered with the tools.
 4. Write the text with the variables in the table in `rule.md` (`events`, `rule`, `action`, `conductor`). Do not use the common-template style such as `{{ labels.xxx }}`.
@@ -564,7 +564,7 @@ Procedure for requests like "when Y (event type) recurs on X (host), merge them 
 
 ### Steps
 
-1. **Retrieve `documents-menu/filter.md` with `get-document` and read the grouping section.**
+1. **Retrieve `menu-reference/filter.md` with `get-document` and read the grouping section.**
 2. Check the filters and rules handling Y on X and the collection setting's `ttl` with `menu-filter`. Check the choices of `search_condition_id` (whether with/without period extension exist) with `list-menu-info-pulldown`.
 3. Change the existing filter's search method to `Grouping`, specifying `group_label_key_ids` (e.g. `["_exastro_host", "alert_type"]`) and `group_condition_id` (`is the target`). With period extension, do not send the `group_period` key at all.
 4. Explain the behaviour before and after (now the response runs every time / all become undetected when they arrive simultaneously → after the change, once per incident) and where an incident ends (the same incident until it is quiet for `ttl` seconds after the last event), citing the actual `ttl` value, and obtain approval.
@@ -576,7 +576,7 @@ Procedure for requests like "use the result of rule X and further judge with con
 
 ### Steps
 
-1. **Retrieve `documents-menu/rule.md` with `get-document` and read the sections "Multi-stage judgement" and "Add: chaining rules via the conclusion event".**
+1. **Retrieve `menu-reference/rule.md` with `get-document` and read the sections "Multi-stage judgement" and "Add: chaining rules via the conclusion event".**
 2. Check X's `conclusion_label_settings`, `event_label_inheritance_flag` and action, and the filters containing `_exastro_type == conclusion` and the rules using them, with `menu-filter`.
 3. If the labels needed for judging Y are not on the conclusion event, make the first choice adding only the required labels to `conclusion_label_settings` with Jinja2 (e.g. `["severity", "{{ A.severity }}"]`).
 4. If a rule already uses X's conclusion event, confirm with the user how it relates to the secondary judgement.
