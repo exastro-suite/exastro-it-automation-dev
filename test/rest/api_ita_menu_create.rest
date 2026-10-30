@@ -1,0 +1,38 @@
+###### Menu Parameter Collection Filter Data ######
+
+# Global values
+# not quate strings
+@org-user-id = admin
+@org-user-pw = password
+@base_org_url = http://platform-auth:{{org-mng-port}}
+@organization_id = org1
+@workspace_id = ws1
+
+
+###
+# パラメータ集の検索条件を全件取得する
+GET {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/parameter_collection/filter_data/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+
+###
+# パラメータ集の検索条件を登録・更新する
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/parameter_collection/filter_data/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "uuid": "",
+  "filter_name": "test",
+  "filter_json": "{\"tableDirection\":\"horizontal\",\"mode\":\"operation\",\"mainHost\":\"\",\"operation\":[\"23971849-4fc5-41e5-9ca2-fe3772d995a9\"],\"mainOperation\":\"23971849-4fc5-41e5-9ca2-fe3772d995a9\",\"host\":[\"1\",\"3979ff2d-7393-49e8-b464-807e5d3145fc\",\"8dfb9e60-c9f2-499d-9267-6cad945c1391\"],\"parameter\":[\"c4c72fe6-479a-41a3-bc1f-0b04336bb61f\"]}",
+  "last_update_date_time": ""
+}
+
+###
+# パラメータ集の検索条件を削除する
+@uuid = eb8989d5-f12e-443c-a4b4-b10be0c85e1c
+
+DELETE {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/parameter_collection/filter_data/{{uuid}}
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+###

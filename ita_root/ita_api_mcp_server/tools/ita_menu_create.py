@@ -13,7 +13,9 @@
 #   limitations under the License.
 #
 """
-ITAパラメータシート作成ツール ("create-menu" / "update-menu" / "get-menu-definition")
+ITAパラメータシート作成ツール ("create-menu" / "update-menu" / "get-menu-definition" /
+"get-parameter-collection-filter" / "register-parameter-collection-filter" /
+"delete-parameter-collection-filter")
 
 指定したパラメータシート(メニュー)定義を元に、パラメータシートの新規作成・
 更新・定義情報の取得を行うツール。呼び出し先のITAのAPI(
@@ -34,6 +36,24 @@ check_auth_menu('menu_definition_and_creation') を実行している)、@tool
   - get-menu-definition : menu_rest_name(パラメータシートのREST名)を受け取り、
     既存のパラメータシートの定義情報(menu・column)を取得する。update-menuの
     実行前に、現在の定義を取得するために使用する。
+  - get-parameter-collection-filter : 引数無し。「パラメーター集」メニューで
+    登録されている検索条件(uuid・filter_name・filter_json・
+    last_update_date_time)の一覧を取得する。
+  - register-parameter-collection-filter : filter_name・filter_jsonを受け取り、
+    「パラメーター集」メニューの検索条件を新規登録する。uuidと
+    last_update_date_time(get-parameter-collection-filterで取得した値)を
+    指定した場合は、既存の検索条件を更新する。
+  - delete-parameter-collection-filter : uuid(get-parameter-collection-filterで
+    取得した値)を受け取り、「パラメーター集」メニューの検索条件を削除する。
+
+上記の「パラメーター集」関連のツールが呼び出すAPI(GET / POST
+/api/{organization_id}/workspaces/{workspace_id}/ita/menu/parameter_collection/filter_data/
+および DELETE .../parameter_collection/filter_data/{uuid} )は「パラメーター集」
+メニュー(menu_name_rest: parameter_collection)へのロール権限が必要な操作で
+あるため(menu_create_controller.py の get_parameter_collection_filter_terms_get /
+get_parameter_collection_filter_terms_update / get_parameter_collection_filter_terms_delete が
+check_auth_menu('parameter_collection') を実行している)、これらのツールのみ
+required_menu に parameter_collection を指定する。
 
 menu_definition.menu.role_list(このパラメータシートにアクセスできるロール名の
 リスト)について:
@@ -55,7 +75,9 @@ menu_definition.menu.role_list(このパラメータシートにアクセスで�
     3. 2.の結果に "_{workspace_id}-admin" が含まれていなければ、必ず追加する。
 
 --------------------------------------------------------------------------
-ITA parameter-sheet creation tools ("create-menu" / "update-menu" / "get-menu-definition")
+ITA parameter-sheet creation tools ("create-menu" / "update-menu" / "get-menu-definition" /
+"get-parameter-collection-filter" / "register-parameter-collection-filter" /
+"delete-parameter-collection-filter")
 
 Creates, updates, or fetches the definition of a parameter sheet (menu) from
 the given menu definition. The downstream ITA APIs called here (
@@ -77,6 +99,26 @@ tools, so that tools/list hides them from users who cannot access that menu.
   - get-menu-definition : accepts menu_rest_name (the parameter sheet's REST
     name) and fetches the existing parameter sheet's definition (menu and
     column). Used to fetch the current definition before calling update-menu.
+  - get-parameter-collection-filter : takes no arguments, and fetches the
+    list of search conditions (uuid / filter_name / filter_json /
+    last_update_date_time) registered on the "Parameter collection" menu.
+  - register-parameter-collection-filter : accepts filter_name and
+    filter_json, and registers a new search condition on the "Parameter
+    collection" menu. When uuid and last_update_date_time (as fetched via
+    get-parameter-collection-filter) are given, the existing search
+    condition is updated instead.
+  - delete-parameter-collection-filter : accepts uuid (as fetched via
+    get-parameter-collection-filter), and deletes that search condition from
+    the "Parameter collection" menu.
+
+The downstream APIs called by the "Parameter collection" tools above (GET /
+POST /api/{organization_id}/workspaces/{workspace_id}/ita/menu/parameter_collection/filter_data/
+and DELETE .../parameter_collection/filter_data/{uuid} ) require role
+permission on the "Parameter collection" menu (menu_name_rest:
+parameter_collection) — see get_parameter_collection_filter_terms_get /
+get_parameter_collection_filter_terms_update / get_parameter_collection_filter_terms_delete
+in menu_create_controller.py, which call check_auth_menu('parameter_collection') —
+so these tools alone set required_menu to parameter_collection.
 
 About menu_definition.menu.role_list (the list of role names allowed to
 access this parameter sheet):
@@ -100,6 +142,7 @@ access this parameter sheet):
        result of step 2 does not already contain it.
 """
 import base64
+import json
 import os
 import re
 from urllib.parse import quote
@@ -112,6 +155,10 @@ from libs import tool, HTTPException, build_forward_headers, get_downstream_time
 # 権限チェック対象のメニュー(「パラメータシート定義・作成」)のmenu_name_rest
 # menu_name_rest of the permission-gating menu ("Parameter sheet definition and creation")
 _REQUIRED_MENU = "menu_definition_and_creation"
+
+# パラメーター集関連ツールの権限チェック対象のメニュー(「パラメーター集」)のmenu_name_rest
+# menu_name_rest of the permission-gating menu for the "Parameter collection" tools
+_REQUIRED_MENU_PARAMETER_COLLECTION = "parameter_collection"
 
 
 @tool(
@@ -689,6 +736,325 @@ def tool_get_menu_definition(arguments: dict, payload: dict) -> dict:
     return {
         "result": result,
         "message": "Menu definition fetched successfully.",
+        "organization_id": organization_id,
+        "workspace_id": workspace_id
+    }
+
+
+@tool(
+    name="get-parameter-collection-filter",
+    description=(
+        "Get the list of search conditions registered on the ITA \"Parameter collection\" menu. "
+        "Each item contains uuid, filter_name, filter_json and last_update_date_time."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {},
+        "required": []
+    },
+    required_menu=_REQUIRED_MENU_PARAMETER_COLLECTION,
+    profile=["AgenticAI"]
+)
+def tool_get_parameter_collection_filter(arguments: dict, payload: dict) -> dict:
+    """
+    パラメーター集の検索条件を取得する
+
+    Get the search conditions registered on the "Parameter collection" menu.
+
+    Parameters:
+        arguments (dict): ツールの引数(無し) / tool arguments (none)
+        payload (dict): 呼び出しコンテキスト情報
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Returns:
+        dict: 検索条件取得結果
+            - result: APIレスポンスの検索条件一覧(uuid / filter_name /
+              filter_json / last_update_date_time)
+              / the list of search conditions returned by the API
+            - message (str): 処理結果メッセージ / result message
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Raises:
+        HTTPException: 検索条件の取得に失敗した場合 / if fetching the search conditions fails
+    """
+    organization_id = payload.get("organization_id")
+    workspace_id = payload.get("workspace_id")
+
+    # このツールが呼び出すのは "/ita/menu/parameter_collection/filter_data/" というITA自身のAPI
+    # (ita_api_organization)側のエンドポイントであるため、環境変数
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT を使用する
+    #
+    # This tool calls the "/ita/menu/parameter_collection/filter_data/"
+    # endpoint of ITA's own API (ita_api_organization), so it uses the
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT environment
+    # variables
+    ita_api_host = os.getenv("ITA_API_ORAGANIZATION_HOST")
+    ita_api_port = os.getenv("ITA_API_ORAGANIZATION_PORT")
+    # プロトコルは常にhttp固定とする(ITAサービス間通信はhttpを使用する)
+    # Protocol is always fixed to http (inter-service communication within ITA uses http)
+    url = "http://{}:{}/api/{}/workspaces/{}/ita/menu/parameter_collection/filter_data/".format(
+        ita_api_host, ita_api_port, organization_id, workspace_id
+    )
+
+    # 転送用ヘッダーを組み立てる
+    # Build the headers to forward
+    headers = build_forward_headers(method="GET")
+
+    # ITAのAPIへ検索条件取得のGETリクエストを送信する
+    # Send a GET request to ITA's API to fetch the search conditions
+    req = requests.get(url, headers=headers, timeout=get_downstream_timeout())
+
+    # ステータスコードが200以外の場合は異常終了として例外を発生させる
+    # If the status code is not 200, treat it as a failure and raise an exception
+    if req.status_code != 200:
+        g.applogger.info("Failed to get parameter collection filter: {} - {}".format(req.status_code, req.text))
+        raise HTTPException("get-parameter-collection-filter", req)
+
+    # 正常時はAPIのレスポンスをそのまま結果として返す
+    # On success, return the API response as the result
+    return {
+        "result": req.json(),
+        "message": "Parameter collection filter fetched successfully.",
+        "organization_id": organization_id,
+        "workspace_id": workspace_id
+    }
+
+
+@tool(
+    name="register-parameter-collection-filter",
+    description=(
+        "Register or update a search condition on the ITA \"Parameter collection\" menu. "
+        "Omit uuid (or pass an empty string) to register a new one. To update, pass the uuid and "
+        "last_update_date_time obtained from `get-parameter-collection-filter`."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "uuid": {
+                "type": "string",
+                "description": "UUID of the search condition to update. Omit or pass an empty string to register a new one."
+            },
+            "filter_name": {
+                "type": "string",
+                "description": "Name of the search condition (max 255 characters, must be unique)."
+            },
+            "filter_json": {
+                "type": "object",
+                "description": (
+                    "Search condition. Pass the object form of the filter_json returned by "
+                    "`get-parameter-collection-filter` (a JSON string is also accepted)."
+                )
+            },
+            "last_update_date_time": {
+                "type": "string",
+                "description": (
+                    "Last update date time of the search condition (format: YYYY/MM/DD hh:mm:ss.ffffff). "
+                    "Required when uuid is specified; pass the value from `get-parameter-collection-filter`."
+                )
+            }
+        },
+        "required": ["filter_name", "filter_json"]
+    },
+    required_menu=_REQUIRED_MENU_PARAMETER_COLLECTION,
+    profile=["AgenticAI"]
+)
+def tool_register_parameter_collection_filter(arguments: dict, payload: dict) -> dict:
+    """
+    パラメーター集の検索条件を登録・更新する
+
+    Register or update a search condition on the "Parameter collection" menu.
+
+    Parameters:
+        arguments (dict): ツールの引数
+            - uuid (str, optional): 更新対象の検索条件のUUID。未指定または空文字列の
+              場合は新規登録 / UUID of the search condition to update; omitted or
+              empty means a new registration
+            - filter_name (str): 検索条件名 / name of the search condition
+            - filter_json (dict | str): 検索条件(dictの場合はJSON文字列に変換して送信する)
+              / the search condition (a dict is serialized to a JSON string before sending)
+            - last_update_date_time (str, optional): 最終更新日時(更新時は必須)
+              / last update date time (required when updating)
+        payload (dict): 呼び出しコンテキスト情報
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Returns:
+        dict: 検索条件登録・更新結果
+            - result: APIレスポンスの登録・更新件数(Register / Update 等)
+              / the register/update counts returned by the API
+            - message (str): 処理結果メッセージ / result message
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Raises:
+        Exception: 必須パラメータが指定されていない場合 / if a required parameter is not specified
+        HTTPException: 検索条件の登録・更新に失敗した場合 / if registering/updating the search condition fails
+    """
+    organization_id = payload.get("organization_id")
+    workspace_id = payload.get("workspace_id")
+    uuid = arguments.get("uuid") or ""
+    filter_name = arguments.get("filter_name", "")
+    filter_json = arguments.get("filter_json")
+    last_update_date_time = arguments.get("last_update_date_time") or ""
+
+    if not filter_name:
+        raise Exception("filter_name is required")
+    if filter_json is None:
+        raise Exception("filter_json is required")
+    # 更新時はAPI側で追い越しチェックを行うため、最終更新日時が必須となる
+    # When updating, the API performs an optimistic-lock check, so last_update_date_time is required
+    if uuid and not last_update_date_time:
+        raise Exception("last_update_date_time is required when uuid is specified")
+
+    # API側はfilter_jsonをJSON文字列として扱う(json.loadsで検証する)ため、
+    # dict/listで渡された場合はJSON文字列に変換する
+    # The API treats filter_json as a JSON string (validated with json.loads),
+    # so serialize it when given as a dict/list
+    if not isinstance(filter_json, str):
+        filter_json = json.dumps(filter_json, ensure_ascii=False)
+
+    g.applogger.info(f'Parameter uuid={uuid} filter_name={filter_name}')
+
+    # このツールが呼び出すのは "/ita/menu/parameter_collection/filter_data/" というITA自身のAPI
+    # (ita_api_organization)側のエンドポイントであるため、環境変数
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT を使用する
+    #
+    # This tool calls the "/ita/menu/parameter_collection/filter_data/"
+    # endpoint of ITA's own API (ita_api_organization), so it uses the
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT environment
+    # variables
+    ita_api_host = os.getenv("ITA_API_ORAGANIZATION_HOST")
+    ita_api_port = os.getenv("ITA_API_ORAGANIZATION_PORT")
+    # プロトコルは常にhttp固定とする(ITAサービス間通信はhttpを使用する)
+    # Protocol is always fixed to http (inter-service communication within ITA uses http)
+    url = "http://{}:{}/api/{}/workspaces/{}/ita/menu/parameter_collection/filter_data/".format(
+        ita_api_host, ita_api_port, organization_id, workspace_id
+    )
+
+    # 転送用ヘッダーを組み立てる(POSTでボディを送るため"Content-Type"も付与する)
+    # Build the headers to forward (also adds "Content-Type" since this is a POST with a body)
+    headers = build_forward_headers(method="POST")
+
+    # Web画面(parameter_collection.js)と同じ形式のボディを組み立てる
+    # Build the body in the same shape the Web UI (parameter_collection.js) sends
+    body = {
+        "uuid": uuid,
+        "filter_name": filter_name,
+        "filter_json": filter_json,
+        "last_update_date_time": last_update_date_time
+    }
+
+    # ITAのAPIへ検索条件登録・更新のPOSTリクエストを送信する
+    # Send a POST request to ITA's API to register/update the search condition
+    req = requests.post(url, json=body, headers=headers, timeout=get_downstream_timeout())
+
+    # ステータスコードが200以外の場合は異常終了として例外を発生させる
+    # If the status code is not 200, treat it as a failure and raise an exception
+    if req.status_code != 200:
+        g.applogger.info("Failed to register parameter collection filter: {} - {}".format(req.status_code, req.text))
+        raise HTTPException("register-parameter-collection-filter", req)
+
+    # 正常時はAPIのレスポンスをそのまま結果として返す
+    # On success, return the API response as the result
+    return {
+        "result": req.json(),
+        "message": "Parameter collection filter updated successfully." if uuid else "Parameter collection filter registered successfully.",
+        "organization_id": organization_id,
+        "workspace_id": workspace_id
+    }
+
+
+@tool(
+    name="delete-parameter-collection-filter",
+    description=(
+        "Delete a search condition from the ITA \"Parameter collection\" menu. "
+        "Specify the uuid obtained from `get-parameter-collection-filter`."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "uuid": {
+                "type": "string",
+                "description": "UUID of the search condition to delete."
+            }
+        },
+        "required": ["uuid"]
+    },
+    required_menu=_REQUIRED_MENU_PARAMETER_COLLECTION,
+    profile=["AgenticAI"]
+)
+def tool_delete_parameter_collection_filter(arguments: dict, payload: dict) -> dict:
+    """
+    パラメーター集の検索条件を削除する
+
+    Delete a search condition from the "Parameter collection" menu.
+
+    Parameters:
+        arguments (dict): ツールの引数
+            - uuid (str): 削除する検索条件のUUID / UUID of the search condition to delete
+        payload (dict): 呼び出しコンテキスト情報
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Returns:
+        dict: 検索条件削除結果
+            - result: APIレスポンスの削除件数(Discard 等) / the delete counts returned by the API
+            - message (str): 処理結果メッセージ / result message
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Raises:
+        Exception: uuidが指定されていない場合 / if uuid is not specified
+        HTTPException: 検索条件の削除に失敗した場合 / if deleting the search condition fails
+    """
+    organization_id = payload.get("organization_id")
+    workspace_id = payload.get("workspace_id")
+    uuid = arguments.get("uuid", "")
+
+    if not uuid:
+        raise Exception("uuid is required")
+
+    g.applogger.info(f'Parameter uuid={uuid}')
+
+    # このツールが呼び出すのは "/ita/menu/parameter_collection/filter_data/{uuid}" というITA自身のAPI
+    # (ita_api_organization)側のエンドポイントであるため、環境変数
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT を使用する
+    #
+    # This tool calls the "/ita/menu/parameter_collection/filter_data/{uuid}"
+    # endpoint of ITA's own API (ita_api_organization), so it uses the
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT environment
+    # variables
+    ita_api_host = os.getenv("ITA_API_ORAGANIZATION_HOST")
+    ita_api_port = os.getenv("ITA_API_ORAGANIZATION_PORT")
+    # プロトコルは常にhttp固定とする(ITAサービス間通信はhttpを使用する)
+    # Protocol is always fixed to http (inter-service communication within ITA uses http)
+    # NOTE: このAPIのパスは末尾に "/" が付かない定義のため、付けずに呼び出す
+    # NOTE: this API's path is defined without a trailing "/", so none is appended
+    url = "http://{}:{}/api/{}/workspaces/{}/ita/menu/parameter_collection/filter_data/{}".format(
+        ita_api_host, ita_api_port, organization_id, workspace_id, uuid
+    )
+
+    # 転送用ヘッダーを組み立てる
+    # Build the headers to forward
+    headers = build_forward_headers(method="DELETE")
+
+    # ITAのAPIへ検索条件削除のDELETEリクエストを送信する
+    # Send a DELETE request to ITA's API to delete the search condition
+    req = requests.delete(url, headers=headers, timeout=get_downstream_timeout())
+
+    # ステータスコードが200以外の場合は異常終了として例外を発生させる
+    # If the status code is not 200, treat it as a failure and raise an exception
+    if req.status_code != 200:
+        g.applogger.info("Failed to delete parameter collection filter: {} - {}".format(req.status_code, req.text))
+        raise HTTPException("delete-parameter-collection-filter", req)
+
+    # 正常時はAPIのレスポンスをそのまま結果として返す
+    # On success, return the API response as the result
+    return {
+        "result": req.json(),
+        "message": "Parameter collection filter deleted successfully.",
         "organization_id": organization_id,
         "workspace_id": workspace_id
     }

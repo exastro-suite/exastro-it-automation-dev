@@ -12,8 +12,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 """
-tools/ita_menu_create.py (create-menu / update-menu / get-menu-definition) の
-ユニットテスト
+tools/ita_menu_create.py (create-menu / update-menu / get-menu-definition /
+get-parameter-collection-filter / register-parameter-collection-filter /
+delete-parameter-collection-filter) のユニットテスト
 
 ダウンストリームAPI(ita_api_organization / Exastro Platform)へのHTTP
 アクセスはrequests_mockで全てモックし、実際のネットワークアクセスは一切
@@ -55,6 +56,19 @@ def _create_url(organization_id=ORG_ID, workspace_id=WS_ID):
 def _get_menu_definition_url(menu_rest_name, organization_id=ORG_ID, workspace_id=WS_ID):
     return "http://{}:{}/api/{}/workspaces/{}/ita/create/define/{}/".format(
         ITA_HOST, ITA_PORT, organization_id, workspace_id, menu_rest_name
+    )
+
+
+def _parameter_collection_filter_url(organization_id=ORG_ID, workspace_id=WS_ID):
+    return "http://{}:{}/api/{}/workspaces/{}/ita/menu/parameter_collection/filter_data/".format(
+        ITA_HOST, ITA_PORT, organization_id, workspace_id
+    )
+
+
+def _delete_parameter_collection_filter_url(uuid, organization_id=ORG_ID, workspace_id=WS_ID):
+    # 削除APIのパスは末尾に "/" が付かない
+    return "http://{}:{}/api/{}/workspaces/{}/ita/menu/parameter_collection/filter_data/{}".format(
+        ITA_HOST, ITA_PORT, organization_id, workspace_id, uuid
     )
 
 
@@ -696,3 +710,429 @@ class TestToolGetMenuDefinition:
         )
 
         assert requests_mock.last_request.url == _get_menu_definition_url(encoded)
+
+
+class TestToolGetParameterCollectionFilter:
+    def test_success_returns_api_response_as_is(self, mock_flask_g, requests_mock):
+        # 正常系: 検索条件の取得が成功し、APIレスポンスがそのままresultに入ること
+        api_response = {
+            "data": [
+                {
+                    "uuid": "uuid-1",
+                    "filter_name": "filter1",
+                    "filter_json": {"operation": ["ope1"]},
+                    "last_update_date_time": "2026/01/01 00:00:00.000000",
+                }
+            ]
+        }
+        requests_mock.get(_parameter_collection_filter_url(), json=api_response, status_code=200)
+
+        result = menu_create_tool.tool_get_parameter_collection_filter({}, _payload())
+
+        assert result["result"] == api_response
+        assert result["message"] == "Parameter collection filter fetched successfully."
+        assert result["organization_id"] == ORG_ID
+        assert result["workspace_id"] == WS_ID
+
+    def test_success_empty_list(self, mock_flask_g, requests_mock):
+        # 境界値: 検索条件が1件も登録されていない場合でも、空のレスポンスが
+        # そのままresultに入ること
+        api_response = {"data": []}
+        requests_mock.get(_parameter_collection_filter_url(), json=api_response, status_code=200)
+
+        result = menu_create_tool.tool_get_parameter_collection_filter({}, _payload())
+
+        assert result["result"] == api_response
+
+    def test_request_url_and_no_content_type_header(self, mock_flask_g, requests_mock):
+        # 正常系: 呼び出し先URLがorganization_id/workspace_idを含めて正しく
+        # 組み立てられ、GETなのでContent-Typeヘッダーは付与されないこと
+        org_id = "org2"
+        ws_id = "ws2"
+        url = _parameter_collection_filter_url(org_id, ws_id)
+        requests_mock.get(url, json={"data": []}, status_code=200)
+
+        result = menu_create_tool.tool_get_parameter_collection_filter({}, _payload(org_id, ws_id))
+
+        last_request = requests_mock.last_request
+        assert last_request.url == url
+        assert last_request.method == "GET"
+        assert "Content-Type" not in last_request.headers
+        assert result["organization_id"] == org_id
+        assert result["workspace_id"] == ws_id
+
+    def test_arguments_are_ignored(self, mock_flask_g, requests_mock):
+        # 境界値: 引数無しのツールのため、argumentsに値が渡されても
+        # 送信先URLやクエリパラメータに影響しないこと
+        requests_mock.get(_parameter_collection_filter_url(), json={"data": []}, status_code=200)
+
+        menu_create_tool.tool_get_parameter_collection_filter({"uuid": "uuid-1"}, _payload())
+
+        last_request = requests_mock.last_request
+        assert last_request.url == _parameter_collection_filter_url()
+        assert last_request.qs == {}
+
+    def test_request_timeout_uses_downstream_timeout(self, mock_flask_g, requests_mock, monkeypatch):
+        # 正常系: GETリクエストのtimeoutにget_downstream_timeout()の値
+        # (APACHE_TIMEOUT + 30秒)が指定されること
+        monkeypatch.setenv("APACHE_TIMEOUT", "120")
+        requests_mock.get(_parameter_collection_filter_url(), json={"data": []}, status_code=200)
+
+        menu_create_tool.tool_get_parameter_collection_filter({}, _payload())
+
+        assert requests_mock.last_request.timeout == 150
+
+    def test_http_error_raises_http_exception(self, mock_flask_g, requests_mock):
+        # 異常系: ダウンストリームAPIが200以外を返した場合、HTTPExceptionが
+        # 発生し、tool_nameが"get-parameter-collection-filter"になること
+        requests_mock.get(
+            _parameter_collection_filter_url(),
+            json={"message": "forbidden", "result": "NG"},
+            status_code=403,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            menu_create_tool.tool_get_parameter_collection_filter({}, _payload())
+
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.tool_name == "get-parameter-collection-filter"
+        assert str(exc_info.value) == "forbidden (NG)"
+
+    def test_http_error_without_json_body(self, mock_flask_g, requests_mock):
+        # 異常系: レスポンスボディがJSONとして解釈できない場合でも例外が
+        # 発生し、tool_nameとstatus_codeからメッセージが組み立てられること
+        requests_mock.get(_parameter_collection_filter_url(), text="boom", status_code=500)
+
+        with pytest.raises(HTTPException) as exc_info:
+            menu_create_tool.tool_get_parameter_collection_filter({}, _payload())
+
+        assert exc_info.value.status_code == 500
+        assert str(exc_info.value) == "get-parameter-collection-filter failed: HTTP 500"
+
+
+class TestToolRegisterParameterCollectionFilter:
+    def test_register_new_success(self, mock_flask_g, requests_mock):
+        # 正常系: uuid未指定で新規登録が成功し、APIレスポンスがそのまま
+        # resultに入り、message="...registered successfully."が返ること
+        api_response = {"data": {"Register": "1", "Update": "0"}}
+        requests_mock.post(_parameter_collection_filter_url(), json=api_response, status_code=200)
+
+        result = menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": {"operation": ["ope1"]}}, _payload()
+        )
+
+        assert result["result"] == api_response
+        assert result["message"] == "Parameter collection filter registered successfully."
+        assert result["organization_id"] == ORG_ID
+        assert result["workspace_id"] == WS_ID
+
+    def test_register_new_request_body_and_headers(self, mock_flask_g, requests_mock):
+        # 正常系: 新規登録時、uuid/last_update_date_timeは空文字で送信され、
+        # dictのfilter_jsonはJSON文字列(ensure_ascii=False)に変換され、
+        # POSTなのでContent-Typeヘッダーが付与されること
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+
+        filter_json = {"operation": ["オペレーション1"], "host": []}
+        menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": filter_json}, _payload()
+        )
+
+        last_request = requests_mock.last_request
+        assert last_request.url == _parameter_collection_filter_url()
+        assert last_request.method == "POST"
+        assert last_request.headers["Content-Type"] == "application/json"
+        sent_body = last_request.json()
+        assert sent_body == {
+            "uuid": "",
+            "filter_name": "filter1",
+            "filter_json": '{"operation": ["オペレーション1"], "host": []}',
+            "last_update_date_time": "",
+        }
+
+    def test_empty_uuid_treated_as_new_registration(self, mock_flask_g, requests_mock):
+        # 境界値: uuidが空文字の場合は新規登録として扱われ、
+        # last_update_date_time未指定でもエラーにならないこと
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+
+        result = menu_create_tool.tool_register_parameter_collection_filter(
+            {"uuid": "", "filter_name": "filter1", "filter_json": {}}, _payload()
+        )
+
+        assert result["message"] == "Parameter collection filter registered successfully."
+        assert requests_mock.last_request.json()["uuid"] == ""
+
+    def test_none_uuid_and_last_update_date_time_sent_as_empty_string(self, mock_flask_g, requests_mock):
+        # 境界値: uuid/last_update_date_timeにNoneが渡された場合は
+        # 空文字に変換して送信されること
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+
+        menu_create_tool.tool_register_parameter_collection_filter(
+            {"uuid": None, "filter_name": "filter1", "filter_json": {}, "last_update_date_time": None},
+            _payload(),
+        )
+
+        sent_body = requests_mock.last_request.json()
+        assert sent_body["uuid"] == ""
+        assert sent_body["last_update_date_time"] == ""
+
+    def test_update_success(self, mock_flask_g, requests_mock):
+        # 正常系: uuidとlast_update_date_timeを指定した場合は更新として扱われ、
+        # それらがそのまま送信され、message="...updated successfully."が返ること
+        api_response = {"data": {"Register": "0", "Update": "1"}}
+        requests_mock.post(_parameter_collection_filter_url(), json=api_response, status_code=200)
+
+        result = menu_create_tool.tool_register_parameter_collection_filter(
+            {
+                "uuid": "uuid-1",
+                "filter_name": "filter1",
+                "filter_json": {"operation": ["ope1"]},
+                "last_update_date_time": "2026/01/01 00:00:00.000000",
+            },
+            _payload(),
+        )
+
+        assert result["result"] == api_response
+        assert result["message"] == "Parameter collection filter updated successfully."
+        sent_body = requests_mock.last_request.json()
+        assert sent_body["uuid"] == "uuid-1"
+        assert sent_body["last_update_date_time"] == "2026/01/01 00:00:00.000000"
+
+    def test_filter_json_string_sent_as_is(self, mock_flask_g, requests_mock):
+        # 正常系: filter_jsonがJSON文字列で渡された場合は再変換されず、
+        # そのまま送信されること
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+
+        filter_json = '{"operation":["ope1"]}'
+        menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": filter_json}, _payload()
+        )
+
+        assert requests_mock.last_request.json()["filter_json"] == filter_json
+
+    def test_filter_json_list_serialized(self, mock_flask_g, requests_mock):
+        # 境界値: filter_jsonがlistで渡された場合もJSON文字列に変換されること
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+
+        menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": []}, _payload()
+        )
+
+        assert requests_mock.last_request.json()["filter_json"] == "[]"
+
+    def test_empty_dict_filter_json_is_accepted(self, mock_flask_g, requests_mock):
+        # 境界値: filter_jsonが空dictの場合は未指定扱いにならず、"{}"として
+        # 送信されること
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+
+        menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": {}}, _payload()
+        )
+
+        assert requests_mock.last_request.json()["filter_json"] == "{}"
+
+    def test_request_timeout_uses_downstream_timeout(self, mock_flask_g, requests_mock, monkeypatch):
+        # 正常系: POSTリクエストのtimeoutにget_downstream_timeout()の値
+        # (APACHE_TIMEOUT + 30秒)が指定されること
+        monkeypatch.setenv("APACHE_TIMEOUT", "120")
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+
+        menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": {}}, _payload()
+        )
+
+        assert requests_mock.last_request.timeout == 150
+
+    def test_missing_filter_name_raises(self, mock_flask_g, requests_mock):
+        # 異常系: filter_nameが指定されていない場合は例外が発生し、
+        # APIは呼び出されないこと
+        with pytest.raises(Exception, match="filter_name is required"):
+            menu_create_tool.tool_register_parameter_collection_filter(
+                {"filter_json": {}}, _payload()
+            )
+
+        assert requests_mock.call_count == 0
+
+    def test_empty_filter_name_raises(self, mock_flask_g):
+        # 境界値: filter_nameが空文字の場合も未指定と同様に例外が発生すること
+        with pytest.raises(Exception, match="filter_name is required"):
+            menu_create_tool.tool_register_parameter_collection_filter(
+                {"filter_name": "", "filter_json": {}}, _payload()
+            )
+
+    def test_missing_filter_json_raises(self, mock_flask_g, requests_mock):
+        # 異常系: filter_jsonが指定されていない場合は例外が発生し、
+        # APIは呼び出されないこと
+        with pytest.raises(Exception, match="filter_json is required"):
+            menu_create_tool.tool_register_parameter_collection_filter(
+                {"filter_name": "filter1"}, _payload()
+            )
+
+        assert requests_mock.call_count == 0
+
+    def test_uuid_without_last_update_date_time_raises(self, mock_flask_g, requests_mock):
+        # 異常系: uuid指定時(更新時)にlast_update_date_timeが指定されていない
+        # 場合は例外が発生し、APIは呼び出されないこと
+        with pytest.raises(
+            Exception, match="last_update_date_time is required when uuid is specified"
+        ):
+            menu_create_tool.tool_register_parameter_collection_filter(
+                {"uuid": "uuid-1", "filter_name": "filter1", "filter_json": {}}, _payload()
+            )
+
+        assert requests_mock.call_count == 0
+
+    def test_uuid_with_empty_last_update_date_time_raises(self, mock_flask_g):
+        # 境界値: uuid指定時にlast_update_date_timeが空文字の場合も
+        # 未指定と同様に例外が発生すること
+        with pytest.raises(
+            Exception, match="last_update_date_time is required when uuid is specified"
+        ):
+            menu_create_tool.tool_register_parameter_collection_filter(
+                {
+                    "uuid": "uuid-1",
+                    "filter_name": "filter1",
+                    "filter_json": {},
+                    "last_update_date_time": "",
+                },
+                _payload(),
+            )
+
+    def test_http_error_raises_http_exception(self, mock_flask_g, requests_mock):
+        # 異常系: ダウンストリームAPIが200以外を返した場合、HTTPExceptionが
+        # 発生し、tool_nameが"register-parameter-collection-filter"になること
+        requests_mock.post(
+            _parameter_collection_filter_url(),
+            json={"message": "duplicate filter_name", "result": "NG"},
+            status_code=499,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            menu_create_tool.tool_register_parameter_collection_filter(
+                {"filter_name": "filter1", "filter_json": {}}, _payload()
+            )
+
+        assert exc_info.value.status_code == 499
+        assert exc_info.value.tool_name == "register-parameter-collection-filter"
+        assert str(exc_info.value) == "duplicate filter_name (NG)"
+
+    def test_http_error_without_json_body(self, mock_flask_g, requests_mock):
+        # 異常系: レスポンスボディがJSONとして解釈できない場合でも例外が
+        # 発生し、tool_nameとstatus_codeからメッセージが組み立てられること
+        requests_mock.post(_parameter_collection_filter_url(), text="boom", status_code=500)
+
+        with pytest.raises(HTTPException) as exc_info:
+            menu_create_tool.tool_register_parameter_collection_filter(
+                {"filter_name": "filter1", "filter_json": {}}, _payload()
+            )
+
+        assert exc_info.value.status_code == 500
+        assert str(exc_info.value) == "register-parameter-collection-filter failed: HTTP 500"
+
+
+class TestToolDeleteParameterCollectionFilter:
+    def test_success_returns_api_response_as_is(self, mock_flask_g, requests_mock):
+        # 正常系: 検索条件の削除が成功し、APIレスポンスがそのままresultに入ること
+        api_response = {"data": {"Discard": "1"}}
+        requests_mock.delete(
+            _delete_parameter_collection_filter_url("uuid-1"), json=api_response, status_code=200
+        )
+
+        result = menu_create_tool.tool_delete_parameter_collection_filter(
+            {"uuid": "uuid-1"}, _payload()
+        )
+
+        assert result["result"] == api_response
+        assert result["message"] == "Parameter collection filter deleted successfully."
+        assert result["organization_id"] == ORG_ID
+        assert result["workspace_id"] == WS_ID
+
+    def test_request_url_without_trailing_slash_and_no_content_type_header(
+        self, mock_flask_g, requests_mock
+    ):
+        # 正常系: 呼び出し先URLがorganization_id/workspace_id/uuidを含めて
+        # 末尾"/"無しで組み立てられ、DELETEなのでContent-Typeヘッダーは
+        # 付与されず、ボディも送信されないこと
+        org_id = "org2"
+        ws_id = "ws2"
+        url = _delete_parameter_collection_filter_url("uuid-2", org_id, ws_id)
+        requests_mock.delete(url, json={}, status_code=200)
+
+        result = menu_create_tool.tool_delete_parameter_collection_filter(
+            {"uuid": "uuid-2"}, _payload(org_id, ws_id)
+        )
+
+        last_request = requests_mock.last_request
+        assert last_request.url == url
+        assert not last_request.url.endswith("/")
+        assert last_request.method == "DELETE"
+        assert "Content-Type" not in last_request.headers
+        assert last_request.body is None
+        assert result["organization_id"] == org_id
+        assert result["workspace_id"] == ws_id
+
+    def test_request_timeout_uses_downstream_timeout(self, mock_flask_g, requests_mock, monkeypatch):
+        # 正常系: DELETEリクエストのtimeoutにget_downstream_timeout()の値
+        # (APACHE_TIMEOUT + 30秒)が指定されること
+        monkeypatch.setenv("APACHE_TIMEOUT", "120")
+        requests_mock.delete(
+            _delete_parameter_collection_filter_url("uuid-1"), json={}, status_code=200
+        )
+
+        menu_create_tool.tool_delete_parameter_collection_filter({"uuid": "uuid-1"}, _payload())
+
+        assert requests_mock.last_request.timeout == 150
+
+    def test_missing_uuid_raises(self, mock_flask_g, requests_mock):
+        # 異常系: uuidが指定されていない場合は例外が発生し、APIは呼び出されないこと
+        with pytest.raises(Exception, match="uuid is required"):
+            menu_create_tool.tool_delete_parameter_collection_filter({}, _payload())
+
+        assert requests_mock.call_count == 0
+
+    def test_empty_uuid_raises(self, mock_flask_g, requests_mock):
+        # 境界値: uuidが空文字の場合も未指定と同様に例外が発生し、
+        # APIは呼び出されないこと(一覧取得APIのURLへDELETEが飛ばないこと)
+        with pytest.raises(Exception, match="uuid is required"):
+            menu_create_tool.tool_delete_parameter_collection_filter({"uuid": ""}, _payload())
+
+        assert requests_mock.call_count == 0
+
+    def test_none_uuid_raises(self, mock_flask_g, requests_mock):
+        # 境界値: uuidにNoneが渡された場合も未指定と同様に例外が発生すること
+        with pytest.raises(Exception, match="uuid is required"):
+            menu_create_tool.tool_delete_parameter_collection_filter({"uuid": None}, _payload())
+
+        assert requests_mock.call_count == 0
+
+    def test_http_error_raises_http_exception(self, mock_flask_g, requests_mock):
+        # 異常系: ダウンストリームAPIが200以外を返した場合、HTTPExceptionが
+        # 発生し、tool_nameが"delete-parameter-collection-filter"になること
+        requests_mock.delete(
+            _delete_parameter_collection_filter_url("uuid-x"),
+            json={"message": "not found", "result": "NG"},
+            status_code=404,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            menu_create_tool.tool_delete_parameter_collection_filter(
+                {"uuid": "uuid-x"}, _payload()
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.tool_name == "delete-parameter-collection-filter"
+        assert str(exc_info.value) == "not found (NG)"
+
+    def test_http_error_without_json_body(self, mock_flask_g, requests_mock):
+        # 異常系: レスポンスボディがJSONとして解釈できない場合でも例外が
+        # 発生し、tool_nameとstatus_codeからメッセージが組み立てられること
+        requests_mock.delete(
+            _delete_parameter_collection_filter_url("uuid-1"), text="boom", status_code=500
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            menu_create_tool.tool_delete_parameter_collection_filter(
+                {"uuid": "uuid-1"}, _payload()
+            )
+
+        assert exc_info.value.status_code == 500
+        assert str(exc_info.value) == "delete-parameter-collection-filter failed: HTTP 500"
