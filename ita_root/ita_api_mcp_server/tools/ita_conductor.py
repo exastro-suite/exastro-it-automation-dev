@@ -73,7 +73,7 @@ import os
 import requests
 from flask import g
 
-from libs import tool, HTTPException, build_forward_headers
+from libs import tool, HTTPException, build_forward_headers, get_downstream_timeout
 
 # create-conductorが対象とするmenuのmenu_name_rest
 # menu_name_rest of the menu targeted by create-conductor
@@ -176,7 +176,7 @@ def tool_create_conductor(arguments: dict, payload: dict) -> dict:
 
     # ITAのAPIへConductor新規登録のPOSTリクエストを送信する
     # Send a POST request to ITA's API to register the new Conductor
-    req = requests.post(url, json=conductor_data, headers=headers)
+    req = requests.post(url, json=conductor_data, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
@@ -291,7 +291,7 @@ def tool_update_conductor(arguments: dict, payload: dict) -> dict:
 
     # ITAのAPIへConductor更新のPATCHリクエストを送信する
     # Send a PATCH request to ITA's API to update the Conductor
-    req = requests.patch(url, json=conductor_data, headers=headers)
+    req = requests.patch(url, json=conductor_data, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
@@ -430,7 +430,7 @@ def tool_execute_conductor(arguments: dict, payload: dict) -> dict:
 
     # ITAのAPIへConductor実行のPOSTリクエストを送信する
     # Send a POST request to ITA's API to execute the Conductor
-    req = requests.post(url, json=request_body, headers=headers)
+    req = requests.post(url, json=request_body, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
@@ -536,7 +536,7 @@ def tool_get_conductor_instance(arguments: dict, payload: dict) -> dict:
 
     # ITAのAPIへConductor情報取得のGETリクエストを送信する
     # Send a GET request to ITA's API to retrieve Conductor information
-    req = requests.get(url, headers=headers)
+    req = requests.get(url, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
@@ -643,7 +643,7 @@ def tool_get_conductor_class(arguments: dict, payload: dict) -> dict:
 
     # ITAのAPIへConductorクラス情報取得のGETリクエストを送信する
     # Send a GET request to ITA's API to retrieve Conductor class information
-    req = requests.get(url, headers=headers)
+    req = requests.get(url, headers=headers, timeout=get_downstream_timeout())
 
     # ステータスコードが200以外の場合は異常終了として例外を発生させる
     # If the status code is not 200, treat it as a failure and raise an exception
