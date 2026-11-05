@@ -76,6 +76,13 @@ The data type of the value and the comparison method must be combined correctly.
 - **There is no partial-match / substring comparison method.** Values such as `Contains`, `contains`, `LIKE` or `in` do not exist and fail with `{"comparison_method": ["The input value is an invalid value.(input value:Contains)"]}` (499-00201). To match on a substring (e.g. "the trigger name contains `CPU`"), use `type_name: "any"` + `comparison_method: "RegExp"` + `search_value_name: ".*CPU.*"`.
 - The exact set of accepted values can be confirmed with `list-menu-info-pulldown` on this menu.
 
+## When using regular expressions (pre-registration check; important)
+
+- **Instead of creating many labeling settings, one per value, they can be combined with a regular expression.** Example: if the alert names are `CPU high`, `CPU warning` and `CPU critical`, do not create three; create one with `type_name: "any"`, `comparison_method: "RegExp"`, `search_value_name: "^CPU (high|warning|critical)$"`. As the number of labeling settings grows, processing gets heavier because every setting is checked for each received event.
+- **Beware of regular expressions that match too broadly.** Patterns that match almost anything, such as `.*`, `.+` or `.*CPU.*`, attach labels to unrelated events too, and rules using the label may run by mistake. Bound the range with `^` and `$` as much as possible and match only the necessary words.
+- **Before registering, show examples that match and that do not match, and confirm with the user.** Use actual event values (pasted by the user) and make a table of "matches this value / does not match this value". When using a broad match such as `.*`, also state the reason and the impact (which rules may run).
+- Regular expressions are evaluated with Python `re` (`RegExp(DOTALL)` / `RegExp(MULTILINE)` with those flags). A regular expression that cannot be compiled causes a registration error.
+
 ## label_key_name column
 
 - Required. Specify the destination label key name (one created in `label_creation`, or a fixed label).

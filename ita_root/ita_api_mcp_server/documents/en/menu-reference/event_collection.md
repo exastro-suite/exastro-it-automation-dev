@@ -88,6 +88,10 @@ OASE event collection settings. Defines where and how an agent such as a monitor
     - To change it, edit `.env` (or the container environment variables) on the server running the agent and restart the agent. **The MCP tools can neither change it nor read its current value.**
 - A collection setting whose `connection_method_name` is `No Agent Used` is not polled by an agent (events are sent from outside to the ITA API). The collection interval does not apply; timing depends on the sender.
 
+- The time until detection depends not only on the agent's collection interval but also on **the execution interval of ITA's evaluation process (the backyard `ita-by-oase-conclusion`)**. After each evaluation, the evaluation process waits `EXECUTE_INTERVAL` seconds (a container environment variable; default **1 second**, the Dockerfile default) before the next one. With many events, one evaluation takes longer, which adds to the delay.
+    - Approximate delay = agent collection interval (default 5 s) + evaluation process interval (default 1 s) + time for one evaluation + waiting in rules (when AND correlation etc. waits up to `ttl`)
+    - The evaluation process interval also cannot be checked or changed with the MCP tools. It is set in the environment running ITA (docker compose environment variables, Helm values on Kubernetes, etc.).
+
 ### When asked "detection is slow, so change the collection interval to N seconds"
 
 1. Retrieve the target collection setting with `menu-filter` and check `connection_method_name` (if it is `No Agent Used`, there is no interval setting as described above).
@@ -119,3 +123,5 @@ For a request such as "the password of X has changed, so update the collection s
 5. **Do not write the received value back in the response** (not even masked; say "the value you entered").
 6. Re-read the record and confirm that the last update date/time has changed. Credential items are returned as `null` by `menu-filter`, so tell the user that the value itself cannot be checked through MCP.
 7. **Tell the user when it takes effect.** The OASE agent re-fetches the collection settings from ITA every `ITERATION` loops, so the new value is used at most `EXECUTE_INTERVAL x ITERATION` seconds later (with the defaults, 5 seconds x 10 = about 50 seconds). To apply it immediately, deleting `event_collection_settings.json` in the agent container makes the agent re-fetch on the next loop (work on the agent's server). Ask the user to confirm the connection with the new value by checking that events arrive afterwards.
+
+- **If it is updated with a wrong value, the original value cannot be restored** (password items cannot be read out, so the previous value cannot be kept through MCP). Tell the user this before updating and confirm that they have the original value at hand. With a wrong value, events stop arriving after it takes effect (at most `EXECUTE_INTERVAL x ITERATION` seconds later), and collection stays stopped until it is corrected, so always ask the user to check that events arrive after it takes effect. Repeated authentication failures may lock the account on the monitoring tool side, so ask the user to check that setting too.

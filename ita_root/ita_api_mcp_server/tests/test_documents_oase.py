@@ -268,3 +268,55 @@ class TestLanguageConsistency:
         ja = [keys(v) for b in _json_blocks(_read("ja", source)) for v in _parse_json_example(b)]
         en = [keys(v) for b in _json_blocks(_read("en", source)) for v in _parse_json_example(b)]
         assert ja == en
+
+
+class TestReviewFindings:
+    """レビュー指摘で訂正・追加した内容が、日英のドキュメントに残っていることを確認する"""
+
+    def test_physical_delete_requires_role_and_delete_flag(self):
+        # 正常系: 物理削除には「メンテナンス可＋削除可」と削除許可フラグの両方が要ること、
+        # その設定は AI が行わないことが maintenance-all.md に書かれていること
+        expected = {
+            "ja": ["メンテナンス可＋削除可", "削除許可フラグ", "401-00001", "401-00002", "AIが行ってはいけない"],
+            "en": ["Maintenance + delete", "delete permission flag", "401-00001", "401-00002", "The AI must not"],
+        }
+        for lang, words in expected.items():
+            text = _read(lang, "tool-reference/maintenance-all.md")
+            delete_section = text[text.index("## 物理削除" if lang == "ja" else "## Physical delete"):]
+            for word in words:
+                assert word in delete_section, "{}: {}".format(lang, word)
+
+    @pytest.mark.parametrize("lang", LANGUAGES)
+    def test_old_wrong_delete_claims_are_gone(self, lang):
+        # 異常系の防止: 「OASE は物理削除できない」「401-00001 はロール権限の問題ではない」という
+        # 誤った記述が戻っていないこと
+        wrong = {
+            "ja": ["ロール権限の問題ではない", "物理削除できない。**", "画面やAPIからは変更できない"],
+            "en": ["not a role permission issue", "cannot be physically deleted.**", "cannot be changed from the screen or API"],
+        }[lang]
+        for source in OASE_DOCUMENTS:
+            text = _read(lang, source)
+            for phrase in wrong:
+                assert phrase not in text, "{}:{} still says {!r}".format(lang, source, phrase)
+
+    @pytest.mark.parametrize("lang", LANGUAGES)
+    def test_common_procedure_section_exists(self, lang):
+        # 正常系: すべての依頼で守る共通の進め方（理解度・用語・聞き返し・影響・承認・無効で登録・完了報告・
+        # AI がやらない操作）が oase_scenario_building.md にあること
+        text = _read(lang, "menu-reference/oase_scenario_building.md")
+        heading = "## OASEの設定を変えるときの共通の進め方" if lang == "ja" else "## Common procedure for changing OASE settings"
+        assert heading in text
+        section = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        assert section.count("\n### ") == 10  # 0〜9 の10節
+
+    @pytest.mark.parametrize("lang", LANGUAGES)
+    def test_new_rule_examples_are_registered_disabled(self, lang):
+        # 正常系: 新規登録のサンプルのルールは available_flag が "False"（無効で登録して確認後に有効にする）
+        rule = _read(lang, "menu-reference/rule.md")
+        sample = rule[rule.index("## 新規作成時の最小サンプル" if lang == "ja" else "## Minimal example for new registration"):]
+        assert '"available_flag": "False"' in sample
+        scenario = _read(lang, "menu-reference/oase_scenario_building.md")
+        step6 = scenario[scenario.index("### Step 6"):]
+        step6 = step6[:step6.index("\n## ")]
+        assert '"available_flag": "False"' in step6
+        assert '"available_flag": "True"' not in step6

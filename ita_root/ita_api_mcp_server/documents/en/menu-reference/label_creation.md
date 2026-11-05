@@ -32,3 +32,10 @@ A menu for defining OASE user label keys. It registers only the key name of an a
   ]
 }
 ```
+
+## When merging label keys with the same meaning into one
+
+- Unless an administrator has enabled physical deletion, label keys can only be discarded (the "Physical delete (Delete)" section of `tool-reference/maintenance-all.md`). Settings that reference a discarded key show `Failed to exchange ID` on the screen, and there is no reference check. Therefore **re-point the settings that use it first, then discard the key**.
+- Steps: (1) decide which key to keep and which to remove -> (2) find every setting using the key to remove with `menu-filter` (`label_key_name` of `labeling`, conditions and `group_label_key_ids` of `filter`, `conclusion_label_settings` of `rule`, `condition_labels` of `deduplication`) -> (3) re-point them -> (4) re-read and confirm that no setting uses the key to remove -> (5) discard the key.
+- **While re-pointing, old and new keys are mixed.** If labeling is re-pointed first, events arriving from then on get only the new key, and filters still looking at the old key stop matching. Re-point filters and labeling one right after the other without a gap. Events already received (with the old key) do not get the new key.
+- For reverting, keep a list of the values before re-pointing (which setting used which key).

@@ -2,6 +2,93 @@
 
 When a user makes a request like "when XX (monitoring tool) reports YY (event type), make it handle it automatically", this describes the order in which to call the OASE menus to build the configuration end-to-end. For the details of each menu (required fields, mutually exclusive rules, JSON formats, etc.), do not rely on this document; use the `get-document` tool to look up the individual menu references (`event_collection.md`, `label_creation.md`, `labeling.md`, `filter.md`, `action.md`, `rule.md`).
 
+## Common procedure for changing OASE settings (follow in every request; most important)
+
+OASE settings change the production event processing (Conductor runs, notifications) as soon as they are registered. For every request, follow the steps below in order. The procedure for each scenario is added on top of this common procedure.
+
+### 0. Decide how detailed the explanations should be
+
+- At the first OASE request in a conversation, confirm the user's level with `ask_user_choice` ("I am new to OASE (please explain terms and the flow)" / "I am familiar with OASE (key points are enough)"). Use the answer for the rest of the conversation and do not ask again.
+- For new users, write "1. Terms" and "3. Explain the flow" below without omission. For familiar users, terms may be omitted and the flow may be just a table. **In both cases, never omit the checks and approvals in 4-7.**
+
+### 1. Terms (explain in one phrase the first time each appears)
+
+| Term | One-phrase explanation |
+|---|---|
+| Event | One alert (JSON) from a monitoring tool |
+| Event collection setting | Which monitoring tool events are fetched from, and how |
+| Label / labeling | A "marker" attached to an event (e.g. `alert_type=cpu_high`) and the rule for attaching it. Filters look only at labels |
+| Filter | Decides which events are targeted, by label conditions. All conditions are combined with AND |
+| Search method | How events matching a filter are handled. Unique (used only if exactly one arrives in an evaluation cycle; if several arrive, all become "undetected") / Queuing (each one is used individually) / Grouping (events of the same group are merged into one) |
+| Rule | A combination of one or two filters (AND / XOR / A -> B) and the action to perform |
+| Priority | Which rule is used when several rules match one event. A smaller number has higher priority. Only one rule runs per event |
+| Action | The Conductor (automatic response) run when the rule is satisfied |
+| Conclusion event | An event OASE creates after a rule is satisfied (if there is an action, after the Conductor ends normally). It can be the input of the next rule |
+| ttl | How long (seconds) an event can be used for rule evaluation. The collection setting's ttl is for events, the rule's ttl is for conclusion events |
+| Evaluation result | The record that a rule was satisfied (which events, which action, and the result) |
+
+### 2. Ask instead of guessing
+
+- When the request is ambiguous (the target, conditions or expected behavior is not determined), ask instead of deciding by guess. However, do not ask about what you can look up yourself with `menu-filter` etc.
+- When **several candidates with the same or similar names** exist for the host, monitoring tool (collection setting), label key, rule, etc., list the candidates and let the user choose; do not write anything until a choice is made. Show not only names but also the purpose and target (connection URL, conditions, etc.).
+- **When a specified name does not exist**, do not create a new one or substitute a similar one on your own. Show close candidates and let the user choose "one of these / create a new one".
+- **Do not guess the content of events (JSON field names, values, types, units).** The event history cannot be read through MCP, so ask the user to paste an actual event example (JSON). If you build it from a guess because there is no example, tell the user it is a guess and that if it is wrong no label is attached and the setting never reacts, and get confirmation. For thresholds, also check the unit (80 / 80% / 0.8 etc.) and type.
+
+### 3. Explain the flow and impact before registering
+
+Before getting approval, present the following together.
+
+1. **Flow:** show "events from which collection setting -> get which labels -> are picked up by which filter -> which rule -> run which Conductor" in a way that shows the connections (e.g. `events of collection A -> label alert_type=disk_full -> filter F -> rule R (priority 2) -> Conductor "XX"`). If it connects to the next rule through a conclusion event, include that too.
+2. **Impact check (look it up in the actual data; do not explain by guessing):**
+    - Whether the new labels or the new filter **make existing filters or rules start reacting** (read the existing filter conditions with `menu-filter` and compare)
+    - **Priority** relative to existing rules that match the same events (only one runs per event)
+    - When changing an existing setting, **other rules that use it** (whether filters, actions or Conductors are shared)
+    - Notification destinations and **subsequent rules** connected through conclusion events (no infinite loop)
+3. **The processing that actually runs:** which Conductor does what on which host, how to stop it (disable the rule / emergency-stop the Conductor), and that it really runs even with a test event.
+4. If regular expressions are used, examples that match and examples that do not (the "When using regular expressions" section of `labeling.md`).
+
+### 4. Show the list of changes and the differences, and get approval
+
+- List what will be registered, updated and discarded, per menu (new / changed / discarded, name, main values).
+- When changing an existing setting, show the **values before and after** side by side (for filter conditions, the condition expression before and after).
+- Get approval with `ask_user_choice`. Never write without approval. Re-read the targets with `menu-filter` right before registering; if someone else has changed them since the proposal (`last_update_date_time` differs), stop, present the content again and get approval again.
+
+### 5. Register new rules disabled, and enable them after review
+
+- **Register new rules with `available_flag` set to `"False"` (disabled).** Disabled rules are not used for evaluation (the evaluation process reads only enabled rules and filters), so registering alone does not change the production processing.
+- After registering, show the re-read result as a list, have the user also check it on the screen (OASE ▶ Rule), and get a separate approval to "enable it" with `ask_user_choice`. When approved, `Update` `available_flag` to `"True"`.
+- Before enabling, check the evaluation with a test event if possible (the "Checking only the evaluation without actually running the rule / checking with a test event" section).
+- **Updates** to existing rules and filters take effect in production as soon as they are applied. In this case always get approval for the differences in 4 and state the impact explicitly.
+
+### 6. Register, then re-read to confirm
+
+- Register one record at a time in the creation order (the "Creation order" section below), and check success before moving on.
+- **If something fails midway, stop there.** List what has been registered and let the user choose with `ask_user_choice` between "fix it and continue / cancel what has been done (discard)". Do not silently leave a half-built configuration.
+- Even if the registration or update returns "success", re-read with `menu-filter` and confirm the values are as expected before reporting.
+
+### 7. Completion report format
+
+Always include the following four items.
+
+1. **Settings created or changed:** menu, name, new / changed / discarded, enabled or disabled
+2. **Where to check:** the screen where the user can check it (e.g. OASE ▶ Rule)
+3. **What was confirmed:** the re-read result, and the test event result (if done)
+4. **Not confirmed / cautions:** what could not be checked due to the environment (e.g. actual notification sending), and the values before the change (for reverting)
+
+### 8. Operations the AI may and may not perform
+
+| Category | Operations |
+|---|---|
+| The AI performs after the user approves | Register, update, discard and restore in the seven OASE menus (event collection, label creation, labeling, deduplication, filter, action, rule); building test event content; checking evaluation results |
+| The AI performs after approval, having shown it cannot be undone | Physical deletion (`Delete`), only in menus where physical deletion is permitted |
+| The AI does not perform; it explains the steps and asks a person | Settings that enable physical deletion (Role-menu link management, Menu-table link management), changing roles or permissions, registering notification destinations or mail servers (Platform), creating or editing Conductors, changing OASE agent settings, operating the database directly |
+
+- On a permission error, do not casually recommend granting permissions. Tell the user which setting is missing (role permission or menu setting) with the evidence, and leave the decision to the administrator.
+
+### 9. Confidential information
+
+- Do not write credentials (passwords, tokens), personal or internal information contained in event bodies, notification e-mail addresses, etc. back into responses more than necessary. Never output secret values received from the user (the "When changing credentials" section of `event_collection.md`).
+
 ## Creation order (dependencies exist, so follow this order)
 
 ```
@@ -118,7 +205,7 @@ Request: "When Zabbix reports a high load alert, automatically restart the servi
   "records": [{
     "type": "Register",
     "parameter": {
-      "available_flag": "True",
+      "available_flag": "False",
       "rule_name": "High load alert response rule",
       "rule_label_name": "high_load_rule",
       "rule_priority": "1",
@@ -134,6 +221,8 @@ Request: "When Zabbix reports a high load alert, automatically restart the servi
 ```
 
 This completes the series of settings for "when Zabbix reports a high load alert, automatically restart the service". The execution results (judgement and action execution history) can be checked in the `evaluation_results` menu.
+
+- Register the new rule disabled (`"False"`) and enable it after the user checks it (5. of "Common procedure for changing OASE settings").
 
 ## Duplicating / extending an existing rule for another host
 
@@ -436,6 +525,8 @@ label_creation ◀── labeling ◀── filter ◀── rule ──▶ acti
 - "Discard" and "physical delete (`Delete`)" are different. When the user says "discard" (廃止), use `Discard`.
 - The filter and action linked to a discarded rule remain. Tell the user they can be discarded next if unnecessary (do not discard them on your own).
 - If another rule's `conclusion_label_settings` adds a label for this rule (as in the chaining setup of scenario 1-5), that label remains unused (harmless). Mention it if you notice it.
+- **After restoring, check that the references are still valid.** If the restored rule's filter or action is still discarded, the rule stays in the `Failed to exchange ID` state and does not run. If the references are discarded too, confirm whether to restore them as well. After restoring, re-read, and check the evaluation with a test event if possible.
+- If the Conductor of a rule being discarded is running, discarding does not stop it (an emergency stop of the Conductor is needed to stop it).
 
 ## Adding a new event collection setting and reusing existing labeling settings by copying them
 
@@ -469,8 +560,9 @@ Procedure for requests like "physically delete the unnecessary labeling settings
 
 ### Specifications to grasp first (most important)
 
-- **OASE menus (including `labeling`) cannot be physically deleted.** `row_delete_flag` in `list-menu-info` is `"0"`, and `Delete` fails with `401-00001`. This is not a role permission issue, so do not tell the user to get more permissions (see "Physical delete (Delete)" in `tool-reference/maintenance-all.md`).
-- Only discarding (`Discard`) is possible, and **discarded records remain in the database, so the record count does not decrease**. If the purpose of the request is "reducing the number of records", honestly explain that it cannot be achieved with ITA functions.
+- **OASE menus (including `labeling`) can also be physically deleted once configured.** They are disabled by default, and both "Maintenance + delete" in Role-menu link management and the delete permission flag in Menu-table link management are required (see "Physical delete (Delete)" in `tool-reference/maintenance-all.md`).
+- **The AI must not make these two settings.** Explain the steps and the risk (it cannot be undone) and ask the organization administrator to make them on the screen.
+- Until they are made, discarding (`Discard`) can be used to clean up. However, **discarded records remain in the database, so the record count does not decrease**. If the purpose of the request is "reducing the number of records", tell the user that the physical deletion settings are required.
 
 ### Steps
 
@@ -480,8 +572,10 @@ Procedure for requests like "physically delete the unnecessary labeling settings
     - conditions in `filter_condition_json` of `filter`, and `group_label_key_ids`
     - `conclusion_label_settings` of `rule`
     - `_exastro_host` is used by `event_collaboration: True` of `action` (deciding the execution host) even if it is not in any filter condition
-4. Since physical deletion is not possible, confirm with `ask_user_choice` whether discarding is acceptable instead.
-5. Discard using the same procedure as the section "Discarding OASE settings / restoring them from discard" in `menu-reference/oase_scenario_building.md`, and re-read to confirm before reporting.
+4. Branch on `row_delete_flag`.
+    - **`"0"` (physical deletion not possible yet):** explain the steps for the administrator ("Maintenance + delete" in Role-menu link management, and the delete permission flag `True` in Menu-table link management) and that physical deletion cannot be undone. Then let the user choose with `ask_user_choice` between "physically delete after the administrator makes the settings" and "clean up by discarding for now".
+    - **`"1"` (physical deletion possible):** show the list of targets and that it cannot be undone, get approval, and run `Delete`. The `parameter` of `Delete` is only the primary key and `last_update_date_time`. If `401-00001` occurs, tell the user the role permission (Maintenance + delete) is missing.
+5. After running it, re-read with `menu-filter` (`discard` both `"0"` and `"1"`) and confirm that the targets no longer exist (physical delete) or that `discard` became `"1"` (discard) before reporting. Discard using the same procedure as the section "Discarding OASE settings / restoring them from discard".
 
 ### Notes
 
@@ -544,6 +638,12 @@ Procedure for requests like "the same alerts arrive twice from both X and Y, so 
 3. Check whether each label has the same value across the monitoring tools, and propose the judgement condition (none / `is matched` / `is ignored`) with the reasoning.
 4. Before approval, present the registration contents as a list. Pass multi-select items as a JSON array of display names **as a string** (passing an array as-is results in `System Error (999-99999)`).
 5. Re-read after registration to confirm, and report that "duplicate events are merged into the first event and the rule's response runs only once" and that "it applies to events received after registration".
+
+- Before proposing, agree on the following with the user.
+    - **What counts as the same:** which labels must match to be treated as the same (the condition). If host name notation etc. differs between monitoring tools, they are not merged.
+    - **Time window:** only events arriving within the collection setting's `ttl` seconds after the first event are merged. Ones arriving later are processed as separate events.
+    - **What remains:** merged events are not dropped; "from where and how many times it arrived" is recorded on the first event. Only the first event (and its labels) is used for rule evaluation.
+    - **Out of scope:** events from the same collection setting are not merged with each other.
 
 ## Changing the notification text / destination per alert type (notification settings)
 
@@ -657,6 +757,12 @@ Procedure for "when X happens, run Z (Conductor name) after approval". This is o
 4. When combined with deduplication, explain that the Conductor runs only once after deduplication merges the events into one, so approval is needed only once.
 5. Before approval, list separately what will be registered/updated (deduplication, action, replacing the rule's `action_id`, advance notification) and what the user needs to do on the screen (duplicating the Conductor and adding the pause, approving/rejecting). After approval, register the parts MCP can do, re-read to confirm, and then report.
 
+- When using a pause instead of approval, ask the user to decide the following.
+    - **Approver:** only users with a role that can operate the Conductor can release the pause or emergency-stop it. Decide who approves and have that role assigned (the AI does not change roles).
+    - **Record:** it has not been confirmed how far who released or emergency-stopped it and when is recorded. If approval records are needed, propose keeping them in operations (tickets, etc.).
+    - **Time limit and neglect:** a pause has no time limit and stays stopped if left alone (meanwhile, the rule's response does not proceed). Decide in operations who judges within how many minutes.
+    - **After rejection:** with an emergency stop the action becomes "Completed (abnormal)", no conclusion event is created, and the after notification is sent.
+
 ## Checking only the evaluation without actually running the rule / checking with a test event
 
 Procedure for "I want to check only the evaluation result of ◇◇ (rule name) without actually running it" and "send a test event to check whether ◇◇ works".
@@ -672,14 +778,29 @@ Procedure for "I want to check only the evaluation result of ◇◇ (rule name) 
 
 ### When asked to "check only the evaluation without actually running it"
 
-Let the user choose one of the following (`ask_user_choice`).
+Let the user choose one of the following three (`ask_user_choice`). **Present the methods that do not stop the production rule (1 or 2) first; 3 is the last resort.**
 
-| Method | What to do | Caution |
+| Method | What to do | Impact on production |
 |---|---|---|
-| Check the settings only (no change) | Read `labeling` -> `filter` -> `rule` with `menu-filter` and show what kind of event matches (the JSON shape and values of the event), whether a higher-priority rule uses the same event, and whether a rule runs on the conclusion event | No actual evaluation is performed |
-| Temporarily remove the action | `Update` the rule with an empty `action_id`, send an event (such as a test event) and check the evaluation result -> restore the original `action_id` and re-read | **Real events that arrive while it is removed are also used by this rule without any response.** A conclusion event is created immediately, so also check that no subsequent rule runs on the conclusion event. A rule with notification destinations cannot have an empty `action_id` |
+| 1. Check the settings only | Read `labeling` -> `filter` -> `rule` with `menu-filter` and show what kind of event matches (the JSON shape and values of the event), whether a higher-priority rule uses the same event, and whether a rule runs on the conclusion event | None (no actual evaluation) |
+| 2. Evaluate with a test rule (recommended) | The "Procedure for checking with a test rule" below | The production rule and filter are not changed (only when the target rule's priority is `1`, a change lowering it to `2` is needed) |
+| 3. Temporarily remove the action | Empty the production rule's `action_id`, let it evaluate, and restore it | **Real events that arrive while it is removed are also used by this rule without any response.** A rule with notification destinations cannot have an empty `action_id` |
 
-- Before removing it, write the original `action_id` in the response, and always restore it after the check. Tell the user what will not happen until it is restored.
+#### Procedure for checking with a test rule (confirmed with the evaluation engine)
+
+Use a marker label attached only to test events, so that only the test rule evaluates them. Real events do not get the marker, so they are processed by the production rule as before.
+
+1. Create a test label key (e.g. `oase_test`) with `label_creation`, and create a labeling setting on the target collection: "if the event's `oase_test` is `true`, attach the label `oase_test=true`" (pattern A; real events do not have this field, so they do not get it).
+2. Create a test filter. Its conditions are **the target rule's filter conditions copied as they are, plus `["oase_test", "==", "true"]`** (use the same search method too).
+3. Create a test rule: the filter from 2, **no action**, conclusion labels `[["_exastro_host", "{{ A._exastro_host }}"]]`, and **a priority smaller than the target rule's**. Only one rule runs per event, so the test rule uses the test event first and it does not reach the production rule.
+    - If the target rule's priority is `1`, the test rule cannot be placed first (with the same value the order is undetermined). Check whether other rules match the same events, then confirm whether the target rule may be changed to `2`. If lowered, always set it back to `1` after the check.
+4. Ask the user to send a test event (the "When sending a test event" section below; put `"oase_test": "true"` in the event).
+5. Read `evaluation_results` by the test rule's name and show that it became `Completed`, the used events, the attached labels and the conclusion labels. The test rule's filter has the same conditions as production, so this confirms that "this event also matches the production filter".
+6. As cleanup, discard the test rule -> filter -> labeling -> label key in this order, and restore the priority if it was changed. Re-read to confirm before reporting. Test events remain in the event history.
+
+- **To check up to the action**, create a test action using a Conductor that does nothing (e.g. one with a single Movement that only waits) and attach it to the test rule. Ask the user to create the Conductor on the screen (MCP cannot). Do not use the production Conductor for testing.
+- When checking a newly created rule (still disabled), it is good to check it with this procedure before enabling it (5. of "Common procedure for changing OASE settings").
+- If 3 (temporarily remove the action) is chosen, write the original `action_id` in the response before removing it, and always restore it after the check. Tell the user what will not happen until it is restored, and keep it short.
 
 ### When sending a test event
 

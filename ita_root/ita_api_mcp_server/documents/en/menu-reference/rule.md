@@ -16,6 +16,12 @@ An OASE rule. Based on filter results, decides which action to execute and what 
   - When duplicating an existing rule for another host, **you cannot just add a rule; a separate filter is always required.** Create a new filter with an `_exastro_host` condition added to `filter_condition_json` and specify it as `filter_a` (see `filter.md`).
   - Conversely, if you set `event_collaboration` to `True` on the `action` so it runs on the host where the event occurred, neither the rule nor the filter needs to be duplicated (one set covers all hosts).
 
+## available_flag column (register new rules disabled; important)
+
+- The evaluation process reads only rules and filters whose `available_flag` is `True` (`ita_by_oase_conclusion/libs/common_functions.py`). Rules that are `False` are not used for evaluation, and their Conductor does not run.
+- **Register new rules with `"False"`, and after the user has checked the content, get a separate approval and `Update` to `"True"`** (the "Common procedure for changing OASE settings" section of `oase_scenario_building.md`). Filters may be registered with `"True"`, because nothing happens unless a rule uses them.
+- Disabling an existing rule makes the events it used go to lower-priority rules. Before disabling, check whether a lower-priority rule matches the same events and tell the user.
+
 ## Only one rule runs per event (important)
 
 - An event that matches a rule **becomes reserved (evaluated) and is not used for evaluating other rules**. Even if one event satisfies the conditions of several rules, **only the single rule with the highest priority actually runs** (see the `rule_priority` section).
@@ -29,6 +35,9 @@ An OASE rule. Based on filter results, decides which action to execute and what 
 - `filter_operator: "A and B"` is satisfied when **both filter A and filter B have a valid event that has not been used yet**.
 - **"At the same time" does not mean "at the same instant".** The event that arrived first keeps waiting until the event collection setting's `ttl` (default 3600 seconds) expires. If the other event arrives in the meantime, the rule is satisfied. In the proposal, explain that it means "act if both arrive within N seconds", citing the actual `ttl` value.
 - One of the filters may reuse an existing one (e.g. for CPU high load). Create the labeling setting and filter for the other one (e.g. memory high load) if they do not exist.
+
+- **Also check the condition for "the same target".** For example, for "CPU and memory at the same time on the same host", both filters need the same host condition (`_exastro_host`). AND correlation does not match label values between the two events, so without the host condition it is satisfied by CPU and memory events from different hosts.
+- Also check the search method of both filters (the "Choosing the search method" section of `filter.md`).
 
 ### When sharing a filter with an existing single-filter rule (most important)
 
@@ -62,6 +71,8 @@ For example, if a rule that "runs on CPU high load alone" already exists and you
     2. "Do not respond if both occur within a certain time; respond only when just one occurs" → XOR cannot do this. Guide the user to the "absorbing rule" configuration below
     3. "Respond whichever occurs (both if both)" → create two single-filter rules (equivalent to OR)
 
+- Also check the search method of both filters (the "Choosing the search method" section of `filter.md`).
+
 ### Configuration that strictly implements "only one" (absorbing rule)
 
 Place an AND correlation rule without an action at a higher priority, and the single-filter rules at a lower priority. Behaviour confirmed with the rule evaluation engine:
@@ -93,6 +104,8 @@ Place an AND correlation rule without an action at a higher priority, and the si
     - Only A → nothing happens (A times out after `ttl`)
     - B then A (reverse order) → not satisfied
 - In other words, `A -> B` expresses "**when the recovery notification arrives**"; "**if it does not arrive**" cannot be written directly.
+
+- Also check the search method of the failure and recovery filters (the "Choosing the search method" section of `filter.md`). If failures may recur, with `Grouping` the following failures are not subject to escalation.
 
 ### How to build "escalate if Y (recovery) does not arrive within N minutes after X occurs"
 
@@ -278,6 +291,13 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
 - When one event satisfies the conditions of several rules, only the highest-priority rule runs and the event is consumed there (it is not passed to other rules).
 - **When several rules use the same filter, events of that filter are first evaluated only by the highest-priority rule.** While that rule is not satisfied (e.g. an AND correlation waiting for the other event), lower rules cannot use the event, and **only when the event times out** is it passed to the lower rules. See the section "AND correlation (A and B)" for details.
 
+### Deciding the priority for a new rule
+
+1. Check whether **other rules match** the events that match the new rule's filter (read the existing filter conditions with `menu-filter` and compare).
+2. If no rule matches, any priority is fine. Use the same value as existing rules (usually `1`) and state the reason (no rule matches the same events).
+3. If some rules match, confirm with the user **which should be used first**, and give that one the smaller value. Do not use the same value (with the same value, the order is decided by the filter ID order, which is not visible on the screen, and does not behave as intended). The minimum is `1`, so to put a new rule before an existing `1`, an `Update` lowering the existing rule to `2` or more is needed.
+4. When changing priorities, show a **priority table before and after** (the target rule and the rules that match the same events) and get approval.
+
 ## ttl column
 
 - In seconds. Minimum 10, maximum 2147483647. Default 3600.
@@ -324,7 +344,7 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
     {
       "type": "Register",
       "parameter": {
-        "available_flag": "True",
+        "available_flag": "False",
         "rule_name": "High load alert response rule",
         "rule_label_name": "high_load_rule",
         "rule_priority": "1",

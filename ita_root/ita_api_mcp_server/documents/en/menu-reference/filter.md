@@ -14,6 +14,10 @@ An OASE filter. Narrows down events by label conditions and determines which eve
   [["_exastro_type", "≠", "conclusion"], ["event_type", "==", "high load alert"]]
   ```
 
+- All conditions are combined with **AND** (only events that satisfy all of them are targeted). There is no way to combine conditions with OR. Adding a condition to an existing filter narrows its targets. Before adding one, show the condition expression before and after side by side.
+- **`≠` does not match events that do not have that label** (confirmed in the product code `common_libs/oase/manage_events.py` and with the evaluation engine). "Label X is not Y" means "label X exists and its value is something other than Y". Be careful when using `≠` with labels other than ones that are always attached, such as `_exastro_type`.
+- `==` is an exact match and is case-sensitive (`Critical` and `critical` are different values). Check condition values against the label values actually attached to events (real data).
+
 ## When you need a threshold (magnitude comparison) condition (important)
 
 For requirements such as "target only events where CPU usage **exceeds** 80%" or "only when the response time is 1000 ms **or more**", **a filter has no magnitude comparison, so the comparison must be done on the `labeling` side and the filter then checks the resulting label with `==`**. This two-stage construction is the only way to achieve it in Exastro.
@@ -42,6 +46,8 @@ Notes:
 - Thresholds can change, so ask the user whether to embed the threshold in `label_key_name` (e.g. `cpu_over_80`) or use a value-independent name such as `cpu_threshold_exceeded`.
 - **When adding a threshold condition to existing filters, always confirm which filters to modify.** It narrows the firing condition of existing rules, so never update every filter silently.
 - When issuing `Update` on an existing filter, always pass the `last_update_date_time` obtained from the immediately preceding `menu-filter`. Omitting it results in `{"0": {"Individual check": ["last_update_date_time is invalid (None)"]}}` (499-00201). Also, `Update` is validated using only the values you pass, so **re-send every unchanged column too** (`filter_name`, `search_condition_id`, `available_flag`, etc.).
+
+- Check the threshold's **unit and type** against actual events (`80` / `80%` / `0.8`, number or string). A different unit targets events other than intended. If unsure, ask the user to show an actual event example.
 
 ## Fixed (built-in) labels - narrowing by host with `_exastro_host` (important)
 
@@ -106,6 +112,19 @@ Whether `group_label_key_ids` / `group_condition_id` / `group_period` are requir
   - In other words, **two filters with exactly the same conditions cannot be created** (`Identical filter conditions cannot be specified.` / 499-00201). When duplicating an existing filter for another host, add an `_exastro_host` condition so the conditions differ; changing only the name will not register.
 - If a grouping type is selected, registration fails if a filter with the same combination of `group_label_key_ids` + `group_condition_id` + `filter_condition_json` already exists.
 
+## Choosing the search method (always confirm when creating a new filter)
+
+The search method decides what happens when **many events** match the same filter. Also for AND / XOR / time-series correlation, deduplication and similar requests, when creating a new filter, choose the one that fits the request from the table below, and explain the reason and behavior to the user and confirm. Do not default to `Unique` (behavior confirmed with the evaluation engine).
+
+| What the request is like | Search method | Behavior |
+|---|---|---|
+| Handle each one reliably (they usually arrive at different times) | `Unique` | Each one is used once as it arrives. **If several arrive in the same evaluation cycle, all become "undetected" and nothing happens** |
+| Handle all of them, even if many arrive at once | `Queuing` | Even if several arrive in the same cycle, all are used, oldest first |
+| Respond only once when the same alert keeps coming from the same host (recurring) | `Grouping` (with period extension, etc.) | Only the first one is used; the following ones are merged as subsequent events. How to group is decided by `group_label_key_ids` and `group_condition_id` |
+
+- If one filter of a correlation rule (A and B, etc.) is `Grouping`, subsequent events are not used for the correlation (only the first one becomes the partner). When using a frequently recurring alert in a correlation, confirm that this behavior is acceptable.
+- When reusing an existing filter, explain that it is used with its current search method. Changing it changes the behavior of every rule that uses the filter.
+
 ## group_label_key_ids column
 
 - The REST input value is a JSON string of an array of label names. Example: `["process", "host"]`
@@ -127,6 +146,9 @@ Behaviour confirmed with the rule evaluation engine:
     - Without period extension (value `4`; may not be offered in some environments): merges only during `group_period` (the first event's `ttl` when omitted)
 - **With `Grouping` (period extension), do not send the `group_period` key at all.** `menu-filter` results do not include `group_period`, but if you add `"group_period": null` yourself and `Update`, an unexplained `System Error (999-00003)` occurs (`""` gives `Not an integer value.`, and a value gives an error that the period cannot be specified with period extension).
 - Changing an existing filter's search method from `Unique` to `Grouping` changes the behaviour of **every rule** using that filter (no response for subsequent events), so look up the affected rules with `menu-filter` and present them.
+
+- **With period-extension `Grouping`, the incident does not close as long as events of the same group keep arriving within `ttl`** (it responds only once, however many hours it continues). If the response should repeat during a long-lasting failure, consider no period extension (only in some environments) or `Unique`, and always tell the user about this behavior in the proposal.
+- To exclude a host from grouping, split a filter for that host, and check the host value against the actual notation in the data (case, FQDN or not). Events with a different value or without the label match neither filter.
 
 ## Wildcard (`*`) usage
 
