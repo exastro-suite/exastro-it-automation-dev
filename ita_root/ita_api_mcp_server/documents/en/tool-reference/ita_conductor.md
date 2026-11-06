@@ -1,8 +1,8 @@
 # conductor tool reference
-Create and execute Movements that run on various ITA drivers in combinations with sequential, parallel, and conditional branch flows.
+Create and execute Movements that operate with ITA's various drivers in combinations that can pass through sequences, parallel execution, and conditional branches.
 
 ## general attention for conductor control
-When you want to reference the contents of a Conductor, use the tool `get_conductor_class` to investigate the structure of the Conductor.
+When you want to refer to the contents of a Conductor, use the `get_conductor_class` tool to investigate the structure of the Conductor.
 
 ## Minimal conductor_data Example
 ```json
@@ -1076,6 +1076,9 @@ When you want to reference the contents of a Conductor, use the tool `get_conduc
 }
 ```
 
+## Attention for creating new conductor data
+When creating new conductor data, do not only refer to the sample values for the x and y values (coordinates) of nodes, but adjust the spacing appropriately by calculating differences from the w value (width).
+
 ## Confirmation before update-conductor / create-conductor
 Before calling `update-conductor` (or `create-conductor`), always ask the user for
 approval with `ask_user_choice`, following the rules below.
@@ -1095,10 +1098,11 @@ approval with `ask_user_choice`, following the rules below.
 2. Put a short summary in the `question` of `ask_user_choice`
    - Keep the question to about 3–5 lines, in the format "change target + up to 3 key changes".
    - Example:
-     "Update Conductor 'sample_conductor_name_before' with the following changes:
+     "Will update the Conductor 'sample_conductor_name_before' with the following changes:
        ・Name → sample_conductor_name_after
        ・node-3 Movement: movement_name_before → movement_name_after
-      Other configuration unchanged. Proceed with update?"
+      Other configurations remain unchanged. Proceed with the update?"
+   - When creating a new Conductor, since the configuration diagram has already been shown with `display_html`, there is no need to show a summary of the configuration.
 
 3. Spell out irreversible effects or risks
    - If any of the following apply, add one line about them to the question:
@@ -1111,10 +1115,8 @@ approval with `ask_user_choice`, following the rules below.
    - Only when the structure changes (e.g. 3+ nodes added/removed, or a branch added),
      show a before/after diagram of the flow with `display_html` before calling
      `ask_user_choice`.
-   - If only movements are replaced or names changed, a Markdown table is enough;
-     don't use `display_html`.
 
 
 ## Attention for execution of conductor
-- The `conductor_data` in the Request Body is optional, but you must always send the `Setting` (JSON format) value held by the target Conductor.
-- After using the tool `execute-conductor`, notify the user that Conductor processing has started. Then, based on the issued `conductor_instance_id`, call the tool `get-conductor-instance` with menu `conductor_confirmation` by yourself at 5-second intervals to track the work execution status and disclose the situation to the user.
+- Although `conductor_data` in the Request Body is optional, you must always send the `Setting` (JSON format) value that the target Conductor has here.
+- After using the tool `execute-conductor`, notify the user that Conductor processing has started. Then, based on the assigned `conductor_instance_id`, call the tool `get-conductor-instance` as menu `conductor_confirmation` at 5-second intervals yourself to track the work execution status and disclose the situation to the user.

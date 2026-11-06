@@ -1076,6 +1076,9 @@ Conductorの内容を参照したい場合にはツール`get_conductor_class`�
 }
 ```
 
+## Attention for creating new conductor data
+nodeの持つx, yの値(座標)はサンプルの値だけを参考にせず、wの値(幅)をから差分を取るなどして適宜間隔を調節すること。
+
 ## Confirmation before update-conductor / create-conductor
 Before calling `update-conductor` (or `create-conductor`), always ask the user for
 approval with `ask_user_choice`, following the rules below.
@@ -1099,6 +1102,7 @@ approval with `ask_user_choice`, following the rules below.
        ・名前 → sample_conductor_name_after
        ・node-3 Movement：movement_name_before → movement_name_after
       ほかの構成は変更なし。更新してよいですか？」
+   - Conductorを新規作成する場合は先に`display_html`で構成図を示しているため、構成についての要約を示す必要はない。
 
 3. Spell out irreversible effects or risks
    - If any of the following apply, add one line about them to the question:
@@ -1111,8 +1115,6 @@ approval with `ask_user_choice`, following the rules below.
    - Only when the structure changes (e.g. 3+ nodes added/removed, or a branch added),
      show a before/after diagram of the flow with `display_html` before calling
      `ask_user_choice`.
-   - If only movements are replaced or names changed, a Markdown table is enough;
-     don't use `display_html`.
 
 
 ## Attention for execution of conductor
