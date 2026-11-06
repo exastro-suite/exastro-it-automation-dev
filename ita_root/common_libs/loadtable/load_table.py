@@ -24,6 +24,8 @@ import copy
 import re
 import gc
 
+import common_libs.column
+
 from flask import g
 from common_libs.column import *  # noqa: F403
 from common_libs.common import *  # noqa: F403
@@ -694,12 +696,10 @@ class loadTable():
             col_class_name = self.get_col_class_name(rest_key)
             if col_class_name is None:
                 col_class_name = 'TextColumn'
-            eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-            objcolumn = eval(eval_class_str)
+            col_class = get_validate_callable(common_libs.column, col_class_name)
+            objcolumn = col_class(self.objdbca, self.objtable, rest_key, cmd_type)
         except Exception:
-            col_class_name = 'TextColumn'
-            eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-            objcolumn = eval(eval_class_str)
+            objcolumn = common_libs.column.TextColumn(self.objdbca, self.objtable, rest_key, cmd_type)
 
         # objcolumnを設定
         if rest_key in self.objtable[COLINFO]:
@@ -724,15 +724,11 @@ class loadTable():
             self.set_columnclass(rest_key, cmd_type)
             objcol = self.get_objcol(rest_key)
             if objcol is None:
-                col_class_name = 'TextColumn'
-                eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-                objcolumn = eval(eval_class_str)
+                objcolumn = common_libs.column.TextColumn(self.objdbca, self.objtable, rest_key, cmd_type)
             else:
                 objcolumn = objcol.get('objcolumn')
             if self.is_columnclass(rest_key) is False:
-                col_class_name = 'TextColumn'
-                eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-                objcolumn = eval(eval_class_str)
+                objcolumn = common_libs.column.TextColumn(self.objdbca, self.objtable, rest_key, cmd_type)
 
         return objcolumn
 
