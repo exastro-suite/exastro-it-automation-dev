@@ -13,7 +13,7 @@
 #   limitations under the License.
 #
 """
-ITA Conductorツール ("create-conductor" / "update-conductor" / "execute-conductor" / "get-conductor-class" / "get-conductor-instance")
+ITA Conductorツール ("create-conductor" / "update-conductor" / "execute-conductor" / "get-conductor-class" / "get-conductor-instance" / "get-conductor-input-data" / "get-conductor-result-data")
 
 ITAのConductorクラスの登録、更新、情報取得、および作業実行を行うツール。
 
@@ -31,6 +31,10 @@ ITAのConductorクラスの登録、更新、情報取得、および作業実�
     受け取り、Conductorクラスの情報を取得する。
   - get-conductor-instance : menu(メニュー名)・conductor_instance_idを
     受け取り、Conductor作業の詳細情報を取得する。
+  - get-conductor-input-data : menu(メニュー名)・conductor_instance_idを
+    受け取り、Conductor作業の投入データを取得する。
+  - get-conductor-result-data : menu(メニュー名)・conductor_instance_idを
+    受け取り、Conductor作業の結果データを取得する。
 
 呼び出し先のITAのAPI(ita_api_organization)は、受け取った
 menu(URLパスパラメータ)そのものに対してメニュー権限をチェックしている
@@ -41,7 +45,7 @@ menu_name_restは、Conductorクラス編集メニューである conductor_clas
 であるため、@tool デコレーターの required_menu にこれを指定する。
 
 --------------------------------------------------------------------------
-ITA Conductor tools ("create-conductor" / "update-conductor" / "execute-conductor" / "get-conductor-class" / "get-conductor-instance")
+ITA Conductor tools ("create-conductor" / "update-conductor" / "execute-conductor" / "get-conductor-class" / "get-conductor-instance" / "get-conductor-input-data" / "get-conductor-result-data")
 
 Registers, updates, retrieves information, and executes ITA Conductor classes.
 
@@ -59,6 +63,10 @@ Registers, updates, retrieves information, and executes ITA Conductor classes.
     and retrieves information about a Conductor class.
   - get-conductor-instance : accepts menu (menu name) and conductor_instance_id,
     and retrieves detailed information of a Conductor execution.
+  - get-conductor-input-data : accepts menu (menu name) and conductor_instance_id,
+    and retrieves the input data of a Conductor execution.
+  - get-conductor-result-data : accepts menu (menu name) and conductor_instance_id,
+    and retrieves the result data of a Conductor execution.
 
 The downstream ITA API (ita_api_organization) checks menu permission against
 the `menu` value itself (a URL path parameter): post_conductor_data and
@@ -658,4 +666,246 @@ def tool_get_conductor_class(arguments: dict, payload: dict) -> dict:
         "workspace_id": workspace_id,
         "menu": menu,
         "conductor_class_id": conductor_class_id
+    }
+
+
+@tool(
+    name="get-conductor-input-data",
+    description=(
+        "Retrieve the input data of a specific ITA Conductor execution instance. "
+        "Provide the menu name (REST name) and conductor_instance_id to get the input data "
+        "used for the Conductor operation. Optionally specify 'file' parameter as 'binary' "
+        "to get binary format data. "
+        "Before use, refer to `tool-reference/ita_conductor.md` using the `get-document` tool."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "menu": {
+                "type": "string",
+                "description": "Menu name (REST name). Normally 'execution_list' or 'conductor_class_edit'."
+            },
+            "conductor_instance_id": {
+                "type": "string",
+                "description": "Conductor instance ID to retrieve input data for"
+            },
+            "file": {
+                "type": "string",
+                "description": "File data format specification. Set 'binary' for binary format. Optional."
+            }
+        },
+        "required": ["menu", "conductor_instance_id"]
+    },
+    required_menu=_REQUIRED_MENU_CONDUCTOR_EXECUTE,
+    profile=["AgenticAI"]
+)
+def tool_get_conductor_input_data(arguments: dict, payload: dict) -> dict:
+    """
+    Conductor作業の投入データを取得する
+
+    Retrieve the input data of a Conductor execution instance.
+
+    Parameters:
+        arguments (dict): ツールの引数
+            - menu (str): メニュー名(REST名) / menu name (REST name)
+            - conductor_instance_id (str): ConductorインスタンスID
+              / Conductor instance ID
+            - file (str, optional): ファイルデータの形式指定 ('binary' or None)
+              / file data format specification
+        payload (dict): 呼び出しコンテキスト情報
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Returns:
+        dict: Conductor投入データ
+            - result: APIレスポンスの投入データ / the input data returned by the API
+            - message (str): 処理結果メッセージ / result message
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+            - menu (str): メニュー名 / menu name
+            - conductor_instance_id (str): ConductorインスタンスID / Conductor instance ID
+
+    Raises:
+        Exception: 必須パラメータが指定されていない場合
+            / if required parameters are not specified
+        HTTPException: Conductor投入データの取得に失敗した場合
+            / if retrieving Conductor input data fails
+    """
+    organization_id = payload.get("organization_id")
+    workspace_id = payload.get("workspace_id")
+    menu = arguments.get("menu", "")
+    conductor_instance_id = arguments.get("conductor_instance_id", "")
+    file_format = arguments.get("file")
+
+    if not menu:
+        raise Exception("menu is required")
+    if not conductor_instance_id:
+        raise Exception("conductor_instance_id is required")
+
+    g.applogger.info(f"Parameter menu={menu}, conductor_instance_id={conductor_instance_id}")
+
+    # このツールが呼び出すのは "/ita/menu/{menu}/conductor/{conductor_instance_id}/input_data/" という
+    # ITA自身のAPI(ita_api_organization)側のエンドポイントであるため、環境変数
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT を使用する
+    #
+    # This tool calls the "/ita/menu/{menu}/conductor/{conductor_instance_id}/input_data/"
+    # endpoint of ITA's own API (ita_api_organization), so it uses the
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT environment
+    # variables
+    ita_api_host = os.getenv("ITA_API_ORAGANIZATION_HOST")
+    ita_api_port = os.getenv("ITA_API_ORAGANIZATION_PORT")
+    # プロトコルは常にhttp固定とする(ITAサービス間通信はhttpを使用する)
+    # Protocol is always fixed to http (inter-service communication within ITA uses http)
+    url = "http://{}:{}/api/{}/workspaces/{}/ita/menu/{}/conductor/{}/input_data/".format(
+        ita_api_host, ita_api_port, organization_id, workspace_id, menu, conductor_instance_id
+    )
+
+    # クエリパラメータの追加（fileが指定されている場合）
+    # Add query parameter if file format is specified
+    params = {}
+    if file_format:
+        params["file"] = file_format
+
+    # 転送用ヘッダーを組み立てる(GETリクエストのため"Content-Type"は不要)
+    # Build the headers to forward (no "Content-Type" needed for GET request)
+    headers = build_forward_headers(method="GET")
+
+    # ITAのAPIへConductor投入データ取得のGETリクエストを送信する
+    # Send a GET request to ITA's API to retrieve Conductor input data
+    req = requests.get(url, headers=headers, params=params, timeout=get_downstream_timeout())
+
+    # ステータスコードが200以外の場合は異常終了として例外を発生させる
+    # If the status code is not 200, treat it as a failure and raise an exception
+    if req.status_code != 200:
+        g.applogger.info("Failed to get conductor input data: {} - {}".format(req.status_code, req.text))
+        raise HTTPException("get-conductor-input-data", req)
+
+    return {
+        "result": req.json(),
+        "message": "Conductor input data retrieved successfully.",
+        "organization_id": organization_id,
+        "workspace_id": workspace_id,
+        "menu": menu,
+        "conductor_instance_id": conductor_instance_id
+    }
+
+
+@tool(
+    name="get-conductor-result-data",
+    description=(
+        "Retrieve the result data of a specific ITA Conductor execution instance. "
+        "Provide the menu name (REST name) and conductor_instance_id to get the result data "
+        "generated by the Conductor operation. Optionally specify 'file' parameter as 'binary' "
+        "to get binary format data. "
+        "Before use, refer to `tool-reference/ita_conductor.md` using the `get-document` tool."
+    ),
+    input_schema={
+        "type": "object",
+        "properties": {
+            "menu": {
+                "type": "string",
+                "description": "Menu name (REST name). Normally 'execution_list' or 'conductor_class_edit'."
+            },
+            "conductor_instance_id": {
+                "type": "string",
+                "description": "Conductor instance ID to retrieve result data for"
+            },
+            "file": {
+                "type": "string",
+                "description": "File data format specification. Set 'binary' for binary format. Optional."
+            }
+        },
+        "required": ["menu", "conductor_instance_id"]
+    },
+    required_menu=_REQUIRED_MENU_CONDUCTOR_EXECUTE,
+    profile=["AgenticAI"]
+)
+def tool_get_conductor_result_data(arguments: dict, payload: dict) -> dict:
+    """
+    Conductor作業の結果データを取得する
+
+    Retrieve the result data of a Conductor execution instance.
+
+    Parameters:
+        arguments (dict): ツールの引数
+            - menu (str): メニュー名(REST名) / menu name (REST name)
+            - conductor_instance_id (str): ConductorインスタンスID
+              / Conductor instance ID
+            - file (str, optional): ファイルデータの形式指定 ('binary' or None)
+              / file data format specification
+        payload (dict): 呼び出しコンテキスト情報
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+
+    Returns:
+        dict: Conductor結果データ
+            - result: APIレスポンスの結果データ / the result data returned by the API
+            - message (str): 処理結果メッセージ / result message
+            - organization_id (str): オーガナイゼーションID / organization id
+            - workspace_id (str): ワークスペースID / workspace id
+            - menu (str): メニュー名 / menu name
+            - conductor_instance_id (str): ConductorインスタンスID / Conductor instance ID
+
+    Raises:
+        Exception: 必須パラメータが指定されていない場合
+            / if required parameters are not specified
+        HTTPException: Conductor結果データの取得に失敗した場合
+            / if retrieving Conductor result data fails
+    """
+    organization_id = payload.get("organization_id")
+    workspace_id = payload.get("workspace_id")
+    menu = arguments.get("menu", "")
+    conductor_instance_id = arguments.get("conductor_instance_id", "")
+    file_format = arguments.get("file")
+
+    if not menu:
+        raise Exception("menu is required")
+    if not conductor_instance_id:
+        raise Exception("conductor_instance_id is required")
+
+    g.applogger.info(f"Parameter menu={menu}, conductor_instance_id={conductor_instance_id}")
+
+    # このツールが呼び出すのは "/ita/menu/{menu}/conductor/{conductor_instance_id}/result_data/" という
+    # ITA自身のAPI(ita_api_organization)側のエンドポイントであるため、環境変数
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT を使用する
+    #
+    # This tool calls the "/ita/menu/{menu}/conductor/{conductor_instance_id}/result_data/"
+    # endpoint of ITA's own API (ita_api_organization), so it uses the
+    # ITA_API_ORAGANIZATION_HOST / ITA_API_ORAGANIZATION_PORT environment
+    # variables
+    ita_api_host = os.getenv("ITA_API_ORAGANIZATION_HOST")
+    ita_api_port = os.getenv("ITA_API_ORAGANIZATION_PORT")
+    # プロトコルは常にhttp固定とする(ITAサービス間通信はhttpを使用する)
+    # Protocol is always fixed to http (inter-service communication within ITA uses http)
+    url = "http://{}:{}/api/{}/workspaces/{}/ita/menu/{}/conductor/{}/result_data/".format(
+        ita_api_host, ita_api_port, organization_id, workspace_id, menu, conductor_instance_id
+    )
+
+    # クエリパラメータの追加（fileが指定されている場合）
+    # Add query parameter if file format is specified
+    params = {}
+    if file_format:
+        params["file"] = file_format
+
+    # 転送用ヘッダーを組み立てる(GETリクエストのため"Content-Type"は不要)
+    # Build the headers to forward (no "Content-Type" needed for GET request)
+    headers = build_forward_headers(method="GET")
+
+    # ITAのAPIへConductor結果データ取得のGETリクエストを送信する
+    # Send a GET request to ITA's API to retrieve Conductor result data
+    req = requests.get(url, headers=headers, params=params, timeout=get_downstream_timeout())
+
+    # ステータスコードが200以外の場合は異常終了として例外を発生させる
+    # If the status code is not 200, treat it as a failure and raise an exception
+    if req.status_code != 200:
+        g.applogger.info("Failed to get conductor result data: {} - {}".format(req.status_code, req.text))
+        raise HTTPException("get-conductor-result-data", req)
+
+    return {
+        "result": req.json(),
+        "message": "Conductor result data retrieved successfully.",
+        "organization_id": organization_id,
+        "workspace_id": workspace_id,
+        "menu": menu,
+        "conductor_instance_id": conductor_instance_id
     }
