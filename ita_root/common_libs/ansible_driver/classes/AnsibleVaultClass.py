@@ -1,10 +1,21 @@
-import base64
-import codecs
+# Copyright 2022 NEC Corporation#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 import os
 import subprocess
-import sys
-from common_libs.ansible_driver.functions.util import *
-from common_libs.common import *
+from common_libs.ansible_driver.functions.util import *   # noqa: F403
+from common_libs.common import *  # noqa: F403
 
 """
   ansible vault関連モジュール
@@ -24,9 +35,9 @@ class AnsibleVault:
             ansible-vaultパスワードファイルパス
         """
         if ansiblePlaybookVaultPath is False:
-            VaultPasswordFilePath = "{}/.vault_{}".format(get_OSTmpPath(), os.getpid())
+            VaultPasswordFilePath = "{}/.vault_{}".format(get_OSTmpPath(), os.getpid())  # noqa: F405
             # /tmpに作成したファイルはゴミ掃除リストに追加
-            addAnsibleCreateFilesPath(VaultPasswordFilePath)
+            addAnsibleCreateFilesPath(VaultPasswordFilePath)  # noqa: F405
         else:
             VaultPasswordFilePath = "{}/.tmp/.tmpkey".format(ansiblePlaybookVaultPath)
         return VaultPasswordFilePath
@@ -43,7 +54,7 @@ class AnsibleVault:
         self.VaultPasswordFilePath = VaultPasswordFilePath
         #  #2079 /storage配下は使用していないので対象外
         fd = open(VaultPasswordFilePath, 'w')
-        fd.write(ky_decrypt(vaultPassword))
+        fd.write(ky_decrypt(vaultPassword))  # noqa: F405
         fd.close()
         return True
 
@@ -57,12 +68,11 @@ class AnsibleVault:
         """
         retry_remove(self.VaultPasswordFilePath)  # noqa: F405
 
-    def Vault(self, ansible_path, exec_user, password_file, value, indento, engine_virtualenv_path, passwdFileDel=True):
+    def Vault(self, ansible_path, password_file, value, indento, engine_virtualenv_path, passwdFileDel=True):
         """
           ansible-vaultで指定文字列を暗号化
           Arguments:
             ansible_path:           ansible-coreインストール先パス
-            exec_user:              実行ユーザー(非コンテナ環境用)
             password_file:          ansible-vaultパスワードファイルパス
             value:                  暗号化したい文字列
             indento:                暗号化された文字列に付与するインデント
@@ -74,11 +84,11 @@ class AnsibleVault:
         result = True
         mt_encode_value = ""
 
-        strExecshellTemplateName = "{}/{}".format(get_AnsibleDriverShellPath(), "ky_ansible_vault_command_shell_template.sh")
+        strExecshellTemplateName = "{}/{}".format(get_AnsibleDriverShellPath(), "ky_ansible_vault_command_shell_template.sh")  # noqa: F405
 
-        strExecshellName = "{}/ansible_vault_execute_shell_{}.sh".format(get_OSTmpPath(), os.getpid())
+        strExecshellName = "{}/ansible_vault_execute_shell_{}.sh".format(get_OSTmpPath(), os.getpid())  # noqa: F405
         # /tmpに作成したファイルはゴミ掃除リストに追加
-        addAnsibleCreateFilesPath(strExecshellName)
+        addAnsibleCreateFilesPath(strExecshellName)  # noqa: F405
 
         if engine_virtualenv_path:
             virtualenv_flg = "__define__"
@@ -91,9 +101,9 @@ class AnsibleVault:
         value = value.replace("\r\n", "\n")
 
         # ansibel-vault パスワードファイル生成
-        vault_value_file = "{}/ansible_vault_value_{}".format(get_OSTmpPath(), os.getpid())
+        vault_value_file = "{}/ansible_vault_value_{}".format(get_OSTmpPath(), os.getpid())  # noqa: F405
         # /tmpに作成したファイルはゴミ掃除リストに追加
-        addAnsibleCreateFilesPath(vault_value_file)
+        addAnsibleCreateFilesPath(vault_value_file)  # noqa: F405
         # #2079 /storage配下ではないので対象外
         fd = open(vault_value_file, 'w')
         fd.write(value)
@@ -125,12 +135,14 @@ class AnsibleVault:
         # パーミッション設定
         retry_chmod(strExecshellName, 0o777)  # noqa: F405
         # Ansible_vault実行Commnad発行
-        if exec_user.strip() != "":
-            cmd = "sudo -u {} -i {} {}".format(exec_user, strExecshellName, virtualenv_flg)
-        else:
-            cmd = "{} {}".format(strExecshellName, virtualenv_flg)
+        cmd = [strExecshellName, virtualenv_flg]
+
         # text=Trueはpython3.6にないので未使用
-        ret = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            ret = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as e:
+            # shell=True時と同様にコマンド起動失敗をエラー結果として扱う
+            ret = subprocess.CompletedProcess(cmd, 126, b"", str(e).encode())
 
         # 一時ファイル削除
 
@@ -144,10 +156,10 @@ class AnsibleVault:
         if ret.returncode != 0:
             # エラー情報退避
             indento = ""
-            mt_encode_value = to_str(ret.stderr)
+            mt_encode_value = to_str(ret.stderr)  # noqa: F405
         else:
             # 暗号化文字列取得
-            output = to_str(ret.stdout)
+            output = to_str(ret.stdout)   # noqa: F405
             arry_list = output.split("\n")
 
             # 暗号化文字列加工

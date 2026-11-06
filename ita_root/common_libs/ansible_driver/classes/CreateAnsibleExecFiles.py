@@ -125,8 +125,6 @@
 # CreateLegacyRoleTemplateFiles
 # makeAnsibleVaultPassword
 # makeAnsibleVaultValue
-# getAnsibleExecuteUser
-# setAnsibleExecuteUser
 # HostVarEdit
 # MultilineValueEdit
 # chkMultilineValue
@@ -200,7 +198,6 @@
 # value_extraction
 #############################################################
 import os
-import shutil
 import re
 import inspect
 import json
@@ -238,13 +235,14 @@ from common_libs.ansible_driver.functions.util import getPioneerDialogUploadDirP
 from common_libs.ansible_driver.functions.util import getLegacyPlaybookUploadDirPath
 from common_libs.ansible_driver.functions.util import get_AnsibleDriverShellPath
 from common_libs.common.util import ky_encrypt, ky_decrypt, ky_file_encrypt, ky_file_decrypt, retry_makedirs, retry_chmod, retry_copy, retry_copyfile, retry_copytree, retry_remove, retry_rmtree, file_read_retry
-from common_libs.common.storage_access import storage_base, storage_read, storage_write, storage_base
+from common_libs.common.storage_access import storage_read, storage_write
 from common_libs.ansible_driver.functions.ag_util import CreateAG_ITABuilderShellFiles, CreateAG_ITARunnerShellFiles, Replace_HostVrasFilepath
 
 
 """
 Ansibleの実行に必要な情報をデータベースから取得しAnsible実行ディレクトリを作成するモジュール
 """
+
 
 class CreateAnsibleExecFiles():
     """
@@ -371,7 +369,6 @@ class CreateAnsibleExecFiles():
         self.lv_cpf_var_file_path_list = {}
         self.ansible_vault_password_file_dir = ""
         self.lv_hostinfolist = {}
-        self.ansible_exec_user = ""
         self.lv_ans_if_info = {}
         self.lv_exec_no = ""
         self.lv_vault_pass_list = {}
@@ -505,7 +502,7 @@ class CreateAnsibleExecFiles():
         Returns:
             ITA独自変数名リスト
         """
-        return  self.AnscObj.notHaveSpecificValues_ITA_sp_varlist
+        return self.AnscObj.notHaveSpecificValues_ITA_sp_varlist
 
     def getAnsibleDriverCommonShellPath(self):
         path = "{}{}/{}/{}".format(os.environ["PYTHONPATH"], g.get('ORGANIZATION_ID'), g.get('WORKSPACE_ID'), "/common_libs/ansible_driver/shells")
@@ -630,7 +627,7 @@ class CreateAnsibleExecFiles():
             else:
                 # Tower(/var/lib/awx/projects)ディレクトリへのファイル転送パス退避
                 self.lv_conductor_instance_Dir = "{}/{}/{}/{}".format(self.getTowerProjectDirPath("ExastroPath"),
-                                                                    self.LC_ITA_TMP_DIR, self.LC_ITA_CONDUCTOR_DIR, ins_Path)
+                                                                      self.LC_ITA_TMP_DIR, self.LC_ITA_CONDUCTOR_DIR, ins_Path)
                 self.setTowerProjectsScpPath(self.AnscObj.DF_SCP_CONDUCTOR_TOWER_PATH, self.lv_conductor_instance_Dir)
 
                 ita_conductor_instance_Dir = "{}/{}".format(self.getAnsibleBaseDir('CONDUCTOR_STORAGE_PATH_ITA'), ins_Path)
@@ -741,7 +738,7 @@ class CreateAnsibleExecFiles():
             c_dirwk = c_indir + "/" + self.LC_ANS_ENV_DIR
             retry_makedirs(c_dirwk)
             retry_chmod(c_dirwk, 0o777)
-            tgtdir = self.setAnsible_in_env_Dir(c_dirwk)
+            self.setAnsible_in_env_Dir(c_dirwk)
 
             # Ansible Agentの場合、envディレクトリ配下にsettingsファイル生成
             tgtfile = "{}/{}".format(c_dirwk, "settings")
@@ -781,7 +778,7 @@ class CreateAnsibleExecFiles():
             # ITAANSIBLEH-ERR-90235
             msgstr = g.appmsg.get_api_message("MSG-10458", [])
             self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                                str(inspect.currentframe().f_lineno), msgstr)
+                               str(inspect.currentframe().f_lineno), msgstr)
             return False, mt_rolenames, mt_rolevars, mt_roleglobalvars, mt_role_rolepackage_id, mt_def_vars_list, mt_def_array_vars_list
 
         # グローバル変数(センシティブ)管理からグローバル変数(センシティブ)の情報を取得
@@ -792,7 +789,7 @@ class CreateAnsibleExecFiles():
         if ret is False:
             msgstr = g.appmsg.get_api_message("MSG-11015", [])
             self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                                str(inspect.currentframe().f_lineno), msgstr)
+                               str(inspect.currentframe().f_lineno), msgstr)
             return False, mt_rolenames, mt_rolevars, mt_roleglobalvars, mt_role_rolepackage_id, mt_def_vars_list, mt_def_array_vars_list
 
         # ドライバ区分がLegacy-Roleの場合
@@ -1118,10 +1115,10 @@ class CreateAnsibleExecFiles():
         # Ansible Agent用のディレクトリを作成
         if self.lv_exec_mode == AnscConst.DF_EXEC_MODE_AG:
             # Ansibe bulder用　shell作成
-            ret, msgstr  = CreateAG_ITABuilderShellFiles(self.lv_objDBCA, self.AnscObj, self.getAnsible_in_builder_files_Dir(), in_execno, movement_row)
+            ret, msgstr = CreateAG_ITABuilderShellFiles(self.lv_objDBCA, self.AnscObj, self.getAnsible_in_builder_files_Dir(), in_execno, movement_row)
             if ret is False:
                 self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                            str(inspect.currentframe().f_lineno), msgstr)
+                                   str(inspect.currentframe().f_lineno), msgstr)
                 return False, mt_rolenames, mt_rolevars, mt_roleglobalvars, mt_role_rolepackage_id, mt_def_vars_list, mt_def_array_vars_list
 
             # unner_executable_files配下にstart.sh・stop.sh・alive.shを生成する
@@ -1481,7 +1478,7 @@ class CreateAnsibleExecFiles():
                         passwd = "ansible_password: " + make_vaultpass
 
                 # Winrm接続情報
-                if ina_hostinfolist[host_name]['LOGIN_AUTH_TYPE'] in (self.AnscObj.DF_LOGIN_AUTH_TYPE_PW_WINRM,self.AnscObj.DF_LOGIN_AUTH_TYPE_KEY_WINRM):
+                if ina_hostinfolist[host_name]['LOGIN_AUTH_TYPE'] in (self.AnscObj.DF_LOGIN_AUTH_TYPE_PW_WINRM, self.AnscObj.DF_LOGIN_AUTH_TYPE_KEY_WINRM):
                     # WINRM接続プロトコルよりポート番号が未設定時は、self.LC_WINRM_PORTが設定されている
                     port = "ansible_port: " + str(ina_hostinfolist[host_name]['WINRM_PORT'])
                     port += "\n" + indento_sp_param + "ansible_connection: winrm"
@@ -1508,7 +1505,7 @@ class CreateAnsibleExecFiles():
                     ssh_key_file_path = self.setAnsibleSideFilePath(ssh_key_file_path, self.LC_ITA_IN_DIR)
                     # 秘密鍵認証の場合にssh-agntでパスフレーズの入力を省略する為の情報生成
                     if ina_hostinfolist[host_name]['LOGIN_AUTH_TYPE'] == self.AnscObj.DF_LOGIN_AUTH_TYPE_KEY_PP_USE:
-                        if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # 実行エンジンがAnsible Agentの場合の場合、秘密鍵認証（パスフレーズあり）の場合にパスフレーズを暗号化
+                        if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # 実行エンジンがAnsible Agentの場合の場合、秘密鍵認証（パスフレーズあり）の場合にパスフレーズを暗号化
                             # 秘密鍵認証（パスフレーズあり）の場合にパスフレーズを暗号化しansible_passとEnter passphrase for keyを設定
                             login_pw_ansible_vault = ""
                             make_vaultpass = self.makeAnsibleVaultPassword(ina_hostinfolist[host_name]['SSH_KEY_FILE_PASSPHRASE'],
@@ -1559,7 +1556,7 @@ class CreateAnsibleExecFiles():
                 if ina_hostinfolist[host_name]['WINRM_CERT_PEM_FILE']:
                     # 機器一覧のwinRM公開鍵ファイルに登録ファイルをinディレクトリ配下にコピーする
                     retAry = self.CreateWinrmPublicKeyFile(ina_hostinfolist[host_name]['SYSTEM_ID'],
-                                                            ina_hostinfolist[host_name]['WINRM_CERT_PEM_FILE'])
+                                                           ina_hostinfolist[host_name]['WINRM_CERT_PEM_FILE'])
 
                     ret = retAry[0]
                     win_private_key_file_path = retAry[1]
@@ -2483,7 +2480,7 @@ class CreateAnsibleExecFiles():
         Returns:
             作業実行hostsファイル名
         """
-        if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # AGの場合を追加
+        if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # AGの場合を追加
             file = "{}/{}/{}".format(self.getAnsible_in_Dir(), self.LC_ANS_INVENTORY_DIR, self.LC_ANS_HOSTS_FILE)
         else:
             file = self.getAnsible_in_Dir() + "/" + self.LC_ANS_HOSTS_FILE
@@ -3939,7 +3936,7 @@ class CreateAnsibleExecFiles():
         in_var_name_str = in_var_name_str.replace("]", "-")
         str_list = in_var_name_str.split('.')
         for str in str_list:
-            mc = "\-[0-9]*\-"
+            mc = r"\-[0-9]*\-"
             ret = re.match(mc, str)
             if ret is not None:
                 str = str.replace("-", "")
@@ -4466,7 +4463,6 @@ class CreateAnsibleExecFiles():
         """
         return self.lv_Ansible_win_key_files_Dir
 
-
     def getITA_win_private_key_file(self, in_pkey, in_file):
         """
         inディレクトリからのwinRM秘密鍵ファイルパス(win_ca_files)を取得
@@ -4911,7 +4907,6 @@ class CreateAnsibleExecFiles():
                 obj.CreateVaultPasswordFile(VaultPasswordFilePath, self.lv_ans_if_info['ANSIBLE_VAULT_PASSWORD'])
                 # AnsibleのPATHは指定無し
                 retAry = obj.Vault("",
-                                   self.getAnsibleExecuteUser(),
                                    VaultPasswordFilePath,
                                    in_pass,
                                    "",
@@ -4971,7 +4966,6 @@ class CreateAnsibleExecFiles():
                 obj.CreateVaultPasswordFile(VaultPasswordFilePath, self.lv_ans_if_info['ANSIBLE_VAULT_PASSWORD'])
                 # AnsibleのPATHは指定無し
                 retAry = obj.Vault("",
-                                   self.getAnsibleExecuteUser(),
                                    VaultPasswordFilePath,
                                    in_pass,
                                    "",
@@ -4997,30 +4991,6 @@ class CreateAnsibleExecFiles():
         out_vaultpass = obj.setValutPasswdIndento(out_vaultpass, in_indento)
 
         return out_vaultpass
-
-    def getAnsibleExecuteUser(self):
-        """
-        ansibleコマンド実行ユーザー取得
-        Arguments:
-        Returns:
-            ansibleコマンド実行ユーザー
-        """
-        return self.ansible_exec_user
-
-    def setAnsibleExecuteUser(self, user_name):
-        """
-        ansibleコマンド実行ユーザー退避
-        Arguments:
-            ansibleコマンド実行ユーザー
-        Returns:
-            なし
-        """
-        if user_name:
-            # 非コンテナ版ではuser名の指定がない場合はrootにする。
-            # コンテナ版ではuser名の指定出来ないのでコメントなする
-            # user_name = 'root'
-            user_name = ""
-        self.ansible_exec_user = user_name
 
     def HostVarEdit(self, val, NumPadding):
         """
@@ -5220,11 +5190,11 @@ class CreateAnsibleExecFiles():
             mkdir = "{}/{}/{}/out/_parameters/{}".format(ita_base_dir, driver_list[driver_id], execute_no, host_name)
             host_var_vaule = "{}/{}/{}/out/_parameters".format(ita_base_dir, driver_list[driver_id], execute_no)
 
-            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE: # AGの場合を追加
+            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE:  # AGの場合を追加
                 host_var_vaule = "{}/{}/{}/out/_parameters".format(ans_base_dir, driver_list[driver_id], execute_no)
 
-            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # AGの場合を追加
-                host_var_vaule = "/outdir/out/_parameters".format(ans_base_dir, driver_list[driver_id], execute_no)
+            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # AGの場合を追加
+                host_var_vaule = "/outdir/out/_parameters"
             else:
                 host_var_vaule = "{}/{}/_parameters".format(self.getTowerProjectDirPath("ExastroPath"), self.LC_ITA_OUT_DIR)
 
@@ -5245,10 +5215,10 @@ class CreateAnsibleExecFiles():
             scpsrcdir = "{}/{}/{}/in/_parameters_file".format(ita_base_dir, driver_list[driver_id], execute_no)
             host_var_vaule = "{}/{}/{}/in/_parameters_file".format(ita_base_dir, driver_list[driver_id], execute_no)
 
-            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE: # AGの場合を追加
+            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE:  # AGの場合を追加
                 host_var_vaule = "{}/{}/{}/in/_parameters_file".format(ans_base_dir, driver_list[driver_id], execute_no)
 
-            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # AGの場合を追加
+            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # AGの場合を追加
                 host_var_vaule = "_parameters_file"
 
             else:
@@ -5271,10 +5241,10 @@ class CreateAnsibleExecFiles():
 
             mkdir = "{}/{}/{}/out/_parameters_file/{}".format(ita_base_dir, driver_list[driver_id], execute_no, host_name)
             host_var_vaule = "{}/{}/{}/out/_parameters_file".format(ita_base_dir, driver_list[driver_id], execute_no)
-            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE: # AGの場合を追加
+            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE:  # AGの場合を追加
                 host_var_vaule = "{}/{}/{}/out/_parameters_file".format(ans_base_dir, driver_list[driver_id], execute_no)
 
-            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # AGの場合を追加
+            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # AGの場合を追加
                 host_var_vaule = "/outdir/out/_parameters_file"
 
             else:
@@ -5341,10 +5311,10 @@ class CreateAnsibleExecFiles():
             host_var_name = self.AnscObj.ITA_SP_VAR_MOVEMENT_STS_FILE
 
             host_var_vaule = "{}/{}/{}/out/MOVEMENT_STATUS_FILE".format(ans_base_dir, driver_list[driver_id], execute_no)
-            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE: # AGの場合を追加
+            if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_ANSIBLE:  # AGの場合を追加
                 host_var_vaule = "{}/{}/{}/out/MOVEMENT_STATUS_FILE".format(ans_base_dir, driver_list[driver_id], execute_no)
 
-            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # AGの場合を追加
+            elif self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # AGの場合を追加
                 host_var_vaule = "/outdir/out/MOVEMENT_STATUS_FILE"
 
             else:
@@ -5377,24 +5347,24 @@ class CreateAnsibleExecFiles():
                 mt_host_vars[host_name][self.LC_ANS_PIONEER_LANG_VAR_NAME] = hostinfo['PIONEER_LANG_STRING']
 
                 path = "{}/{}".format(self.setAnsibleSideFilePath(self.getAnsible_original_dialog_files_Dir(), self.LC_ITA_TMP_DIR), host_name)
-                if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # AGの場合を追加
+                if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # AGの場合を追加
                     path = Replace_HostVrasFilepath("tmp", path, "outdir/tmp")
                 else:
                     pass
                 mt_host_vars[host_name][self.LC_ANS_PIONEER_ORIGINAL_EXEC_FILE_DIR] = path
 
                 path = "{}/{}".format(self.setAnsibleSideFilePath(self.getAnsible_vault_hosts_vars_Dir(), self.LC_ITA_TMP_DIR), host_name)
-                if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG: # AGの場合を追加
+                if self.lv_exec_mode == self.AnscObj.DF_EXEC_MODE_AG:  # AGの場合を追加
                     path = Replace_HostVrasFilepath("tmp", path, "outdir/tmp")
                 else:
                     pass
                 mt_host_vars[host_name][self.LC_ANS_PIONEER_ENCODE_COLUMN_ENCODE_VALUE_FILE] = path
 
                 mt_host_vars[host_name][self.LC_ANS_PIONEER_SSH_PHRASES_FLG] = '"No"'
-                if self.lv_ans_if_info['ANSIBLE_EXEC_MODE'] == self.AnscObj.DF_EXEC_MODE_AG: # Ansible Execution Agentで実行
-                   if ina_hostinfolist[host_name]['LOGIN_AUTH_TYPE'] == self.AnscObj.DF_LOGIN_AUTH_TYPE_KEY_PP_USE:
-                       mt_host_vars[host_name][self.LC_ANS_PIONEER_SSH_PHRASES_FLG] = '"Yes"'
-                       mt_host_vars[host_name][self.LC_ANS_PIONEER_SSH_PHRASES] = self.ky_pioneer_encrypt(ina_hostinfolist[host_name]['SSH_KEY_FILE_PASSPHRASE'])
+                if self.lv_ans_if_info['ANSIBLE_EXEC_MODE'] == self.AnscObj.DF_EXEC_MODE_AG:  # Ansible Execution Agentで実行
+                    if ina_hostinfolist[host_name]['LOGIN_AUTH_TYPE'] == self.AnscObj.DF_LOGIN_AUTH_TYPE_KEY_PP_USE:
+                        mt_host_vars[host_name][self.LC_ANS_PIONEER_SSH_PHRASES_FLG] = '"Yes"'
+                        mt_host_vars[host_name][self.LC_ANS_PIONEER_SSH_PHRASES] = self.ky_pioneer_encrypt(ina_hostinfolist[host_name]['SSH_KEY_FILE_PASSPHRASE'])
         return True, mt_host_vars
 
     def CreateOperationVariables(self, in_operation_id, ina_hostinfolist, mt_host_vars, mt_pioneer_template_host_vars):
@@ -6548,7 +6518,7 @@ class CreateAnsibleExecFiles():
                             else:
                                 msgstr = g.appmsg.get_api_message("MSG-10462", [os.path.basename(file_name), var_name])
                                 self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                                                str(inspect.currentframe().f_lineno), msgstr)
+                                                   str(inspect.currentframe().f_lineno), msgstr)
                                 result_code = False
                             # 対話ファイルで使用されているグローバル変数退避
                             self.lv_use_gbl_vars_list[var_name] = "1"
@@ -7721,7 +7691,7 @@ class CreateAnsibleExecFiles():
                                         if ret is False:
                                             msgstr = g.appmsg.get_api_message("MSG-10473", [var_name])
                                             self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                                                            str(inspect.currentframe().f_lineno), msgstr)
+                                                               str(inspect.currentframe().f_lineno), msgstr)
                                             return False
                                     elif var_name in self.lva_global_sensitive_vars_list:
                                         # グローバル変数（センシティブ）の具体値を << var_name >> として退避
@@ -7732,7 +7702,7 @@ class CreateAnsibleExecFiles():
                                         if ret is False:
                                             msgstr = g.appmsg.get_api_message("MSG-10473", [var_name])
                                             self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                                                            str(inspect.currentframe().f_lineno), msgstr)
+                                                               str(inspect.currentframe().f_lineno), msgstr)
                                             return False
 
                     # copy変数を対話ファイルから抜出しファイル管理に登録されていることを確認する。
@@ -10118,7 +10088,6 @@ class CreateAnsibleExecFiles():
                         value_count = retAry[0]
                         mt_pionner_template_host_vars[row['HOST_NAME']][row['VARS_NAME']] = retAry[1]
 
-
             elif not row['DISUSE_FLAG']:
                 msgstr = g.appmsg.get_api_message("MSG-10187", [row['ASSIGN_ID']])
                 self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
@@ -10477,7 +10446,6 @@ class CreateAnsibleExecFiles():
 
         return result_code
 
-
     def getDBGlobalSensitiveVarsMaster(self, mt_global_sensitive_vars_list):
         """
           グローバル変数(センシティブ)の情報をデータベースより取得
@@ -10501,7 +10469,6 @@ class CreateAnsibleExecFiles():
             if row['VARS_NAME'] not in mt_global_sensitive_vars_list:
                 mt_global_sensitive_vars_list[row['VARS_NAME']] = row['VARS_ENTRY']
         return True, mt_global_sensitive_vars_list
-
 
     def makeAnsibleVaultGBL(self, in_pass, in_vaultpass, in_indento, in_gbl_key):
         """
@@ -10531,22 +10498,21 @@ class CreateAnsibleExecFiles():
                 obj.CreateVaultPasswordFile(VaultPasswordFilePath, self.lv_ans_if_info['ANSIBLE_VAULT_PASSWORD'])
                 # AnsibleのPATHは指定無し
                 retAry = obj.Vault("",
-                                    self.getAnsibleExecuteUser(),
-                                    VaultPasswordFilePath,
-                                    in_pass,
-                                    "",
-                                    self.lv_engine_virtualenv_name,
-                                    True)
+                                   VaultPasswordFilePath,
+                                   in_pass,
+                                   "",
+                                   self.lv_engine_virtualenv_name,
+                                   True)
                 ret = retAry[0]
                 out_vaultpass = retAry[1]
                 if ret is False:
                     # ansible-vault失敗
                     msgstr = g.appmsg.get_api_message("MSG-10646", [in_gbl_key])
                     self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                                        str(inspect.currentframe().f_lineno), msgstr)
+                                       str(inspect.currentframe().f_lineno), msgstr)
                     # 標準エラー出力を出力
                     self.LocalLogPrint(os.path.basename(inspect.currentframe().f_code.co_filename),
-                                        str(inspect.currentframe().f_lineno), out_vaultpass)
+                                       str(inspect.currentframe().f_lineno), out_vaultpass)
                     return False
                 self.lv_vault_pass_list[in_pass] = out_vaultpass
             out_vaultpass = " !vault |" + out_vaultpass
@@ -10584,7 +10550,7 @@ class CreateAnsibleExecFiles():
                     return False, vault_vars, vault_host_vars_file_list
                 vault_vars.setdefault(_hv, {})
                 vault_host_vars_file_list.setdefault(_hv, {})
-                vault_vars[_hv][_gsk]= f"<< {_gsk} >>"
+                vault_vars[_hv][_gsk] = f"<< {_gsk} >>"
                 vault_host_vars_file_list[_hv][_gsk] = self.ky_pioneer_encrypt(ky_decrypt(_gsv))
         return True, vault_vars, vault_host_vars_file_list
 
@@ -10623,7 +10589,7 @@ class CreateAnsibleExecFiles():
                     self.lv_ans_if_info['ANSIBLE_VAULT_PASSWORD'] = ky_encrypt(AnscConst.DF_ANSIBLE_VAULT_PASSWORD)
                 obj.CreateVaultPasswordFile(VaultPasswordFilePath, self.lv_ans_if_info['ANSIBLE_VAULT_PASSWORD'])
                 # AnsibleのPATHは指定無し
-                retAry = obj.Vault("", self.getAnsibleExecuteUser(), VaultPasswordFilePath, in_pass, "", self.lv_engine_virtualenv_name, True)
+                retAry = obj.Vault("", VaultPasswordFilePath, in_pass, "", self.lv_engine_virtualenv_name, True)
                 ret = retAry[0]
                 out_vaultpass = retAry[1]
                 if ret is False:
@@ -10704,7 +10670,7 @@ class CreateAnsibleExecFiles():
         }
         self.lv_objDBCA.table_update("T_ANSC_IF_INFO", update_data, "DISUSE_FLAG", is_register_history=False, last_timestamp=True)
         return True, new_sa_refresh_token
-    
+
     def internalpost(self, uri, request_data):
         """Common function for executing Internal API POST requests.
 
@@ -10796,7 +10762,7 @@ class CreateAnsibleExecFiles():
         elif data.status_code != 200:
             msg = f"Internal API returned non-200 status: {data.status_code}, URL: {api_url}"
             return False, msg
-        
+
         for sa_info in data.json().get("data", []):
             if un == sa_info.get("username"):
                 return True, sa_info["id"]
@@ -10854,7 +10820,7 @@ class CreateAnsibleExecFiles():
         elif tokenlist_data.status_code != 200:
             msg = f"Internal API returned non-200 status: {tokenlist_data.status_code}, URL: {api_url}"
             return False, msg
-        
+
         for token_info in tokenlist_data.json().get("data", []):
             if id == token_info.get("id"):
                 return True, "exists"
