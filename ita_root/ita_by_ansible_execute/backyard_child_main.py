@@ -377,15 +377,7 @@ def instance_execution(wsDb: DBConnectWs, ansdrv: CreateAnsibleExecFiles, ans_if
 
     # ANSIBLEインタフェース情報をローカル変数に格納
     ansible_exec_options = ans_if_info['ANSIBLE_EXEC_OPTIONS']
-    # 2.0では不要 非コンテナ版の場合に有効にする。
-    # ans_exec_user = ans_if_info['ANSIBLE_EXEC_USER']
     ans_exec_mode = execute_data['EXEC_MODE']
-
-    # Ansibleコマンド実行ユーザー設定
-    # 2.0では不要 非コンテナ版の場合に有効にする。
-    # if not ans_exec_user or len(ans_exec_user.strip()) == 0:
-    #    ans_exec_user = 'root'
-    # ansdrv.setAnsibleExecuteUser(ans_exec_user)
 
     winrm_id = ""
     if driver_id in [ansc_const.DF_LEGACY_ROLE_DRIVER_ID, ansc_const.DF_LEGACY_DRIVER_ID]:
@@ -598,14 +590,7 @@ def instance_checkcondition(wsDb: DBConnectWs, ansdrv: CreateAnsibleExecFiles, a
     execution_no = execute_data["EXECUTION_NO"]
 
     # ANSIBLEインタフェース情報をローカル変数に格納
-    # 2.0では不要 非コンテナ版の場合に有効にする。
-    # ans_exec_user = ans_if_info['ANSIBLE_EXEC_USER']
     ans_exec_mode = execute_data['EXEC_MODE']
-
-    # Ansibleコマンド実行ユーザー設定
-    # 2.0では不要 非コンテナ版の場合に有効にする。
-    # if not ans_exec_user or len(ans_exec_user.strip()) == 0:
-    #    ans_exec_user = 'root'
 
     # 実行エンジンを判定
     g.applogger.debug(g.appmsg.get_log_message("MSG-10741", [execution_no]))
