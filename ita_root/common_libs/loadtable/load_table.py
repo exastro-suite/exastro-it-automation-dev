@@ -28,6 +28,7 @@ from flask import g
 from common_libs.column import *  # noqa: F403
 from common_libs.common import *  # noqa: F403
 from common_libs.common.util import print_exception_msg, get_iso_datetime, arrange_stacktrace_format
+from common_libs.common.validate_callable import get_validate_callable
 
 
 # 定数
@@ -2488,14 +2489,16 @@ class loadTable():
             else:
                 external_validate_path = 'common_libs.validate.valid_{}'.format(self.get_menu_id())
             exec_func = importlib.import_module(external_validate_path)  # noqa: F841
-            eval_str = 'exec_func.{}(self.objdbca, self.objtable, target_option)'.format(exec_config)
-            tmp_exec = eval(eval_str)
-
-            if tmp_exec[0] is not True:
+            try:
+                tmp_exec = get_validate_callable(exec_func, exec_config)(self.objdbca, self.objtable, target_option)
+                if tmp_exec[0] is not True:
+                    retBool = False
+                    msg = tmp_exec[1]
+                else:
+                    target_option = tmp_exec[2]
+            except ValueError as e:
                 retBool = False
-                msg = tmp_exec[1]
-            else:
-                target_option = tmp_exec[2]
+                msg = str(e)
 
         return retBool, msg, target_option,
 
@@ -2520,13 +2523,16 @@ class loadTable():
             else:
                 external_validate_path = 'common_libs.validate.valid_{}'.format(self.get_menu_id())
             exec_func = importlib.import_module(external_validate_path)  # noqa: F841
-            eval_str = 'exec_func.{}(self.objdbca, self.objtable, target_option)'.format(exec_config)
-            tmp_exec = eval(eval_str)
-            if tmp_exec[0] is not True:
+            try:
+                tmp_exec = get_validate_callable(exec_func, exec_config)(self.objdbca, self.objtable, target_option)
+                if tmp_exec[0] is not True:
+                    retBool = False
+                    msg = tmp_exec[1]
+                else:
+                    target_option = tmp_exec[2]
+            except ValueError as e:
                 retBool = False
-                msg = tmp_exec[1]
-            else:
-                target_option = tmp_exec[2]
+                msg = str(e)
 
         return retBool, msg, target_option,
 

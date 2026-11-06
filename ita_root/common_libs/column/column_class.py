@@ -16,6 +16,8 @@ import json
 from flask import g
 import importlib
 
+from common_libs.common.validate_callable import get_validate_callable
+
 
 """
 カラムクラス共通処理(カラム)
@@ -527,13 +529,17 @@ class Column():
             else:
                 external_validate_path = 'common_libs.validate.valid_{}'.format(self.get_menu())
             exec_func = importlib.import_module(external_validate_path)
-            eval_str = 'exec_func.{}(self.objdbca, self.objtable, option)'.format(exec_config)
-            tmp_exec = eval(eval_str)
-            if tmp_exec[0] is not True:
+            try:
+                tmp_exec = get_validate_callable(exec_func, exec_config)(self.objdbca, self.objtable, option)
+                if tmp_exec[0] is not True:
+                    retBool = False
+                    msg = tmp_exec[1]
+                else:
+                    option = tmp_exec[2]
+            except ValueError as e:
                 retBool = False
-                msg = tmp_exec[1]
-            else:
-                option = tmp_exec[2]
+                msg = str(e)
+
         return retBool, msg, option,
 
     # [maintenance] カラムクラスの個別処理 レコード操作前
@@ -588,13 +594,16 @@ class Column():
             else:
                 external_validate_path = 'common_libs.validate.valid_{}'.format(self.get_menu())
             exec_func = importlib.import_module(external_validate_path)  # noqa: F841
-            eval_str = 'exec_func.{}(self.objdbca, self.objtable, option)'.format(exec_config)
-            tmp_exec = eval(eval_str)
-            if tmp_exec[0] is not True:
+            try:
+                tmp_exec = get_validate_callable(exec_func, exec_config)(self.objdbca, self.objtable, option)
+                if tmp_exec[0] is not True:
+                    retBool = False
+                    msg = tmp_exec[1]
+                else:
+                    option = tmp_exec[2]
+            except ValueError as e:
                 retBool = False
-                msg = tmp_exec[1]
-            else:
-                option = tmp_exec[2]
+                msg = str(e)
 
         return retBool, msg, option,
 
