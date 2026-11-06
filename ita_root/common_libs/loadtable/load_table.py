@@ -190,7 +190,6 @@ class loadTable():
             REST_KEY_LAST_JNL_ACTION_CLASS: COLNAME_JNL_ACTION_CLASS,
         }
 
-
     # message設定
     def reset_message(self):
         """
@@ -922,6 +921,7 @@ class loadTable():
 
                 # シートタイプが「参照用(5, 6)」の場合、専用の検索条件生成処理
                 ref_where_str = ''
+                ref_bind_value_list = []
                 if str(self.get_sheet_type()) in ["5", "6"]:
                     base_datetime_condition = parameter.get('base_datetime')
                     if not base_datetime_condition:
@@ -956,21 +956,21 @@ class loadTable():
                                         from `{table_name}` as tbl
                                         where `{table_name}`.HOST_ID = tbl.HOST_ID
                                         and DISUSE_FLAG = "0"
-                                        and tbl.BASE_TIMESTAMP <= '{base_datetime}'
+                                        and tbl.BASE_TIMESTAMP <= %s
                                     )
                                     and DISUSE_FLAG = "0"
-                                """).format(table_name=table_name, base_datetime=base_datetime).strip()
+                                """).format(table_name=table_name).strip()
                             else:  # シートタイプが「6: 参照用（オペレーションあり）」
                                 ref_where_str = textwrap.dedent("""
                                     BASE_TIMESTAMP = (
                                         select max(BASE_TIMESTAMP)
                                         from `{table_name}` as tbl
                                         where DISUSE_FLAG = "0"
-                                        and tbl.BASE_TIMESTAMP <= '{base_datetime}'
+                                        and tbl.BASE_TIMESTAMP <= %s
                                     )
                                     and DISUSE_FLAG = "0"
-                                """).format(table_name=table_name, base_datetime=base_datetime).strip()
-
+                                """).format(table_name=table_name).strip()
+                            ref_bind_value_list.append(base_datetime)
                         # parameterから「基準日時(key:base_datetime)」を削除する
                         parameter.pop('base_datetime')
 
@@ -1115,6 +1115,8 @@ class loadTable():
                     else:
                         conjunction = 'where'
                         where_str = '{} {}'.format(conjunction, ref_where_str)
+                    # 参照用検索条件はwhere句の末尾に結合するため、バインド値も末尾に追加
+                    bind_value_list.extend(ref_bind_value_list)
 
             elif mode in ['jnl', 'excel_jnl', 'count_jnl', 'jnl_all', 'excel_jnl_all', 'jnl_count_all']:
                 # 履歴テーブル
