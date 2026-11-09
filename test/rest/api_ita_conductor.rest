@@ -1,0 +1,507 @@
+# Global values
+# not quate strings
+@sys-user-id = admin
+@sys-user-pw = password
+@org-user-id = test_user
+@org-user-pw = passsword
+
+@base_sys_url = http://platform-auth:{{sys-mng-port}}
+@base_org_url = http://platform-auth:{{org-mng-port}}
+
+@organization_id = org1
+@workspace_id = ws1
+
+# Menu names
+@conductor_menu = conductor_class_edit
+@execution_menu = execution_list
+@confirmation_menu = conductor_confirmation
+@history_menu = conductor_list
+
+# Test data (set these after executing create/execute operations)
+@conductor_class_id = auto-increment-id-of-conductor
+@conductor_instance_id = auto-increment-id-of-conductor-instance
+
+# 1 api to ###
+
+###
+# Conductor: Conductorクラスを新規登録する (create-conductor)
+# Create a new Conductor class
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{conductor_menu}}/conductor/class/maintenance/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "conductor": {
+    "conductor_name": "REST_APIテスト",
+    "grid_snap": true,
+    "movement_white_space": "wrap",
+    "movement_width": "auto",
+    "note": "",
+    "notice_info": {}
+  },
+  "config": {
+    "edgeNumber": 3,
+    "editorVersion": "2.0.0",
+    "nodeNumber": 4,
+    "terminalNumber": 5
+  },
+  "line-1": {
+    "id": "line-1",
+    "inNode": "node-3",
+    "inTerminal": "terminal-3",
+    "outNode": "node-1",
+    "outTerminal": "terminal-1",
+    "type": "edge"
+  },
+  "line-2": {
+    "id": "line-2",
+    "inNode": "node-2",
+    "inTerminal": "terminal-2",
+    "outNode": "node-3",
+    "outTerminal": "terminal-4",
+    "type": "edge"
+  },
+  "node-1": {
+    "h": 58,
+    "id": "node-1",
+    "terminal": {
+      "terminal-1": {
+        "edge": "line-1",
+        "id": "terminal-1",
+        "targetNode": "node-3",
+        "type": "out",
+        "x": 7781,
+        "y": 8000
+      }
+    },
+    "type": "start",
+    "w": 198.194,
+    "x": 7600,
+    "y": 7971.3335
+  },
+  "node-2": {
+    "end_type": "6",
+    "h": 58,
+    "id": "node-2",
+    "terminal": {
+      "terminal-2": {
+        "edge": "line-2",
+        "id": "terminal-2",
+        "targetNode": "node-3",
+        "type": "in",
+        "x": 8218,
+        "y": 8000
+      }
+    },
+    "type": "end",
+    "w": 198.194,
+    "x": 8200.917,
+    "y": 7971.3335
+  },
+  "node-3": {
+    "h": 58,
+    "id": "node-3",
+    "movement_id": "auto-increment-id-of-movement",
+    "movement_name": "REST APIテスト用",
+    "operation_id": null,
+    "orchestra_id": "1",
+    "skip_flag": 0,
+    "terminal": {
+      "terminal-3": {
+        "edge": "line-1",
+        "id": "terminal-3",
+        "targetNode": "node-1",
+        "type": "in",
+        "x": 7917,
+        "y": 8000
+      },
+      "terminal-4": {
+        "edge": "line-2",
+        "id": "terminal-4",
+        "targetNode": "node-2",
+        "type": "out",
+        "x": 8136,
+        "y": 8000
+      }
+    },
+    "type": "movement",
+    "w": 252.875,
+    "x": 7900,
+    "y": 7971
+  }
+}
+
+###
+# Conductor: Conductorクラスを更新する (update-conductor)
+# Update an existing Conductor class
+PATCH {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{conductor_menu}}/conductor/class/maintenance/{{conductor_class_id}}/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "conductor": {
+    "conductor_name": "REST_APIテスト 部分修正",
+    "grid_snap": true,
+    "id": "auto-increment-id-of-conductor",
+    "last_update_date_time": "2026/12/31 23:59:59.000000",
+    "movement_white_space": "wrap",
+    "movement_width": "auto",
+    "note": "",
+    "notice_info": {}
+  },
+  "config": {
+    "edgeNumber": 3,
+    "editorVersion": "2.0.0",
+    "nodeNumber": 4,
+    "terminalNumber": 5
+  },
+  "line-1": {
+    "id": "line-1",
+    "inNode": "node-3",
+    "inTerminal": "terminal-3",
+    "outNode": "node-1",
+    "outTerminal": "terminal-1",
+    "type": "edge"
+  },
+  "line-2": {
+    "id": "line-2",
+    "inNode": "node-2",
+    "inTerminal": "terminal-2",
+    "outNode": "node-3",
+    "outTerminal": "terminal-4",
+    "type": "edge"
+  },
+  "node-1": {
+    "h": 58,
+    "id": "node-1",
+    "terminal": {
+      "terminal-1": {
+        "edge": "line-1",
+        "id": "terminal-1",
+        "targetNode": "node-3",
+        "type": "out",
+        "x": 7781,
+        "y": 8000
+      }
+    },
+    "type": "start",
+    "w": 198.194,
+    "x": 7600,
+    "y": 7971.3335
+  },
+  "node-2": {
+    "end_type": "6",
+    "h": 58,
+    "id": "node-2",
+    "terminal": {
+      "terminal-2": {
+        "edge": "line-2",
+        "id": "terminal-2",
+        "targetNode": "node-3",
+        "type": "in",
+        "x": 8218,
+        "y": 8000
+      }
+    },
+    "type": "end",
+    "w": 198.194,
+    "x": 8200.917,
+    "y": 7971.3335
+  },
+  "node-3": {
+    "h": 58,
+    "id": "node-3",
+    "movement_id": "auto-increment-id-of-movement",
+    "movement_name": "REST APIテスト用",
+    "operation_id": null,
+    "orchestra_id": "1",
+    "skip_flag": 0,
+    "terminal": {
+      "terminal-3": {
+        "edge": "line-1",
+        "id": "terminal-3",
+        "targetNode": "node-1",
+        "type": "in",
+        "x": 7917,
+        "y": 8000
+      },
+      "terminal-4": {
+        "edge": "line-2",
+        "id": "terminal-4",
+        "targetNode": "node-2",
+        "type": "out",
+        "x": 8136,
+        "y": 8000
+      }
+    },
+    "type": "movement",
+    "w": 252.875,
+    "x": 7900,
+    "y": 7971
+  }
+}
+
+###
+# Conductor: Conductorクラス情報を取得する (get-conductor-class)
+# Get Conductor class information
+GET {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{conductor_menu}}/conductor/class/{{conductor_class_id}}/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+
+###
+# Conductor: Conductor作業を実行する (execute-conductor)
+# Execute a Conductor operation
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{conductor_menu}}/conductor/execute/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "conductor_class_name": "REST_APIテスト 部分修正",
+  "operation_name": "REST_APIテスト用",
+  "schedule_date": "2026/12/31 00:00"
+  "conductor_data": {
+    "conductor": {
+      "conductor_name": "REST_APIテスト 部分修正",
+      "grid_snap": true,
+      "id": "auto-increment-id-of-conductor",
+      "last_update_date_time": "2026/12/31 23:59:59.000000",
+      "movement_white_space": "wrap",
+      "movement_width": "auto",
+      "note": "",
+      "notice_info": {}
+    },
+    "config": {
+      "edgeNumber": 3,
+      "editorVersion": "2.0.0",
+      "nodeNumber": 4,
+      "terminalNumber": 5
+    },
+    "line-1": {
+      "id": "line-1",
+      "inNode": "node-3",
+      "inTerminal": "terminal-3",
+      "outNode": "node-1",
+      "outTerminal": "terminal-1",
+      "type": "edge"
+    },
+    "line-2": {
+      "id": "line-2",
+      "inNode": "node-2",
+      "inTerminal": "terminal-2",
+      "outNode": "node-3",
+      "outTerminal": "terminal-4",
+      "type": "edge"
+    },
+    "node-1": {
+      "h": 58,
+      "id": "node-1",
+      "terminal": {
+        "terminal-1": {
+          "edge": "line-1",
+          "id": "terminal-1",
+          "targetNode": "node-3",
+          "type": "out",
+          "x": 7781,
+          "y": 8000
+        }
+      },
+      "type": "start",
+      "w": 198.194,
+      "x": 7600,
+      "y": 7971.3335
+    },
+    "node-2": {
+      "end_type": "6",
+      "h": 58,
+      "id": "node-2",
+      "terminal": {
+        "terminal-2": {
+          "edge": "line-2",
+          "id": "terminal-2",
+          "targetNode": "node-3",
+          "type": "in",
+          "x": 8218,
+          "y": 8000
+        }
+      },
+      "type": "end",
+      "w": 198.194,
+      "x": 8200.917,
+      "y": 7971.3335
+    },
+    "node-3": {
+      "h": 58,
+      "id": "node-3",
+      "movement_id": "auto-increment-id-of-movement",
+      "movement_name": "REST APIテスト用",
+      "operation_id": null,
+      "orchestra_id": "1",
+      "skip_flag": 0,
+      "terminal": {
+        "terminal-3": {
+          "edge": "line-1",
+          "id": "terminal-3",
+          "targetNode": "node-1",
+          "type": "in",
+          "x": 7917,
+          "y": 8000
+        },
+        "terminal-4": {
+          "edge": "line-2",
+          "id": "terminal-4",
+          "targetNode": "node-2",
+          "type": "out",
+          "x": 8136,
+          "y": 8000
+        }
+      },
+      "type": "movement",
+      "w": 252.875,
+      "x": 7900,
+      "y": 7971
+    }
+  }
+}
+
+###
+# Conductor: Conductor作業を実行する（予約日時なし） (execute-conductor)
+# Execute a Conductor operation without schedule
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{conductor_menu}}/conductor/execute/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "conductor_class_name": "REST_APIテスト 部分修正",
+  "operation_name": "REST_APIテスト用",
+  "conductor_data": {
+    "conductor": {
+      "conductor_name": "REST_APIテスト 部分修正",
+      "grid_snap": true,
+      "id": "auto-increment-id-of-conductor",
+      "last_update_date_time": "2026/12/31 23:59:59.000000",
+      "movement_white_space": "wrap",
+      "movement_width": "auto",
+      "note": "",
+      "notice_info": {}
+    },
+    "config": {
+      "edgeNumber": 3,
+      "editorVersion": "2.0.0",
+      "nodeNumber": 4,
+      "terminalNumber": 5
+    },
+    "line-1": {
+      "id": "line-1",
+      "inNode": "node-3",
+      "inTerminal": "terminal-3",
+      "outNode": "node-1",
+      "outTerminal": "terminal-1",
+      "type": "edge"
+    },
+    "line-2": {
+      "id": "line-2",
+      "inNode": "node-2",
+      "inTerminal": "terminal-2",
+      "outNode": "node-3",
+      "outTerminal": "terminal-4",
+      "type": "edge"
+    },
+    "node-1": {
+      "h": 58,
+      "id": "node-1",
+      "terminal": {
+        "terminal-1": {
+          "edge": "line-1",
+          "id": "terminal-1",
+          "targetNode": "node-3",
+          "type": "out",
+          "x": 7781,
+          "y": 8000
+        }
+      },
+      "type": "start",
+      "w": 198.194,
+      "x": 7600,
+      "y": 7971.3335
+    },
+    "node-2": {
+      "end_type": "6",
+      "h": 58,
+      "id": "node-2",
+      "terminal": {
+        "terminal-2": {
+          "edge": "line-2",
+          "id": "terminal-2",
+          "targetNode": "node-3",
+          "type": "in",
+          "x": 8218,
+          "y": 8000
+        }
+      },
+      "type": "end",
+      "w": 198.194,
+      "x": 8200.917,
+      "y": 7971.3335
+    },
+    "node-3": {
+      "h": 58,
+      "id": "node-3",
+      "movement_id": "auto-increment-id-of-movement",
+      "movement_name": "REST APIテスト用",
+      "operation_id": null,
+      "orchestra_id": "1",
+      "skip_flag": 0,
+      "terminal": {
+        "terminal-3": {
+          "edge": "line-1",
+          "id": "terminal-3",
+          "targetNode": "node-1",
+          "type": "in",
+          "x": 7917,
+          "y": 8000
+        },
+        "terminal-4": {
+          "edge": "line-2",
+          "id": "terminal-4",
+          "targetNode": "node-2",
+          "type": "out",
+          "x": 8136,
+          "y": 8000
+        }
+      },
+      "type": "movement",
+      "w": 252.875,
+      "x": 7900,
+      "y": 7971
+    }
+  }
+}
+
+###
+# Conductor: Conductorインスタンス詳細情報を取得する (get-conductor-instance)
+# Get detailed Conductor instance information
+GET {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{confirmation_menu}}/conductor/{{conductor_instance_id}}/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+
+###
+# Conductor: Conductor作業の投入データを取得する (get-conductor-input-data)
+# Get Conductor execution input data
+GET {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{history_menu}}/conductor/{{conductor_instance_id}}/input_data/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+
+###
+# Conductor: Conductor作業の投入データを取得する（バイナリ形式） (get-conductor-input-data)
+# Get Conductor execution input data (binary format)
+GET {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{history_menu}}/conductor/{{conductor_instance_id}}/input_data/?file=binary
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+
+###
+# Conductor: Conductor作業の結果データを取得する (get-conductor-result-data)
+# Get Conductor execution result data
+GET {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{history_menu}}/conductor/{{conductor_instance_id}}/result_data/
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+
+###
+# Conductor: Conductor作業の結果データを取得する（バイナリ形式） (get-conductor-result-data)
+# Get Conductor execution result data (binary format)
+GET {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/{{history_menu}}/conductor/{{conductor_instance_id}}/result_data/?file=binary
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
