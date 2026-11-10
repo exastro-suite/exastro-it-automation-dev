@@ -218,6 +218,7 @@
     "MSG-00033": "Aborted encryption. Check the target file. ({})",
     "MSG-00034": "Specify search options from ({}).({})",
     "MSG-00035": "Specify a search condition. ({})",
+    "MSG-00036": "The file name contains characters that are not allowed. (Value: {})",
     "MSG-10001": "WARNING:ILLEGAL_ACCESS(Insufficient Privilege).",
     "MSG-10002": "RESULT:UNEXPECTED_ERROR(QUERY_NOT_FOUND",
     "MSG-10003": "WARNING:NO_QUERY_EXIST[{}]",

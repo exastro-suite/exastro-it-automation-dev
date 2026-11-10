@@ -1815,9 +1815,31 @@ class loadTable():
                                     self.set_message(dict_msg, rest_key, MSG_LEVEL_ERROR)
                                     continue
 
+                                # Path Traversal対策：rest_val(ファイル名)にディレクトリ区切りや".."等が
+                                # 含まれる場合は拒否する。この書き込みはファイル名の正規表現チェック
+                                # (check_basic_valid、下のbefore_iud_actionで呼ばれる)より前に実行されるため、
+                                # ここで未検証のまま書き込むとそのチェックをすり抜けてしまう
+                                if is_invalid_file_name(rest_val):  # noqa: F405
+                                    dict_msg = {
+                                        'status_code': '',
+                                        'msg_args': '',
+                                        'msg': g.appmsg.get_api_message('MSG-00036', [rest_val])
+                                    }
+                                    self.set_message(dict_msg, rest_key, MSG_LEVEL_ERROR)
+                                    continue
+
                                 tmp_file_dir = os.path.join(tmp_path, rest_key)
                                 retry_makedirs(tmp_file_dir)  # noqa: F405
-                                tmp_file_path = os.path.join(tmp_file_dir, rest_val)
+                                try:
+                                    tmp_file_path = safe_path_join(tmp_file_dir, rest_val)  # noqa: F405
+                                except ValueError:
+                                    dict_msg = {
+                                        'status_code': '',
+                                        'msg_args': '',
+                                        'msg': g.appmsg.get_api_message('MSG-00036', [rest_val])
+                                    }
+                                    self.set_message(dict_msg, rest_key, MSG_LEVEL_ERROR)
+                                    continue
                                 upload_file(tmp_file_path, entry_file[rest_key])
                                 record_file_paths[rest_key] = tmp_file_path
 
