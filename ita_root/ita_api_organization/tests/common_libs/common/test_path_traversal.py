@@ -60,6 +60,7 @@ class TestSafePathJoin:
 
     def test_normal(self, app_ctx, tmp_path):
         """通常のパス要素は、そのまま結合される"""
+        # 【正常系】org1/ws1/a.txt のような通常の要素が、baseの実パス配下にそのまま結合されること
         result = util.safe_path_join(str(tmp_path), "org1", "ws1", "a.txt")
         assert result == os.path.join(os.path.realpath(tmp_path), "org1", "ws1", "a.txt")
 
@@ -72,6 +73,11 @@ class TestSafePathJoin:
         result = util.safe_path_join(str(tmp_path), None, "", "a.txt")
         assert result == os.path.join(os.path.realpath(tmp_path), "a.txt")
 
+    # 【防御の確認】ディレクトリ区切りを含む要素は basename に潰される（例外にはならない）
+    #   parent_dirs   : ../ を辿って外へ出ようとする
+    #   other_workspace: 他ワークスペース(ws2)のパスを指す
+    #   absolute_path : 絶対パス指定
+    #   nested_dirs   : 複数階層の指定
     @pytest.mark.parametrize(
         "file_name, expected_name",
         [
@@ -86,7 +92,9 @@ class TestSafePathJoin:
         """ディレクトリ区切りを含む要素は、basenameに潰されbase配下に閉じ込められる"""
         base = os.path.realpath(tmp_path)
         result = util.safe_path_join(str(tmp_path), "sub", file_name)
+        # 結合結果が「base/sub/basename」になっていること
         assert result == os.path.join(base, "sub", expected_name)
+        # かつ、base配下に閉じ込められていること
         assert result.startswith(base + os.sep)
 
     def test_bare_dotdot_escape_raises(self, app_ctx, tmp_path):
@@ -119,6 +127,9 @@ class TestSafePathJoin:
 # --------------------------------------------------------------------------
 # is_invalid_file_name
 # --------------------------------------------------------------------------
+# ファイル名の妥当性判定。正常な名前は False、パス要素・制御文字などを含む不正な名前は True を返すこと
+#   正常: 英数字・日本語・空白・先頭/途中のドット(".." を含むが単独ではない名前)
+#   不正: "/" や "\" を含む / ".." "." 単独 / 空文字 / None / NULL文字を含む
 @pytest.mark.parametrize(
     "file_name, expected",
     [
@@ -156,9 +167,12 @@ def test_raise_invalid_file_name_exception(app_ctx):
         util.raise_invalid_file_name_exception("../poc.txt")
 
     status_code, log_args, api_args = e.value.args
+    # ステータスコードが 499-00201 であること
     assert status_code == "499-00201"
+    # APIメッセージに MSG-00036 と、不正だった値そのものが含まれること
     assert "MSG-00036" in api_args[0]
     assert "../poc.txt" in api_args[0]
+    # メッセージ取得が MSG-00036 / 引数=[不正なファイル名] で呼ばれていること
     g.appmsg.get_api_message.assert_called_with("MSG-00036", ["../poc.txt"])
 
 
@@ -169,12 +183,16 @@ class TestUploadFilePath:
 
     @pytest.fixture(autouse=True)
     def _storage(self, monkeypatch, tmp_path):
+        # 環境変数 STORAGEPATH を tmp_path 配下の一時ディレクトリに差し替える
+        # （実ストレージには書き込まない）
         self.storage = tmp_path / "storage"
         self.storage.mkdir()
         monkeypatch.setenv("STORAGEPATH", str(self.storage))
         self.storage_real = os.path.realpath(self.storage)
 
     def test_get_upload_file_path_normal(self, app_ctx):
+        # 【正常系】jnl_id指定あり: file_path と old_file_path(履歴用 old/{jnl_id}/ 配下)が
+        #   {STORAGEPATH}/{org}/{ws}/uploadfiles/{menu}/{rest_key}/{uuid}/... になること
         result = util.get_upload_file_path("ws1", "menu1", "uuid1", "file_02", "a.txt", "jnl1")
         assert result["file_path"] == os.path.join(
             self.storage_real, "org1", "ws1", "uploadfiles", "menu1", "file_02", "uuid1", "a.txt")
@@ -182,11 +200,14 @@ class TestUploadFilePath:
             self.storage_real, "org1", "ws1", "uploadfiles", "menu1", "file_02", "uuid1", "old", "jnl1", "a.txt")
 
     def test_get_upload_file_path_without_jnl(self, app_ctx):
+        # 【正常系】jnl_id が None の場合、old_file_path は空文字になること
         result = util.get_upload_file_path("ws1", "menu1", "uuid1", "file_02", "a.txt", None)
         assert result["old_file_path"] == ""
 
     def test_get_upload_file_path_traversal_in_file_name_stays_in_base(self, app_ctx):
         """file_name に ../ を含めても、保存先は同じ階層のファイル名に潰される"""
+        # file_name に ../ を多数含む値を渡し、"passwd" というファイル名だけが
+        # 通常の保存ディレクトリ(file_path / old_file_path)に採用されること
         result = util.get_upload_file_path("ws1", "menu1", "uuid1", "file_02", "../../../../../etc/passwd", "jnl1")
         expected_dir = os.path.join(self.storage_real, "org1", "ws1", "uploadfiles", "menu1", "file_02", "uuid1")
         assert result["file_path"] == os.path.join(expected_dir, "passwd")
@@ -194,6 +215,7 @@ class TestUploadFilePath:
 
     def test_get_upload_file_path_escape_raises_app_exception(self, app_ctx):
         """各要素が ".." でSTORAGEPATHの外に出る場合は、AppException(499-00201)に変換される"""
+        # organization_id や各引数をすべて ".." にして、STORAGEPATH の外へ出ようとする
         g.ORGANIZATION_ID = ".."
         with pytest.raises(AppException) as e:
             util.get_upload_file_path("..", "..", "..", "..", "..", None)
@@ -202,15 +224,22 @@ class TestUploadFilePath:
         assert str(self.storage_real) not in str(e.value.args[2])
 
     def test_get_tmp_file_path_normal(self, app_ctx):
+        # 【正常系】一時ファイルの保存先が /tmp/{org}/{ws}/tmp/<ユニークID>/a.txt の形式になること
         result = util.get_tmp_file_path("ws1", "a.txt")
         assert result["file_path"].startswith(os.path.join(os.path.realpath("/tmp"), "org1", "ws1", "tmp") + os.sep)
         assert result["file_path"].endswith(os.sep + "a.txt")
 
     def test_get_tmp_file_path_traversal_in_file_name_stays_in_base(self, app_ctx):
+        # 【防御の確認】file_name に ../ を含めても /tmp/{org}/{ws}/tmp/ 配下の
+        #   "passwd" というファイル名に潰されること
         result = util.get_tmp_file_path("ws1", "../../../../../etc/passwd")
         assert result["file_path"].startswith(os.path.join(os.path.realpath("/tmp"), "org1", "ws1", "tmp") + os.sep)
         assert result["file_path"].endswith(os.sep + "passwd")
 
+    # FILE_UPLOAD_PLACE（保存先を示す設定値）の形式ごとに保存先を確認する
+    #   notification_log: 複数階層かつ末尾が "/"
+    #   ansible_cfg     : 複数階層かつ末尾が "/" でない
+    #   single          : 1階層のみ
     @pytest.mark.parametrize(
         "place",
         [
@@ -238,6 +267,8 @@ class TestUploadFilePath:
 
     def test_get_upload_file_path_specify_traversal_in_file_name_stays_in_dir(self, app_ctx):
         """file_name に ../ を含めても、保存先は同じ階層のファイル名に潰される"""
+        # 通知ログの保存先(place)に対し、file_name へ ../ を含む値を渡しても、
+        # 保存先ディレクトリ(uuid配下)の "passwd" になること
         result = util.get_upload_file_path_specify(
             "ws1", "/uploadfiles/30108/notification_log/", "uuid1", "../../../../etc/passwd", "jnl1")
         expected_dir = os.path.join(
@@ -245,6 +276,8 @@ class TestUploadFilePath:
         assert result["file_path"] == os.path.join(expected_dir, "passwd")
 
     def test_get_upload_file_path_specify_escape_raises_app_exception(self, app_ctx):
+        # 【異常系】organization_id や各引数を ".." にして STORAGEPATH の外へ出ようとした場合、
+        #   AppException(499-00201) に変換されること
         g.ORGANIZATION_ID = ".."
         with pytest.raises(AppException) as e:
             util.get_upload_file_path_specify("..", "", "..", "..", None)
@@ -263,6 +296,7 @@ class TestCreateMaintenanceParameters:
         storage.validate_disk_space.return_value = (True, 1024 ** 3)
         monkeypatch.setattr(menu_maintenance_all, "storage_base", lambda: storage)
 
+    # 以下のヘルパーは、maintenance/all へのリクエスト作成と生成ファイルの一覧取得に使う
     @staticmethod
     def _post(app, file_name, content=b"payload"):
         """filename を指定した multipart/form-data のリクエストコンテキストを作る"""
@@ -281,6 +315,8 @@ class TestCreateMaintenanceParameters:
 
     def test_normal_file_name(self, app_ctx, tmp_path):
         """通常のファイル名は tmp_path/{index}/{rest_key}/{filename} に保存される"""
+        # 【正常系】パート名 "0.file_02" / filename "datasheet_01.json" の通常リクエストで、
+        #   parameters・file_paths が期待通りに返り、ファイル内容が保存されていること
         tmp_dir = tmp_path / "work"
         tmp_dir.mkdir()
         with self._post(app_ctx, "datasheet_01.json") as ctx:
@@ -293,6 +329,11 @@ class TestCreateMaintenanceParameters:
         assert file_paths == {0: {"file_02": expected}}
         assert open(expected, "rb").read() == b"payload"
 
+    # 【異常系】filename に不正なパス要素を含むケース
+    #   to_tmp / to_code_dir / to_other_workspace: ../ による保存先外への越境
+    #   absolute    : 絶対パス指定
+    #   nested      : "/" を含むサブディレクトリ指定
+    #   bare_dotdot : ".." のみ
     @pytest.mark.parametrize(
         "file_name",
         [
@@ -335,6 +376,8 @@ class TestCreateMaintenanceParameters:
 
     def test_error_response_does_not_leak_server_path(self, app_ctx, tmp_path):
         """エラー内容にサーバー内部の作業ディレクトリのパスが含まれない"""
+        # 不正なfilenameで拒否された際のエラー情報(api_args)に、
+        # サーバー内部の作業ディレクトリの絶対パスが漏れていないこと（情報漏えい対策）
         tmp_dir = tmp_path / "work"
         tmp_dir.mkdir()
         with self._post(app_ctx, "../../poc.txt") as ctx:
@@ -345,6 +388,8 @@ class TestCreateMaintenanceParameters:
 
     def test_multiple_files_one_malicious(self, app_ctx, tmp_path):
         """複数ファイルのうち1つでも不正なら、リクエスト全体が拒否される"""
+        # 0番目は正常(ok.txt)、1番目は不正(../../../ng.txt)なリクエストを送り、
+        # 499-00201 で拒否され、不正なファイル(ng.txt)がどこにも作られないこと
         tmp_dir = tmp_path / "work"
         tmp_dir.mkdir()
         params = [
@@ -365,6 +410,9 @@ class TestCreateMaintenanceParameters:
         # 不正なファイルは、作業ディレクトリの外にも内にも作られない
         assert not any(f.endswith("ng.txt") for f in self._all_files(tmp_path))
 
+    # 【異常系】filename ではなく、パート名 "{index}.{rest_key}" の rest_key 側に
+    # ディレクトリ区切りを含むケース（保存先ディレクトリ名として使われるため）
+    #   to_tmp / to_etc: 絶対パス指定、nested: "/" を含むサブディレクトリ指定
     @pytest.mark.parametrize(
         "part_name",
         [

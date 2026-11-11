@@ -32,8 +32,15 @@ from common_libs.common.exception import AppException
 from libs import ansible_execution
 
 
+# --------------------------------------------------------------------------
+# 共通フィクスチャ / ヘルパー
+# --------------------------------------------------------------------------
 @pytest.fixture
 def app_ctx(monkeypatch):
+    # テスト用のFlaskアプリケーションコンテキストを用意する。
+    #   - g.applogger / g.appmsg はMagicMockに差し替え（メッセージは「ID:引数」の文字列で返す）
+    #   - storage_base() もMagicMockに差し替え、ディスク空き容量チェックは常にOKとする
+    #   → DB・ストレージ・Platformには接続しない
     app = Flask(__name__)
     with app.app_context():
         g.applogger = MagicMock()
@@ -48,11 +55,15 @@ def app_ctx(monkeypatch):
 
 
 def _all_files(root):
+    # root配下の全ファイルのパス一覧を返す（「何もファイルが作られていないこと」の確認用）
     return sorted(
         os.path.join(d, f) for d, _, files in os.walk(str(root)) for f in files)
 
 
 def _post(app, file_key, file_name, driver_id="legacy", content=b"payload"):
+    # 実行結果受信APIへの multipart/form-data のPOSTリクエストコンテキストを作る
+    #   file_key : ファイルのパート名（例: out_tar_data）
+    #   file_name: アップロードファイルの filename（Path Traversal 文字列を指定する対象）
     data = {
         "json_parameters": json.dumps({"driver_id": driver_id, "status": "11"}),
         file_key: (io.BytesIO(content), file_name),
@@ -66,6 +77,9 @@ class TestCreateFilePath:
     """libs.ansible_execution.create_file_path"""
 
     def test_normal(self, app_ctx, tmp_path):
+        # 【正常系】通常のファイル名(out.tar.gz)の場合、
+        #   {base}/driver/ansible/{driver_id}/{execution_no}/out.tar.gz に保存され、
+        #   戻り値(ret=True, file_paths)と保存内容が期待通りであること
         with _post(app_ctx, "out_tar_data", "out.tar.gz") as ctx:
             ret, parameters, file_paths = ansible_execution.create_file_path(
                 ctx.request, str(tmp_path), "exec-no-1")
@@ -75,6 +89,11 @@ class TestCreateFilePath:
         assert file_paths == {"out_tar_data": expected}
         assert open(expected, "rb").read() == b"payload"
 
+    # 【異常系】filename に不正なパス要素を含むケースを網羅する
+    #   to_tmp      : ../ を辿って /tmp など保存先の外へ出ようとする
+    #   to_code_dir : ../ を辿ってアプリのコードディレクトリを上書きしようとする
+    #   nested      : "/" を含むサブディレクトリ指定
+    #   bare_dotdot : ".." のみ
     @pytest.mark.parametrize(
         "file_name",
         [
@@ -99,6 +118,9 @@ class TestCreateFilePathAap:
     """libs.ansible_execution.create_file_path_aap"""
 
     def test_normal(self, app_ctx, tmp_path):
+        # 【正常系】通常のファイル名(out.tar.gz)の場合、
+        #   {base}/driver/ansible/{driver_id}/{execution_no}_{作業ID}/out.tar.gz に保存され、
+        #   戻り値(ret=True, file_paths)と保存内容が期待通りであること（AAP向け）
         content = b"payload"
         with app_ctx.test_request_context(
                 "/result_data", method="POST",
@@ -113,6 +135,8 @@ class TestCreateFilePathAap:
         assert file_paths == {"out_tar_data": expected}
         assert open(expected, "rb").read() == b"payload"
 
+    # 【異常系】AAP向けでも、filename に不正なパス要素(../ や "/" や "..")を含む場合は
+    #   AppException(499-00201) で拒否され、ファイルが一切作られないこと
     @pytest.mark.parametrize(
         "file_name",
         [
