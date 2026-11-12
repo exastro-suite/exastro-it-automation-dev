@@ -1,6 +1,12 @@
-cd ita_ag_oase
+cd ita_ag_ansible_execution
+poetry update
+cd ../ita_ag_oase
 poetry update
 cd ../ita_api_admin
+poetry update
+cd ../ita_api_ansible_execution_receiver
+poetry update
+cd ../ita_api_mcp_server
 poetry update
 cd ../ita_api_oase_receiver
 poetry update
