@@ -24,7 +24,7 @@ cp pytest.ini.sample pytest.ini
 
 | ディレクトリ | 対象 | 種別 | 外部への接続 |
 |---|---|---|---|
-| `tests/ansible_driver_tests/ansibletowerlibs/` | `ExecuteDirector` / `AnsibleTowerRestApiCredentials` / `AnsibleTowerRestApiProjects` | 単体 | なし（モック） |
+| `tests/ansible_driver_tests/ansibletowerlibs/` | `ExecuteDirector` / `AnsibleTowerRestApiCredentials` / `AnsibleTowerRestApiProjects` / `GitLabAgent`（`check_user` / `update_gitlab_userinfo`） | 単体 | なし（モック） |
 | `tests/ansible_driver_tests/ansible_driver/classes/` | `CreateAnsibleExecFiles` / `AnsibleVault` | 単体 | なし（モック。`AnsibleVault` は ansible-vault をスタブに差し替えてシェルを実行） |
 | `tests/ansible_driver_tests/ansible_driver/shells/` | `pioneer_module.py` / `ky_pionner_grep_side_Ansible.sh` | 下表 | C のみ実ホストへ SSH |
 

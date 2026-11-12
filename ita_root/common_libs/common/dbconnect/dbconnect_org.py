@@ -252,8 +252,13 @@ class DBConnectOrgRoot(DBConnectOrg):
         proccess_list = self.sql_execute(sql, [db_name, user_name])
 
         # procedureの一覧を取得する
-        sql = "SHOW PROCEDURE STATUS WHERE NAME IN (%s, %s)"
-        procedure_list = self.sql_execute(sql, ['az_kill', 'rds_kill'])
+        try:
+            sql = "SHOW PROCEDURE STATUS WHERE NAME IN (%s, %s)"
+            procedure_list = self.sql_execute(sql, ['az_kill', 'rds_kill'])
+        except Exception as e:
+            # 取得できない場合は通常のKILLを使用する
+            g.applogger.info("Failed to get procedure status. use KILL CONNECTION. {}".format(e))
+            procedure_list = []
 
         # killコマンドを特定する
         kill_sql = "KILL CONNECTION %s"

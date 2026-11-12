@@ -84,6 +84,11 @@ def AnsibleTowerExecution(
             GitObj = GitLabAgent()
 
         if function == AnscConst.DF_EXECUTION_FUNCTION:
+            # gitlab環境に接続可能かどうかの確認
+            ret_bool, gitlab_userinfo = GitObj.check_user()
+            if ret_bool is False:
+                GitObj.update_gitlab_userinfo(gitlab_userinfo)
+
             # Tower 接続確認
             if not process_has_error:
                 # TowerのRestAPIのv2ページに接続できるか確認
