@@ -154,7 +154,7 @@ class ExecuteDirector():
         execution_no = exeInsRow['EXECUTION_NO']
         self.setAACCreateObjectIdFilePath(execution_no)
 
-        proj_name = '%s_%s' % (OrchestratorSubId_dir, execution_no)
+        prj_name = '%s_%s' % (OrchestratorSubId_dir, execution_no)
 
         OrganizationName = ifInfoRow['ANSTWR_ORGANIZATION']
         if OrganizationName:
@@ -328,7 +328,7 @@ class ExecuteDirector():
         # project生成  scmタイプ:git
         addParam = {}
         addParam["scm_type"] = AnsibleTowerRestApiProjects.SCMTYPE_GIT
-        addParam["scm_url"] = GitObj.get_http_repo_url_scm(proj_name)
+        addParam["scm_url"] = GitObj.get_http_repo_url_scm(prj_name)
         addParam['organization'] = OrganizationId
         addParam['execution_no'] = execution_no
         addParam['credential'] = scm_credentialid
@@ -422,15 +422,7 @@ class ExecuteDirector():
         try:
             project_id = self.getGitProjectId(execution_no)
             if project_id is not False:
-                startlog = "[Trace]  gitlab project delete start."
-                endlog = "[Trace]  gitlab project delete done."
-                g.applogger.info(startlog)  # 外部アプリへの処理開始・終了ログ
-
-                g.applogger.info("[Trace] gitlab delete project start. project_id:{}".format(str(project_id)))   # 外部アプリへの処理開始・終了ログ
                 GitObj.delete_project(project_id)
-                g.applogger.info("[Trace] gitlab delete project done.")
-
-                g.applogger.info(endlog)
         except Exception as e:
             errorMessage = "Failed to gitlab project delete."
             self.ExceptionErrorLog(e, errorMessage, "", "")
@@ -1522,8 +1514,8 @@ class ExecuteDirector():
         param = {}
         param['organization'] = organizationid
         param['execution_no'] = execution_no
-        param['username'] = gitlabobj._GitLabAgent__user
-        param['token'] = gitlabobj._GitLabAgent__token
+        param['username'] = gitlabobj.user
+        param['token'] = gitlabobj.token
 
         response_array = AnsibleTowerRestApiCredentials.git_post_basic(self.restApiCaller, param)
         if not response_array['success']:
@@ -2379,7 +2371,7 @@ class ExecuteDirector():
 
                 self.jobFileList[JobData['name']].append(jobFileFullPath)
                 self.jobLogFileList.append(os.path.basename(jobFileFullPath))
-                
+
                 # AAP-Cloud用
                 result = self.split_exec_log(result_stdout)
                 if result['receiver'] or result['sender']:
@@ -2589,8 +2581,8 @@ class ExecuteDirector():
         # repositories_base_pathは/tmpに作成ししているがゴミ掃除リストに追加しない
 
         # #2079 /storage配下ではないのでこのまま
-        proj_name = os.path.basename(pathlib.Path(SrcFilePath).parent)
-        self.gitLoaclRepositoriesPath = "%s/%s" % (repositories_base_path, proj_name)
+        prj_name = os.path.basename(pathlib.Path(SrcFilePath).parent)
+        self.gitLoaclRepositoriesPath = "%s/%s" % (repositories_base_path, prj_name)
         # /tmpに作成したファイルはゴミ掃除リストに追加
         addAnsibleCreateFilesPath(self.gitLoaclRepositoriesPath)
 
@@ -2605,9 +2597,8 @@ class ExecuteDirector():
 
         # GitLab にプロジェクトを作成
         try:
-            g.applogger.info("[Trace] gitlab create project start. project_name:{}".format(str(proj_name)))   # 外部アプリへの処理開始・終了ログ
-            response = GitObj.create_project(proj_name)
-            g.applogger.info("[Trace] gitlab create project done.")
+            g.applogger.info("[Trace] gitlab create project start. project_name:{}".format(str(prj_name)))   # 外部アプリへの処理開始・終了ログ
+            response = GitObj.create_project(prj_name)
 
             # gitlab プロジェクトID退避
             if 'id' in response:
@@ -2621,12 +2612,12 @@ class ExecuteDirector():
             return False
 
         # git clone ～ git push
-        http_repo_url = GitObj.get_http_repo_url(proj_name)
+        http_repo_url = GitObj.get_http_repo_url(prj_name)
         commit_comment = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         cmd = ["git", "clone", http_repo_url]
         try:
 
-            g.applogger.info("[Trace] git clone start. url:{}".format(http_repo_url))   # 外部アプリへの処理開始・終了ログ
+            g.applogger.info("[Trace] git clone start. url:{}".format(GitObj.get_http_repo_url_scm(prj_name)))  # トークンを含まないURLをログに出力する   # 外部アプリへの処理開始・終了ログ
 
             os.chdir(repositories_base_path)
             subprocess.run(cmd, capture_output=True, text=True, check=True)

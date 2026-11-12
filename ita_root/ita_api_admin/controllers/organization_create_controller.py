@@ -201,7 +201,7 @@ def organization_create(body, organization_id):
         # make gitlab user and token value
         if (os.environ.get('GITLAB_HOST') is not None) and (len(os.environ.get('GITLAB_HOST')) > 0):
             try:
-                gitlab_agent = GitLabAgent()
+                gitlab_agent = GitLabAgent(root_mode=True)
                 res = gitlab_agent.create_user(org_db_name)
             except Exception as e:
                 t = traceback.format_exc()
@@ -314,7 +314,7 @@ def organization_delete(organization_id):  # noqa: E501
         # delete gitlab user and projects
         if (os.environ.get('GITLAB_HOST') is not None) and (len(os.environ.get('GITLAB_HOST')) > 0):
             try:
-                gitlab_agent = GitLabAgent()
+                gitlab_agent = GitLabAgent(root_mode=True)
                 user_list = gitlab_agent.get_user_by_username(connect_info['GITLAB_USER'])
                 for user in user_list:
                     gitlab_user_id = user['id']
