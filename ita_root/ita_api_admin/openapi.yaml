@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Exastro IT Automation API (System Management)
   description: Exastro IT Automation API for System Manager
-  version: "2.10.0"
+  version: "2.10.1"
 
 servers:
   - url: "https://{host}"
@@ -89,6 +89,8 @@ paths:
                                 type: boolean
                               oase:
                                 type: boolean
+                              ai_assistant:
+                                type: boolean
                           service:
                             type: object
                             properties:
@@ -155,11 +157,9 @@ paths:
                       type: boolean
                     oase:
                       type: boolean
-                  description: "terraform_cloud_ep: Terraform-Cloud/EPドライバ
-                  <br/>terraform_cli: Terraform-CLIドライバ,
-                  <br/>ci_cd: CI/CD for IaC,
-                  <br/>oase: OASE,
-                  "
+                    ai_assistant:
+                      type: boolean
+                  description: "terraform_cloud_ep: Terraform-Cloud/EPドライバ<br/>terraform_cli: Terraform-CLIドライバ,<br/>ci_cd: CI/CD for IaC,<br/>oase: OASE,<br/>ai_assistant: Exastro AI Assistant"
                 service:
                   type: object
                   properties:
@@ -235,11 +235,9 @@ paths:
                       type: boolean
                     oase:
                       type: boolean
-                  description: "terraform_cloud_ep: Terraform-Cloud/EPドライバ
-                  <br/>terraform_cli: Terraform-CLIドライバ,
-                  <br/>ci_cd: CI/CD for IaC,
-                  <br/>oase: OASE,
-                  "
+                    ai_assistant:
+                      type: boolean
+                  description: "terraform_cloud_ep: Terraform-Cloud/EPドライバ<br/>terraform_cli: Terraform-CLIドライバ,<br/>ci_cd: CI/CD for IaC,<br/>oase: OASE,<br/>ai_assistant: Exastro AI Assistant"
                 service:
                   type: object
                   properties:
@@ -454,7 +452,7 @@ paths:
                                   type: string
                                 name:
                                   type: string
-                            example: [{id: terraform_cloud_ep, name: Terraform Cloud/EP driver, enable: true}, {id: terraform_cli, name: Terraform CLI driver, enable: true}, {id: ci_cd, name: CI/CD for IaC, enable: true}, {id: oase, name: OASE, enable: true, "description": "利用するためにはMongoDBが必要です。MongoDBがない場合は有効にできません。"}]
+                            example: [{id: terraform_cloud_ep, name: Terraform Cloud/EP driver, enable: true}, {id: terraform_cli, name: Terraform CLI driver, enable: true}, {id: ci_cd, name: CI/CD for IaC, enable: true}, {id: oase, name: OASE, enable: true, "description": "利用するためにはMongoDBが必要です。MongoDBがない場合は有効にできません。"}, {id: ai_assistant, name: Exastro AI Assistant, enable: false}]
 
 
                   message:
