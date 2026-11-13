@@ -737,8 +737,16 @@ def create_file_path(connexion_request, tmp_path, execution_no):
             for _file_key in connexion_request.files:
                 _file_data = connexion_request.files[_file_key]
                 file_name = _file_data.filename
+
+                # Path Traversal対策：filenameを検証する
+                if is_invalid_file_name(file_name):  # noqa: F405
+                    raise_invalid_file_name_exception(file_name)  # noqa: F405
+
                 retry_makedirs(tmp_path)  # noqa: F405
-                file_path = os.path.join(tmp_path, file_name)
+                try:
+                    file_path = safe_path_join(tmp_path, file_name)  # noqa: F405
+                except ValueError:
+                    raise_invalid_file_name_exception(file_name)  # noqa: F405
                 file_paths[_file_key] = file_path
 
                 f = open(file_path, 'wb')
@@ -796,8 +804,16 @@ def create_file_path_aap(connexion_request, tmp_path, execution_no, driver_id, p
         for _file_key in connexion_request.files:
             _file_data = connexion_request.files[_file_key]
             file_name = _file_data.filename
+
+            # Path Traversal対策：filenameを検証する
+            if is_invalid_file_name(file_name):  # noqa: F405
+                raise_invalid_file_name_exception(file_name)  # noqa: F405
+
             retry_makedirs(tmp_path)  # noqa: F405
-            file_path = os.path.join(tmp_path, file_name)
+            try:
+                file_path = safe_path_join(tmp_path, file_name)  # noqa: F405
+            except ValueError:
+                raise_invalid_file_name_exception(file_name)  # noqa: F405
             file_paths[_file_key] = file_path
 
             f = open(file_path, 'wb')

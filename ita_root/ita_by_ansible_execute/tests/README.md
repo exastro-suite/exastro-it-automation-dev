@@ -24,8 +24,8 @@ cp pytest.ini.sample pytest.ini
 
 | ディレクトリ | 対象 | 種別 | 外部への接続 |
 |---|---|---|---|
-| `tests/ansible_driver_tests/ansibletowerlibs/` | `ExecuteDirector` / `AnsibleTowerRestApiCredentials` / `AnsibleTowerRestApiProjects` | 単体 | なし（モック） |
-| `tests/ansible_driver_tests/ansible_driver/classes/` | `CreateAnsibleExecFiles` | 単体 | なし（モック） |
+| `tests/ansible_driver_tests/ansibletowerlibs/` | `ExecuteDirector` / `AnsibleTowerRestApiCredentials` / `AnsibleTowerRestApiProjects` / `GitLabAgent`（`check_user` / `update_gitlab_userinfo`） | 単体 | なし（モック） |
+| `tests/ansible_driver_tests/ansible_driver/classes/` | `CreateAnsibleExecFiles` / `AnsibleVault` | 単体 | なし（モック。`AnsibleVault` は ansible-vault をスタブに差し替えてシェルを実行） |
 | `tests/ansible_driver_tests/ansible_driver/shells/` | `pioneer_module.py` / `ky_pionner_grep_side_Ansible.sh` | 下表 | C のみ実ホストへ SSH |
 
 `shells/` のテストは、次の3層に分かれています。
@@ -91,6 +91,11 @@ POSIX sh 互換性を確認したい場合は、dash などが入っている環
 ### C がタイムアウトで失敗する
 
 ログインのプロンプトやシェルプロンプトが想定と違う可能性があります → 3.2
+
+### test_ansible_vault.py の一部が skip される
+
+- `TestVaultCallers`: `dictknife` が入っていないと skip されます（`CreateAnsibleExecFiles` の import に必要なため） → pyproject.toml の依存を入れることで対応可能です
+- `TestVaultRealAnsibleVault`: `ansible-vault` コマンドが PATH に無いと skip されます
 
 ### classes/ のテストがすべて error になる
 

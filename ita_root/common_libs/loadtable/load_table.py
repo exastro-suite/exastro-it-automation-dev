@@ -190,7 +190,6 @@ class loadTable():
             REST_KEY_LAST_JNL_ACTION_CLASS: COLNAME_JNL_ACTION_CLASS,
         }
 
-
     # message設定
     def reset_message(self):
         """
@@ -922,6 +921,7 @@ class loadTable():
 
                 # シートタイプが「参照用(5, 6)」の場合、専用の検索条件生成処理
                 ref_where_str = ''
+                ref_bind_value_list = []
                 if str(self.get_sheet_type()) in ["5", "6"]:
                     base_datetime_condition = parameter.get('base_datetime')
                     if not base_datetime_condition:
@@ -956,21 +956,21 @@ class loadTable():
                                         from `{table_name}` as tbl
                                         where `{table_name}`.HOST_ID = tbl.HOST_ID
                                         and DISUSE_FLAG = "0"
-                                        and tbl.BASE_TIMESTAMP <= '{base_datetime}'
+                                        and tbl.BASE_TIMESTAMP <= %s
                                     )
                                     and DISUSE_FLAG = "0"
-                                """).format(table_name=table_name, base_datetime=base_datetime).strip()
+                                """).format(table_name=table_name).strip()
                             else:  # シートタイプが「6: 参照用（オペレーションあり）」
                                 ref_where_str = textwrap.dedent("""
                                     BASE_TIMESTAMP = (
                                         select max(BASE_TIMESTAMP)
                                         from `{table_name}` as tbl
                                         where DISUSE_FLAG = "0"
-                                        and tbl.BASE_TIMESTAMP <= '{base_datetime}'
+                                        and tbl.BASE_TIMESTAMP <= %s
                                     )
                                     and DISUSE_FLAG = "0"
-                                """).format(table_name=table_name, base_datetime=base_datetime).strip()
-
+                                """).format(table_name=table_name).strip()
+                            ref_bind_value_list.append(base_datetime)
                         # parameterから「基準日時(key:base_datetime)」を削除する
                         parameter.pop('base_datetime')
 
@@ -1115,6 +1115,8 @@ class loadTable():
                     else:
                         conjunction = 'where'
                         where_str = '{} {}'.format(conjunction, ref_where_str)
+                    # 参照用検索条件はwhere句の末尾に結合するため、バインド値も末尾に追加
+                    bind_value_list.extend(ref_bind_value_list)
 
             elif mode in ['jnl', 'excel_jnl', 'count_jnl', 'jnl_all', 'excel_jnl_all', 'jnl_count_all']:
                 # 履歴テーブル
@@ -1815,9 +1817,31 @@ class loadTable():
                                     self.set_message(dict_msg, rest_key, MSG_LEVEL_ERROR)
                                     continue
 
+                                # Path Traversal対策：rest_val(ファイル名)にディレクトリ区切りや".."等が
+                                # 含まれる場合は拒否する。この書き込みはファイル名の正規表現チェック
+                                # (check_basic_valid、下のbefore_iud_actionで呼ばれる)より前に実行されるため、
+                                # ここで未検証のまま書き込むとそのチェックをすり抜けてしまう
+                                if is_invalid_file_name(rest_val):  # noqa: F405
+                                    dict_msg = {
+                                        'status_code': '',
+                                        'msg_args': '',
+                                        'msg': g.appmsg.get_api_message('MSG-00036', [rest_val])
+                                    }
+                                    self.set_message(dict_msg, rest_key, MSG_LEVEL_ERROR)
+                                    continue
+
                                 tmp_file_dir = os.path.join(tmp_path, rest_key)
                                 retry_makedirs(tmp_file_dir)  # noqa: F405
-                                tmp_file_path = os.path.join(tmp_file_dir, rest_val)
+                                try:
+                                    tmp_file_path = safe_path_join(tmp_file_dir, rest_val)  # noqa: F405
+                                except ValueError:
+                                    dict_msg = {
+                                        'status_code': '',
+                                        'msg_args': '',
+                                        'msg': g.appmsg.get_api_message('MSG-00036', [rest_val])
+                                    }
+                                    self.set_message(dict_msg, rest_key, MSG_LEVEL_ERROR)
+                                    continue
                                 upload_file(tmp_file_path, entry_file[rest_key])
                                 record_file_paths[rest_key] = tmp_file_path
 
