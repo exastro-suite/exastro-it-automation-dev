@@ -5,7 +5,7 @@ info:
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0
-  version: 2.7.0
+  version: 2.10.1
 servers:
 - url: "https://{host}"
   description: API endpoint
@@ -29,9 +29,6 @@ servers:
       default: localhost
     port:
       default: "30080"
-# security:
-# - BearerAuth: []
-# - BasicAuth: []
 tags:
 - name: Menu Info
   description: メニュー情報の取得 / Get menu information
@@ -4069,7 +4066,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200"
+                $ref: "#/components/schemas/inline_response_200_29"
         "401":
           description: Unauthorized
           content:
@@ -4117,7 +4114,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200"
+                $ref: "#/components/schemas/inline_response_200_29"
         "401":
           description: Unauthorized
           content:
@@ -4177,7 +4174,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200"
+                $ref: "#/components/schemas/inline_response_200_29"
         "401":
           description: Unauthorized
           content:
@@ -4225,7 +4222,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200"
+                $ref: "#/components/schemas/inline_response_200_29"
         "401":
           description: Unauthorized
           content:
@@ -4327,7 +4324,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200_29"
+                $ref: "#/components/schemas/inline_response_200_30"
         "401":
           description: Unauthorized
           content:
@@ -4587,7 +4584,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200_30"
+                $ref: "#/components/schemas/inline_response_200_31"
         "401":
           description: Unauthorized
           content:
@@ -5307,7 +5304,7 @@ paths:
               example: Binary data
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200_31"
+                $ref: "#/components/schemas/inline_response_200_32"
         "401":
           description: Unauthorized
           content:
@@ -5858,7 +5855,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/inline_response_200_32"
+                $ref: "#/components/schemas/inline_response_200_33"
         "401":
           description: Unauthorized
           content:
@@ -6156,6 +6153,12 @@ components:
           type: array
           description: メニュー表示用のカラムおよびカラムグループの並び順
           items: {}
+    AI_ASSISTANT_INFO:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+          description: Exastro AI Assistant 有効
     ERROR_TEMPLATE:
       type: object
       properties:
@@ -6472,7 +6475,7 @@ components:
           type: string
       example:
         result: 000-00000
-        data: 0.80082819046101150206595775671303272247314453125
+        data: 0.8008281904610115
         message: message
     inline_response_200_6:
       allOf:
@@ -6819,6 +6822,13 @@ components:
           - <menu_name_rest 1>
           - <menu_name_rest 2>
           items: {}
+    inline_response_200_29:
+      allOf:
+      - $ref: "#/components/schemas/responseOk"
+      - type: object
+        properties:
+          data:
+            $ref: "#/components/schemas/inline_response_200_20_data_conductor_list"
     export_execute_body_1:
       properties:
         rest_key_name:
@@ -6829,13 +6839,13 @@ components:
         rest_key_name:
           $ref: "#/components/schemas/FILTER_REQUEST_PARAMETERS"
       description: 検索条件を設定
-    inline_response_200_29:
+    inline_response_200_30:
       allOf:
       - $ref: "#/components/schemas/responseOk"
       - type: object
         properties:
           data:
-            $ref: "#/components/schemas/inline_response_200_29_data"
+            $ref: "#/components/schemas/inline_response_200_30_data"
     filter_target_body_2:
       properties:
         rest_key_name:
@@ -6873,13 +6883,13 @@ components:
           items:
             example: host_name
       description: 比較条件を設定
-    inline_response_200_30:
+    inline_response_200_31:
       allOf:
       - $ref: "#/components/schemas/responseOk"
       - type: object
         properties:
           data:
-            $ref: "#/components/schemas/inline_response_200_30_data"
+            $ref: "#/components/schemas/inline_response_200_31_data"
     execute_file_body:
       properties:
         compare:
@@ -6924,7 +6934,7 @@ components:
         terraform_version:
           type: string
           example: 1.0.0
-      description: Workspace名およびVersionを指定(Versionがnullの場合、自動的に最新のVersionが適用されます。)
+      description: Project名・Workspace名・Versionを指定(Versionがnullの場合、自動的に最新のVersionが適用されます。)
     tf_organization_name_tf_workspace_name_body:
       properties:
         tf_project_name:
@@ -6933,20 +6943,20 @@ components:
         terraform_version:
           type: string
           example: 1.0.0
-      description: Versionを指定
+      description: Project名・Versionを指定
     download_policy_name_body:
       properties:
         download_path:
           type: string
           example: /api/v2/policies/pol-xxxxxxxxxx/download
       description: policyコードのダウンロードパスを記載
-    inline_response_200_31:
+    inline_response_200_32:
       allOf:
       - $ref: "#/components/schemas/responseOk"
       - type: object
         properties:
           data:
-            $ref: "#/components/schemas/inline_response_200_31_data"
+            $ref: "#/components/schemas/inline_response_200_32_data"
     filter_menu_body:
       properties:
         rest_key_name:
@@ -6970,7 +6980,7 @@ components:
           type: boolean
           example: false
       description: 検索条件を指定
-    inline_response_200_32:
+    inline_response_200_33:
       allOf:
       - $ref: "#/components/schemas/responseOk"
       - type: object
@@ -6979,7 +6989,7 @@ components:
             type: array
             example: []
             items:
-              $ref: "#/components/schemas/inline_response_200_32_data"
+              $ref: "#/components/schemas/inline_response_200_33_data"
     ita_apply_body:
       type: object
       properties:
@@ -7127,6 +7137,8 @@ components:
           $ref: "#/components/schemas/COLUMN_INFO"
         menu_info:
           $ref: "#/components/schemas/MENU_INFO"
+        ai_assistant:
+          $ref: "#/components/schemas/AI_ASSISTANT_INFO"
     inline_response_200_10_data:
       type: object
       properties:
@@ -7176,14 +7188,17 @@ components:
               id: "10101"
               menu_name: メニュー1
               menu_name_rest: menu_1
+              show_in_menu: "1"
             - disp_seq: 20
               id: "10102"
               menu_name: メニュー2
               menu_name_rest: menu_2
+              show_in_menu: "1"
             - disp_seq: 30
               id: "10103"
               menu_name: メニュー3
               menu_name_rest: menu_3
+              show_in_menu: "1"
           - disp_seq: 20
             id: "102"
             parent_id: "101"
@@ -7193,14 +7208,17 @@ components:
               id: "10104"
               menu_name: メニュー4
               menu_name_rest: menu_4
+              show_in_menu: "1"
             - disp_seq: 20
               id: "10105"
               menu_name: メニュー5
               menu_name_rest: menu_5
+              show_in_menu: "1"
             - disp_seq: 30
               id: "10106"
               menu_name: メニュー6
               menu_name_rest: menu_6
+              show_in_menu: "1"
           - disp_seq: 30
             id: "103"
             parent_id: "101"
@@ -7210,14 +7228,17 @@ components:
               id: "10107"
               menu_name: メニュー7
               menu_name_rest: menu_7
+              show_in_menu: "1"
             - disp_seq: 20
               id: "10108"
               menu_name: メニュー8
               menu_name_rest: menu_8
+              show_in_menu: "1"
             - disp_seq: 30
               id: "10109"
               menu_name: メニュー9
               menu_name_rest: menu_9
+              show_in_menu: "1"
     inline_response_200_19_data:
       type: object
       properties:
@@ -7225,13 +7246,22 @@ components:
           $ref: "#/components/schemas/CONDUCTOR_INFO_LIST"
         dict:
           $ref: "#/components/schemas/CONDUCTOR_INFO_DICT"
+    inline_response_200_20_data_conductor_list:
+      type: object
+      properties:
+        column_group_info:
+          $ref: "#/components/schemas/COLUMN_GROUP_INFO"
+        column_info:
+          $ref: "#/components/schemas/COLUMN_INFO"
+        menu_info:
+          $ref: "#/components/schemas/MENU_INFO"
     inline_response_200_20_data:
       type: object
       properties:
         conductor_list:
-          $ref: "#/components/schemas/inline_response_200_data"
+          $ref: "#/components/schemas/inline_response_200_20_data_conductor_list"
         operation_list:
-          $ref: "#/components/schemas/inline_response_200_data"
+          $ref: "#/components/schemas/inline_response_200_20_data_conductor_list"
     inline_response_200_21_data:
       type: object
       properties:
@@ -7263,9 +7293,9 @@ components:
       type: object
       properties:
         movement_list:
-          $ref: "#/components/schemas/inline_response_200_data"
+          $ref: "#/components/schemas/inline_response_200_20_data_conductor_list"
         operation_list:
-          $ref: "#/components/schemas/inline_response_200_data"
+          $ref: "#/components/schemas/inline_response_200_20_data_conductor_list"
     inline_response_200_26_data:
       type: object
       properties:
@@ -7334,14 +7364,14 @@ components:
           example: "1: 履歴あり / 2: 履歴なし"
         import_list:
           $ref: "#/components/schemas/inline_response_200_28_data_import_list"
-    inline_response_200_29_data:
+    inline_response_200_30_data:
       type: object
       properties:
         compare_list:
-          $ref: "#/components/schemas/inline_response_200_data"
+          $ref: "#/components/schemas/inline_response_200_20_data_conductor_list"
         device_list:
-          $ref: "#/components/schemas/inline_response_200_data"
-    inline_response_200_30_data:
+          $ref: "#/components/schemas/inline_response_200_20_data_conductor_list"
+    inline_response_200_31_data:
       type: object
       properties:
         file_name:
@@ -7350,7 +7380,7 @@ components:
         file_data:
           type: string
           example: Compare result base64 string
-    inline_response_200_31_data:
+    inline_response_200_32_data:
       type: object
       properties:
         file:
@@ -7358,7 +7388,7 @@ components:
           example: base64 string
         file_name:
           type: string
-    inline_response_200_32_data:
+    inline_response_200_33_data:
       type: object
       properties:
         datetime:

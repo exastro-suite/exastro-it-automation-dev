@@ -47,8 +47,11 @@ patch:
     content:
       application/json:
         schema:
-          description: Versionを指定
+          description: Project名・Versionを指定
           properties:
+            tf_project_name:
+              type: string
+              example: "example_project"
             terraform_version:
               type: string
               example: "1.0.0"
