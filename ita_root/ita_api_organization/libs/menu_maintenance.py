@@ -108,9 +108,18 @@ def create_maintenance_parameters(connexion_request, cmd_type='Register', tmp_pa
                 for _file_key in connexion_request.files:
                     _file_data = connexion_request.files[_file_key]
                     file_name = _file_data.filename
-                    tmp_file_path = os.path.join(tmp_path, _file_key)
-                    retry_makedirs(tmp_file_path)  # noqa: F405
-                    file_path = os.path.join(tmp_file_path, file_name)
+
+                    # Path Traversal対策：パート名(_file_key)とfilenameの両方を検証する
+                    if is_invalid_file_name(_file_key) or is_invalid_file_name(file_name):  # noqa: F405
+                        invalid_value = _file_key if is_invalid_file_name(_file_key) else file_name  # noqa: F405
+                        raise_invalid_file_name_exception(invalid_value)  # noqa: F405
+
+                    try:
+                        tmp_file_path = safe_path_join(tmp_path, _file_key)  # noqa: F405
+                        retry_makedirs(tmp_file_path)  # noqa: F405
+                        file_path = safe_path_join(tmp_file_path, file_name)  # noqa: F405
+                    except ValueError:
+                        raise_invalid_file_name_exception(file_name)  # noqa: F405
                     file_paths[_file_key] = file_path
 
                     f = open(file_path, 'wb')

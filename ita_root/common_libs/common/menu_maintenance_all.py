@@ -130,11 +130,33 @@ def create_maintenance_parameters(connexion_request, tmp_path):
                     if _cnt_parameters >= _list_num:
                         _file_data = connexion_request.files[_file_key]
                         file_name = _file_data.filename
+
+                        # filename（multipartのContent-Dispositionに指定された値）と、
+                        # パート名のrest_key部分（_list_key）を検証する
+                        # Path Traversal対策：ディレクトリ区切りや".."を含む値は明示的に拒否する
+                        if is_invalid_file_name(file_name) or is_invalid_file_name(_list_key):  # noqa: F405
+                            invalid_value = _list_key if is_invalid_file_name(_list_key) else file_name  # noqa: F405
+                            msg = g.appmsg.get_api_message("MSG-00036", [invalid_value])
+                            args_dict.setdefault(str(files_count), {check_msg: [msg]})
+                            args = json.dumps(args_dict)
+                            status_code = "499-00201"
+                            raise AppException(status_code, [args], [args])  # noqa: F405
+
                         if _list_num not in file_paths:
                             file_paths[_list_num] = {}
                         tmp_file_path = os.path.join(tmp_path, str(_list_num), _list_key)
                         retry_makedirs(tmp_file_path)  # noqa: F405
-                        file_path = os.path.join(tmp_file_path, file_name)
+
+                        # 多層防御：上記チェックをすり抜けた場合でも、tmp_file_pathの外には出られないようにする
+                        try:
+                            file_path = safe_path_join(tmp_file_path, file_name)  # noqa: F405
+                        except ValueError:
+                            msg = g.appmsg.get_api_message("MSG-00036", [file_name])
+                            args_dict.setdefault(str(files_count), {check_msg: [msg]})
+                            args = json.dumps(args_dict)
+                            status_code = "499-00201"
+                            raise AppException(status_code, [args], [args])  # noqa: F405
+
                         file_paths[_list_num][_list_key] = file_path
 
                         # ファイル名の文字列長チェック（255バイト上限）

@@ -475,17 +475,80 @@ def file_remove(remove_file, delete_mode = True):
 
 
 def safe_path_join(base, *paths):
-    """パス結合 : Path Join
+    """パス結合 : Path Join（境界検証付き）
+
+    baseの配下から出られないよう、各要素はディレクトリ区切りを除去した
+    ファイル/ディレクトリ名として扱い、結合結果がbase配下であることを検証する。
+    （Path Traversal対策。basenameだけでは "..” 単体の要素を除去できないため、
+      最終的な結合結果の境界チェックも併せて行う）
 
     Args:
         base (str): base path
+        *paths: 結合するパス要素（ユーザー入力を含みうる）
 
     Returns:
         str: join path
+
+    Raises:
+        ValueError: 結合結果がbaseの外に出る場合
     """
 
-    path_parts = [p for p in (base, *paths) if p is not None]
-    return os.path.join(*path_parts)
+    real_base = os.path.realpath(base)
+
+    # 各要素はディレクトリ区切りを許可しない単一のファイル/ディレクトリ名として扱う
+    safe_parts = [os.path.basename(str(p)) for p in paths if p is not None]
+
+    # realpathではなくnormpathで解決する
+    # （結合先が既存のシンボリックリンクの場合、realpathだとリンク先の実体パスに
+    #   解決されてしまい、アップロード機能のリンク差し替えロジックと整合しなくなるため）
+    result = os.path.normpath(os.path.join(real_base, *safe_parts)) if safe_parts else real_base
+
+    if result != real_base and not result.startswith(real_base + os.sep):
+        g.applogger.warning(f"path escape detected: base={base}, paths={paths}, result={result}")
+        raise ValueError('path escape')
+
+    return result
+
+
+def is_invalid_file_name(file_name):
+    """
+    クライアントから指定されたファイル名が、パス要素を含む不正な値かどうかを判定する。
+    （Path Traversal対策。黙って basename に変換せず、明示的に拒否するために使用する）
+
+    次のいずれかに該当する場合は不正と判定する。
+      - None / 空文字
+      - NULL文字を含む
+      - ディレクトリ区切り（"/" "\\"）を含む
+      - "." または ".." そのもの
+
+    Arguments:
+        file_name: クライアントから指定されたファイル名
+    Returns:
+        bool: True=不正 / False=問題なし
+    """
+    if not isinstance(file_name, str) or file_name == "":
+        return True
+    if "\0" in file_name or "/" in file_name or "\\" in file_name:
+        return True
+    if file_name in (".", ".."):
+        return True
+    return False
+
+
+def raise_invalid_file_name_exception(file_name):
+    """
+    safe_path_joinが境界外アクセス（ValueError）を検知した際に、
+    サーバー内部の絶対パスを含まない4xx系のAppExceptionへ変換して送出する。
+    （未捕捉のままにすると、FileNotFoundError等の予期しない例外として
+      500エラーのスタックトレースに内部の絶対パスが残ってしまうための対策）
+
+    Arguments:
+        file_name: クライアントから指定されたファイル名（そのまま）
+    Returns:
+        (呼び出し元には戻らない。AppExceptionを送出する)
+    """
+    msg = g.appmsg.get_api_message('MSG-00036', [file_name])
+    raise AppException("499-00201", [msg], [msg])
 
 
 def get_upload_file_path(workspace_id, menu_id, uuid, column_name_rest, file_name, uuid_jnl):
@@ -503,11 +566,14 @@ def get_upload_file_path(workspace_id, menu_id, uuid, column_name_rest, file_nam
         filepath
     """
     organization_id = g.get("ORGANIZATION_ID")
-    file_path = safe_path_join(os.environ.get('STORAGEPATH'), organization_id, workspace_id, 'uploadfiles', menu_id, column_name_rest, uuid, file_name)
-    old_file_path = ""
-    if uuid_jnl is not None:
-        if len(uuid_jnl) > 0:
-            old_file_path = safe_path_join(os.environ.get('STORAGEPATH'), organization_id, workspace_id, 'uploadfiles', menu_id, column_name_rest, uuid, 'old', uuid_jnl, file_name)  # noqa: E501
+    try:
+        file_path = safe_path_join(os.environ.get('STORAGEPATH'), organization_id, workspace_id, 'uploadfiles', menu_id, column_name_rest, uuid, file_name)  # noqa: E501
+        old_file_path = ""
+        if uuid_jnl is not None:
+            if len(uuid_jnl) > 0:
+                old_file_path = safe_path_join(os.environ.get('STORAGEPATH'), organization_id, workspace_id, 'uploadfiles', menu_id, column_name_rest, uuid, 'old', uuid_jnl, file_name)  # noqa: E501
+    except ValueError:
+        raise_invalid_file_name_exception(file_name)
 
     return {"file_path": file_path, "old_file_path": old_file_path}
 
@@ -525,7 +591,10 @@ def get_tmp_file_path(workspace_id: str, file_name: str) -> dict:
     """
     organization_id = g.get("ORGANIZATION_ID")
     _uuid = str(uuid_lib.uuid4())
-    file_path = safe_path_join("/tmp", organization_id, workspace_id, 'tmp', _uuid, file_name)
+    try:
+        file_path = safe_path_join("/tmp", organization_id, workspace_id, 'tmp', _uuid, file_name)
+    except ValueError:
+        raise_invalid_file_name_exception(file_name)
 
     return {"file_path": file_path}
 
@@ -544,11 +613,17 @@ def get_upload_file_path_specify(workspace_id, place, uuid, file_name, uuid_jnl)
         filepath
     """
     organization_id = g.get("ORGANIZATION_ID")
-    file_path = safe_path_join(os.environ.get("STORAGEPATH"), organization_id, f"{workspace_id}{place}", uuid, file_name)
-    old_file_path = ""
-    if uuid_jnl is not None:
-        if len(uuid_jnl) > 0:
-            old_file_path = safe_path_join(os.environ.get("STORAGEPATH"), organization_id, f"{workspace_id}{place}", uuid, "old", uuid_jnl, file_name)  # noqa: E501
+    # placeは "/uploadfiles/30108/notification_log/" のように複数階層を含む設定値。
+    # safe_path_joinは各要素を単一のファイル/ディレクトリ名として扱うため、階層ごとに分けて渡す
+    place_parts = [p for p in str(place).split("/") if p]
+    try:
+        file_path = safe_path_join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, *place_parts, uuid, file_name)
+        old_file_path = ""
+        if uuid_jnl is not None:
+            if len(uuid_jnl) > 0:
+                old_file_path = safe_path_join(os.environ.get("STORAGEPATH"), organization_id, workspace_id, *place_parts, uuid, "old", uuid_jnl, file_name)  # noqa: E501
+    except ValueError:
+        raise_invalid_file_name_exception(file_name)
 
     return {"file_path": file_path, "old_file_path": old_file_path}
 
