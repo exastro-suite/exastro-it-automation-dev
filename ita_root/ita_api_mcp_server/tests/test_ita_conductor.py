@@ -210,7 +210,7 @@ class TestToolExecuteConductor:
         """異常系: conductor_class_nameが未指定の場合は例外が発生すること"""
         with pytest.raises(Exception, match="conductor_class_name is required"):
             ita_conductor.tool_execute_conductor(
-                {"menu": "execution_list", "operation_name": "test_operation"},
+                {"menu": "conductor_class_edit", "operation_name": "test_operation"},
                 {"organization_id": ORG_ID, "workspace_id": WS_ID}
             )
 
@@ -218,13 +218,13 @@ class TestToolExecuteConductor:
         """異常系: operation_nameが未指定の場合は例外が発生すること"""
         with pytest.raises(Exception, match="operation_name is required"):
             ita_conductor.tool_execute_conductor(
-                {"menu": "execution_list", "conductor_class_name": "test_conductor"},
+                {"menu": "conductor_class_edit", "conductor_class_name": "test_conductor"},
                 {"organization_id": ORG_ID, "workspace_id": WS_ID}
             )
 
     def test_success_without_optional_params(self, mock_flask_g, requests_mock):
         """正常系: オプションパラメータなしでConductorが正常に実行されること"""
-        menu = "execution_list"
+        menu = "conductor_class_edit"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/execute/"
         response_data = {"conductor_instance_id": "100"}
         requests_mock.post(url, json=response_data, status_code=200)
@@ -252,7 +252,7 @@ class TestToolExecuteConductor:
 
     def test_success_with_schedule_date(self, mock_flask_g, requests_mock):
         """正常系: schedule_dateを指定した場合、リクエストボディに含まれること"""
-        menu = "execution_list"
+        menu = "conductor_class_edit"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/execute/"
         response_data = {"conductor_instance_id": "101"}
         requests_mock.post(url, json=response_data, status_code=200)
@@ -273,7 +273,7 @@ class TestToolExecuteConductor:
 
     def test_success_with_conductor_data(self, mock_flask_g, requests_mock):
         """正常系: conductor_dataを指定した場合、リクエストボディに含まれること"""
-        menu = "execution_list"
+        menu = "conductor_class_edit"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/execute/"
         response_data = {"conductor_instance_id": "102"}
         conductor_data = {"parameter1": "value1", "parameter2": "value2"}
@@ -295,7 +295,7 @@ class TestToolExecuteConductor:
 
     def test_success_with_all_params(self, mock_flask_g, requests_mock):
         """正常系: 全てのパラメータを指定した場合、正常に実行されること"""
-        menu = "execution_list"
+        menu = "conductor_class_edit"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/execute/"
         response_data = {"conductor_instance_id": "103"}
         conductor_data = {"parameter1": "value1"}
@@ -321,7 +321,7 @@ class TestToolExecuteConductor:
 
     def test_http_failure_raises_httpexception(self, mock_flask_g, requests_mock):
         """異常系: ダウンストリームAPIが200以外を返した場合、HTTPExceptionが発生すること"""
-        menu = "execution_list"
+        menu = "conductor_class_edit"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/execute/"
         requests_mock.post(url, json={"message": "error", "result": "NG"}, status_code=400)
 
@@ -352,13 +352,13 @@ class TestToolGetConductorInstance:
         """異常系: conductor_instance_idが未指定の場合は例外が発生すること"""
         with pytest.raises(Exception, match="conductor_instance_id is required"):
             ita_conductor.tool_get_conductor_instance(
-                {"menu": "execution_list"},
+                {"menu": "conductor_confirmation"},
                 {"organization_id": ORG_ID, "workspace_id": WS_ID}
             )
 
     def test_success_get_conductor_instance(self, mock_flask_g, requests_mock):
         """正常系: Conductor実行情報が正常に取得されること"""
-        menu = "execution_list"
+        menu = "conductor_confirmation"
         conductor_instance_id = "100"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/"
         response_data = {
@@ -382,7 +382,7 @@ class TestToolGetConductorInstance:
 
     def test_http_failure_raises_httpexception(self, mock_flask_g, requests_mock):
         """異常系: ダウンストリームAPIが200以外を返した場合、HTTPExceptionが発生すること"""
-        menu = "execution_list"
+        menu = "conductor_confirmation"
         conductor_instance_id = "999"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/"
         requests_mock.get(url, json={"message": "not found", "result": "NG"}, status_code=404)
@@ -468,13 +468,13 @@ class TestToolGetConductorInputData:
         """異常系: conductor_instance_idが未指定の場合は例外が発生すること"""
         with pytest.raises(Exception, match="conductor_instance_id is required"):
             ita_conductor.tool_get_conductor_input_data(
-                {"menu": "execution_list"},
+                {"menu": "conductor_list"},
                 {"organization_id": ORG_ID, "workspace_id": WS_ID}
             )
 
     def test_success_without_file_param(self, mock_flask_g, requests_mock):
         """正常系: fileパラメータなしでConductor投入データが正常に取得されること"""
-        menu = "execution_list"
+        menu = "conductor_list"
         conductor_instance_id = "100"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/input_data/"
         response_data = {
@@ -499,7 +499,7 @@ class TestToolGetConductorInputData:
 
     def test_success_with_file_param(self, mock_flask_g, requests_mock):
         """正常系: fileパラメータを指定した場合、クエリパラメータに含まれること"""
-        menu = "execution_list"
+        menu = "conductor_list"
         conductor_instance_id = "100"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/input_data/"
         response_data = {"binary_data": "base64encodeddata"}
@@ -520,7 +520,7 @@ class TestToolGetConductorInputData:
 
     def test_http_failure_raises_httpexception(self, mock_flask_g, requests_mock):
         """異常系: ダウンストリームAPIが200以外を返した場合、HTTPExceptionが発生すること"""
-        menu = "execution_list"
+        menu = "conductor_list"
         conductor_instance_id = "999"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/input_data/"
         requests_mock.get(url, json={"message": "not found", "result": "NG"}, status_code=404)
@@ -548,13 +548,13 @@ class TestToolGetConductorResultData:
         """異常系: conductor_instance_idが未指定の場合は例外が発生すること"""
         with pytest.raises(Exception, match="conductor_instance_id is required"):
             ita_conductor.tool_get_conductor_result_data(
-                {"menu": "execution_list"},
+                {"menu": "conductor_list"},
                 {"organization_id": ORG_ID, "workspace_id": WS_ID}
             )
 
     def test_success_without_file_param(self, mock_flask_g, requests_mock):
         """正常系: fileパラメータなしでConductor結果データが正常に取得されること"""
-        menu = "execution_list"
+        menu = "conductor_list"
         conductor_instance_id = "100"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/result_data/"
         response_data = {
@@ -579,7 +579,7 @@ class TestToolGetConductorResultData:
 
     def test_success_with_file_param(self, mock_flask_g, requests_mock):
         """正常系: fileパラメータを指定した場合、クエリパラメータに含まれること"""
-        menu = "execution_list"
+        menu = "conductor_list"
         conductor_instance_id = "100"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/result_data/"
         response_data = {"binary_data": "base64encodeddata"}
@@ -600,7 +600,7 @@ class TestToolGetConductorResultData:
 
     def test_http_failure_raises_httpexception(self, mock_flask_g, requests_mock):
         """異常系: ダウンストリームAPIが200以外を返した場合、HTTPExceptionが発生すること"""
-        menu = "execution_list"
+        menu = "conductor_list"
         conductor_instance_id = "999"
         url = f"http://{HOST}:{PORT}/api/{ORG_ID}/workspaces/{WS_ID}/ita/menu/{menu}/conductor/{conductor_instance_id}/result_data/"
         requests_mock.get(url, json={"message": "not found", "result": "NG"}, status_code=404)

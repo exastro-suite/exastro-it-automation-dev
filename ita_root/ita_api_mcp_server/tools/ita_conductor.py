@@ -83,17 +83,32 @@ from flask import g
 
 from libs import tool, HTTPException, build_forward_headers, get_downstream_timeout
 
-# create-conductorが対象とするmenuのmenu_name_rest
-# menu_name_rest of the menu targeted by create-conductor
+# create-conductor, update-conductor, get-conductor-class が対象とする
+# menu の menu_name_rest
+# menu_name_rest of the menu targeted by create-conductor,
+# update-conductor, and get-conductor-class
 _REQUIRED_MENU_CONDUCTOR_EDIT = [
     "conductor_class_edit",
 ]
 
-# execute-conductorが対象とするmenuのmenu_name_rest
+# execute-conductor が対象とする menu の menu_name_rest
 # menu_name_rest of the menu targeted by execute-conductor
 _REQUIRED_MENU_CONDUCTOR_EXECUTE = [
     "conductor_class_edit",
-    "execution_list",
+]
+
+# get-conductor-instance が対象とする menu の menu_name_rest
+# menu_name_rest of the menu targeted by get-conductor-instance
+_REQUIRED_MENU_CONDUCTOR_INSTANCE_GET = [
+    "conductor_confirmation",
+]
+
+# get-conductor-input-data, get-conductor-result-data が対象とする
+# menu の menu_name_rest
+# menu_name_rest of the menu targeted by get-conductor-input-data
+# and get-conductor-result-data
+_REQUIRED_MENU_CONDUCTOR_LIST = [
+    "conductor_list",
 ]
 
 
@@ -477,7 +492,7 @@ def tool_execute_conductor(arguments: dict, payload: dict) -> dict:
         },
         "required": ["menu", "conductor_instance_id"]
     },
-    required_menu=_REQUIRED_MENU_CONDUCTOR_EXECUTE,
+    required_menu=_REQUIRED_MENU_CONDUCTOR_INSTANCE_GET,
     profile=["AgenticAI"]
 )
 def tool_get_conductor_instance(arguments: dict, payload: dict) -> dict:
@@ -696,7 +711,7 @@ def tool_get_conductor_class(arguments: dict, payload: dict) -> dict:
         },
         "required": ["menu", "conductor_instance_id"]
     },
-    required_menu=_REQUIRED_MENU_CONDUCTOR_EXECUTE,
+    required_menu=_REQUIRED_MENU_CONDUCTOR_LIST,
     profile=["AgenticAI"]
 )
 def tool_get_conductor_input_data(arguments: dict, payload: dict) -> dict:
@@ -817,7 +832,7 @@ def tool_get_conductor_input_data(arguments: dict, payload: dict) -> dict:
         },
         "required": ["menu", "conductor_instance_id"]
     },
-    required_menu=_REQUIRED_MENU_CONDUCTOR_EXECUTE,
+    required_menu=_REQUIRED_MENU_CONDUCTOR_LIST,
     profile=["AgenticAI"]
 )
 def tool_get_conductor_result_data(arguments: dict, payload: dict) -> dict:

@@ -13,7 +13,6 @@
 
 # Menu names
 @conductor_menu = conductor_class_edit
-@execution_menu = execution_list
 @confirmation_menu = conductor_confirmation
 @history_menu = conductor_list
 
