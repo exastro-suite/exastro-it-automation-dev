@@ -107,9 +107,6 @@ SEARCH_MODE_RANGE = 'RANGE'
 REGISTER_DEFAULT_MENU = ['0', '1', '2', '3', '4']
 REGISTER_SET_PRYMARY_MENU = ['14']
 
-# 設定値(BEFORE_VALIDATE_REGISTER)に依らず、個別バリデーションを必ず実行するメニュー
-FIXED_BEFORE_VALIDATE_MENUS = ['10203', '10204', '10104']
-
 
 class loadTable():
     """
@@ -2504,10 +2501,6 @@ class loadTable():
         msg = ''
 
         exec_config = self.get_menu_before_validate_register()
-        # メニュー定義・ロールメニュー紐付は、BEFORE_VALIDATE_REGISTER(編集可能な設定値)に依らず
-        # 固定の検証を必ず実行する
-        if str(self.get_menu_id()) in FIXED_BEFORE_VALIDATE_MENUS:
-            exec_config = 'external_valid_menu_before'
         # parameter = target_option.get('parameter')
         # file = target_option.get('file')
         if exec_config is not None:
