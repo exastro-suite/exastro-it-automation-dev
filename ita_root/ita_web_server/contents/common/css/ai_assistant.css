@@ -1001,9 +1001,11 @@ flex: 1 1 auto;
     margin-top: 12px;
 }
 /* ============================== *\
-   画面専用HTML表示（display_html / Shadow DOM）
+   画面専用HTML表示（display_html / sandbox iframe）
 \* ============================== */
+/* iframe は中身の幅で親を押し広げないため（既定300pxに縮む）、吹き出しを横幅いっぱいに伸ばす */
 .aiAssistantChatDisplayHtmlInner {
+    flex: 1 1 auto;
     padding: 12px 16px;
 }
 /* 見出し（左）＋ PDFダウンロードボタン（右）の行 */
@@ -1025,10 +1027,17 @@ flex: 1 1 auto;
 .aiAssistantChatDisplayHtmlPdfButton {
     flex: 0 0 auto;
 }
-/* Shadow DOM ホスト。内側は隔離されるため、外枠のみをここで整える。 */
+/* sandbox iframe のホスト。内側は隔離されるため、外枠のみをここで整える。 */
 .aiAssistantChatDisplayHtmlHost {
     display: block;
-    overflow-x: auto;
+}
+/* 高さは中身に合わせてJSで設定する（横にはみ出す分は iframe 内でスクロール） */
+.aiAssistantChatDisplayHtmlFrame {
+    display: block;
+    width: 100%;
+    height: 0;
+    border: 0;
+    background: transparent;
 }
 /* ============================== *\
    画面専用 添付ファイルダウンロード（download_attachment_file）
@@ -1615,6 +1624,157 @@ flex: 1 1 auto;
 
 
 /* ============================== *\
+   Conductor
+\* ============================== */
+.conductorProgressArea {
+width: 860px;
+max-width: 100%;
+}
+/* チャット内の段落用マージン（.aiAssistantChatAssistantMessage p）がConductor内のpに効かないようにする。
+   Nodeの空のpにマージンが付くとNodeが縦に伸び、下端に揃えて隠しているSkipがはみ出す。 */
+.conductorProgressBody p {
+margin: 0;
+}
+.conductorProgressFrame {
+position: relative;
+}
+/* 枠内左上：全体表示（グレー・小さめ） */
+.conductorProgressFrame .conductorViewAllButton {
+position: absolute;
+left: 8px; top: 8px;
+z-index: 10;
+height: 24px;
+line-height: 24px;
+font-size: 11px;
+}
+.conductorProgressFrame .conductorViewAllButton > .inner {
+padding: 0 8px;
+}
+.conductorProgressFrame .conductorViewAllButton .icon {
+font-size: 12px;
+}
+/* 枠内右上：使用したオペレーション名 */
+.conductorProgressOperation {
+display: flex;
+position: absolute;
+right: 8px; top: 8px;
+z-index: 10;
+max-width: 50%;
+height: 24px;
+background-color: #FFF;
+border: 1px solid #AAA;
+border-radius: 4px;
+box-shadow: 0 1px 3px rgba( 0,0,0,.3 );
+overflow: hidden;
+line-height: 24px;
+font-size: 12px;
+color: #EFEFEF;
+}
+.conductorProgressOperation[hidden] {
+display: none;
+}
+.conductorProgressOperationLabel {
+padding: 0 6px;
+background-color: #FF640A;
+font-weight: bold;
+font-size: 11px;
+}
+.conductorProgressOperationName {
+padding: 0 8px;
+overflow: hidden;
+white-space: nowrap;
+text-overflow: ellipsis;
+line-height: 1.5;
+color: #333;
+}
+.conductorProgressBody {
+position: relative;
+overflow: hidden;
+width: 100%;
+height: 360px;
+border: 1px solid #CCC;
+border-radius: 4px;
+}
+
+/* 枠の下の高さ変更バー */
+.conductorResizeBar {
+display: flex;
+align-items: center;
+justify-content: center;
+height: 10px;
+margin-top: 2px;
+border-radius: 4px;
+cursor: ns-resize;
+touch-action: none;
+user-select: none;
+background: #EFEFEF;
+border: 1px solid #DDD;
+}
+.conductorResizeBar:hover,
+.conductorResizeBarActive {
+background-color: rgba( 0,0,0,.08 );
+}
+.conductorResizeBarGrip {
+display: block;
+width: 40px;
+height: 4px;
+border-top: 1px solid #AAA;
+border-bottom: 1px solid #AAA;
+}
+.conductorResizeBar:hover .conductorResizeBarGrip,
+.conductorResizeBarActive .conductorResizeBarGrip {
+border-color: #666;
+}
+/* ドラッグ中はカーソルを固定し、文字選択をさせない */
+body.conductorResizing,
+body.conductorResizing * {
+cursor: ns-resize !important;
+user-select: none !important;
+}
+
+/* 終了状態に応じた枠・背景の色（Movementの進捗表示と同様） */
+.conductorProgressBody[data-result] {
+--cd-bg: #EEE; --cd-line1: #CCC; --cd-line2: #D0D0D0; --cd-line3: #DDD;
+}
+.conductorProgressBody[data-result="done"] {
+--cd-bg: #EEF8E7; --cd-line1: #B9D8A4; --cd-line2: #CBE3BB; --cd-line3: #D9EBCD;
+border-color: #58B60C;
+}
+.conductorProgressBody[data-result="error"] {
+--cd-bg: #FCE6E6; --cd-line1: #EDB4B4; --cd-line2: #F0C6C6; --cd-line3: #F5D5D5;
+border-color: #D00;
+}
+.conductorProgressBody[data-result="warning"],
+.conductorProgressBody[data-result="stop"] {
+--cd-bg: #FFF8DC; --cd-line1: #EBD98C; --cd-line2: #F0E2A5; --cd-line3: #F5EBBF;
+border-color: #FFB400;
+}
+.conductorProgressBody[data-result] .art-board {
+background: linear-gradient( transparent, transparent 99px, var(--cd-line1) 99px, var(--cd-line1) 100px ),
+            linear-gradient( 90deg, transparent, transparent 99px, var(--cd-line1) 99px, var(--cd-line1) 100px ),
+            linear-gradient( transparent, transparent 49px, var(--cd-line2) 49px, var(--cd-line2) 50px ),
+            linear-gradient( 90deg, transparent, transparent 49px, var(--cd-line2) 49px, var(--cd-line2) 50px ),
+            linear-gradient( transparent, transparent 9px, var(--cd-line3) 9px, var(--cd-line3) 10px ),
+            linear-gradient( 90deg, transparent, transparent 9px, var(--cd-line3) 9px, var(--cd-line3) 10px ),
+            var(--cd-bg);
+background-size: 100px 100px, 100px 100px, 50px 50px, 50px 50px, 10px 10px, 10px 10px;
+}
+.conductorProgressBody[data-result] .canvas[data-scale="50"] .art-board {
+background: linear-gradient( transparent, transparent 98px, var(--cd-line1) 98px, var(--cd-line1) 100px ),
+            linear-gradient( 90deg, transparent, transparent 98px, var(--cd-line1) 98px, var(--cd-line1) 100px ),
+            linear-gradient( transparent, transparent 48px, var(--cd-line2) 48px, var(--cd-line2) 50px ),
+            linear-gradient( 90deg, transparent, transparent 48px, var(--cd-line2) 48px, var(--cd-line2) 50px ),
+            var(--cd-bg);
+background-size: 100px 100px, 100px 100px, 50px 50px, 50px 50px;
+}
+.conductorProgressBody[data-result] .canvas[data-scale="25"] .art-board {
+background: linear-gradient( transparent, transparent 96px, var(--cd-line3) 96px, var(--cd-line3) 100px ),
+            linear-gradient( 90deg, transparent, transparent 96px, var(--cd-line3) 96px, var(--cd-line3) 100px ),
+            var(--cd-bg);
+background-size: 100px 100px, 100px 100px;
+}
+
+/* ============================== *\
    Movement
 \* ============================== */
 .movementArea {
@@ -1653,7 +1813,7 @@ border-color: #58B60C;
 background-color: #FCE6E6;
 border-color: #D00;
 }
-.node {
+.movementArea .node {
 left: 50%;
 top: 46px;
 z-index: 10;
@@ -1662,51 +1822,51 @@ min-width: 320px;
 transform: translateX(-50%);
 cursor: default;
 }
-.node:hover::after {
+.movementArea .node:hover::after {
 display: none!important;
 }
-.node-main > div {
+.movementArea .node-main > div {
     min-width: 0;
 }
-.node-in, .node-out {
+.movementArea .node-in, .movementArea .node-out {
     flex: 0 0 auto;
 }
-.node-body {
+.movementArea .node-body {
     flex: 1 1 auto;
 }
-.node-type, .node-name {
+.movementArea .node-type, .movementArea .node-name {
     max-width: none;
 }
-.node-name > .operationStatusData {
+.movementArea .node-name > .operationStatusData {
 display: block;
 max-width: none;
 overflow: hidden;
 white-space: nowrap;
 text-overflow: ellipsis;
 }
-.node-result {
+.movementArea .node-result {
     cursor: pointer;
 }
-.node-result[data-result-text="ERROR"]::before {
+.movementArea .node-result[data-result-text="ERROR"]::before {
 background-color: #D00;
 }
-.node-result[data-result-text="DONE"]::before {
+.movementArea .node-result[data-result-text="DONE"]::before {
 background-color: #58B60C;
 }
-.node-result[data-result-text="STOP"]::before {
+.movementArea .node-result[data-result-text="STOP"]::before {
 background-color: #FD0;
 text-shadow: none;
 color: #000;
 }
-.animationEnd.node-result::before {
+.movementArea .animationEnd.node-result::before {
 animation: none!important;
 will-change: auto!important;
 }
-.node-operation-data {
+.movementArea .node-operation-data {
     width: calc(100% - 29px);
 }
 
-.node.ready .node-running {
+.movementArea .node.ready .node-running {
     animation: nodeRunningBlink 2s ease-in-out infinite;
 }
 @keyframes nodeRunningBlink {
@@ -1717,7 +1877,7 @@ will-change: auto!important;
         opacity: 0.6;
     }
 }
-.node.ready.running .node-running {
+.movementArea .node.ready.running .node-running {
     animation: nodeRunningBlinkRotate 3s linear infinite;
 }
 @keyframes nodeRunningBlinkRotate {
@@ -1737,6 +1897,39 @@ will-change: auto!important;
 }
 .movementArea[data-result=""] .movementWaiting {
     display: block;
+}
+/* Conductor読み込み中／読み込み失敗の表示（Movementの待機中・停止表示と同じ見た目） */
+.conductorWaiting {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%,-50%);
+    z-index: 11;
+    width: max-content;
+    min-width: 200px;
+    height: 40px;
+    padding: 8px;
+    border-radius: 16px;
+    background-color: rgba(255,255,255,1);
+    white-space: nowrap;
+}
+.conductorProgressAreaError .conductorResizeBar {
+    display: none;
+}
+.conductorWaiting.conductorWaitingStopped {
+    white-space: normal;
+    min-width: 0;
+    width: auto;
+    max-width: calc(100% - 48px);
+    height: auto;
+    padding: 12px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.conductorProgressBody.conductorProgressBodyError {
+    background-color: #EEE;
+}
+.conductorProgressBody.conductorProgressBodyError > * {
+    visibility: hidden;
 }
 /* ページ離脱で中断された Movement 実行の停止メッセージ */
 .movementWaiting.movementWaitingStopped {

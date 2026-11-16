@@ -1491,6 +1491,10 @@ export function messageid_ja() {
         'FTE14370': 'タイトルを生成できませんでした。',
         'FTE14371': function( message ){ return `タイトルの保存に失敗しました。\n${message}`},
         'FTE14372': function( title ){ return `この会話のタイトルを「${title}」にしました。\nタイトルは会話履歴の一覧に表示されます（会話履歴タブから編集できます）。`},
+        'FTE14373': '会話のコンテキスト上限により、この実行の結果が省略されています。<br>実行状況をこの画面から復元できないため、実行履歴の一覧などから状況をご確認ください。',
+        'FTE14374': '会話のコンテキスト上限により、このConductor実行の結果が省略されています。実行状況をこの画面から復元できないため、Conductor作業履歴の一覧などから状況をご確認ください。',
+        'FTE14375': function( id ){ return `対象のConductorインスタンスID[ ${id} ]は存在しません。`;},
+        'FTE14376': function( id ){ return `対象のConductorクラスID[ ${id} ]は存在しません。`;},
 
         // AIアシスタント（ファイル編集画面）
         'FTE14380': 'AIアシスタントを開く',
@@ -1558,6 +1562,12 @@ export function messageid_ja() {
         'FTE14439': '下のボタンから、どちらかを選んでください。',
         'FTE14440': 'ユーザーは選択肢に回答せず、チャットを終了しました。',
         'FTE14441': 'AIサービスの認証を確認しています',
+        'FTE14442': function( status ){ return `このConductor実行はサーバ側で完了まで監視され、最終ステータス「${status}」で終了済みです。execute-conductor / get-conductor-instance を再度呼び出さず、この最終ステータスをユーザーに報告して会話を終えてください。`},
+        'FTE14443': function( reason ){ return `サーバ側のConductor進捗監視が最終ステータスに到達する前に終了しました（理由: ${reason}）。実行自体は開始済みのため、execute-conductor を再実行してはいけません。状況をユーザーに報告し、必要なら手動での状況確認を促してください。`},
+        'FTE14444': 'Conductorの実行状況を取得できませんでした。<br>Conductor作業確認メニューで最新の状況をご確認ください。',
+        'FTE14445': 'Conductor確認',
+        'FTE14447': '表示位置を固定',
+        'FTE14448': 'ドラッグで高さを変更（ダブルクリックで自動調整）',
 
         //gemini
         'FTE14101': 'API KEY',
