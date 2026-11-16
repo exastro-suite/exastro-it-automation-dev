@@ -61,6 +61,11 @@ RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted
 &&  mkdir -p $APACHE_SOCKET_DIR \
 &&  chown $USERNAME:$GROUPNAME $APACHE_SOCKET_DIR
 
+# Update the OS CA store (ca-certificates)
+RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    dnf update -y ca-certificates
+RUN update-ca-trust extract
+
 WORKDIR $APP_PATH
 
 COPY ./ita_root/ita_api_admin/pyproject.toml ./ita_root/ita_api_admin/poetry.lock $APP_PATH/

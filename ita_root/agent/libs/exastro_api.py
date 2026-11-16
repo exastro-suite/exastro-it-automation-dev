@@ -20,6 +20,7 @@ from urllib3.exceptions import InsecureRequestWarning
 urllib3.disable_warnings(InsecureRequestWarning)
 
 from common_libs.common.exception import AppException
+from common_libs.common.ssl_verify import get_requests_verify, log_cert_verify_error, ENV_AGENT
 
 
 class Exastro_API:
@@ -77,7 +78,7 @@ class Exastro_API:
                 auth=auth,
                 json=body,
                 params=query,
-                verify=False,
+                verify=get_requests_verify(ENV_AGENT),
                 timeout=(12, 600)
             )
 
@@ -86,6 +87,8 @@ class Exastro_API:
             if status_code != 200:
                 return status_code, response.text
         except Exception as e:
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, f"{self.base_url}{endpoint}", ENV_AGENT)
             raise AppException("AGT-00004", [e])
 
         return status_code, response.json()
@@ -117,7 +120,7 @@ class Exastro_API:
                 json=body,
                 files=files,
                 params=query,
-                verify=False,
+                verify=get_requests_verify(ENV_AGENT),
                 timeout=(12, 600)
             )
 
@@ -126,6 +129,8 @@ class Exastro_API:
             if status_code != 200:
                 return status_code, response
         except Exception as e:
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, f"{self.base_url}{endpoint}", ENV_AGENT)
             raise AppException("AGT-00004", [e])
 
         return status_code, response.json()
@@ -158,7 +163,7 @@ class Exastro_API:
                 files=files,
                 params=query,
                 data=data,
-                verify=False,
+                verify=get_requests_verify(ENV_AGENT),
                 stream=True,
                 timeout=(12, 600)
             )
@@ -167,6 +172,8 @@ class Exastro_API:
             if status_code != 200:
                 return status_code, response
         except Exception as e:
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, f"{self.base_url}{endpoint}", ENV_AGENT)
             raise AppException("AGT-00004", [e])
 
         return status_code, response
@@ -205,7 +212,7 @@ class Exastro_API:
                 params=query,
                 auth=auth,
                 data=stream,
-                verify=False,
+                verify=get_requests_verify(ENV_AGENT),
                 timeout=(12, 600)
             )
 
@@ -214,6 +221,8 @@ class Exastro_API:
             if status_code != 200:
                 return status_code, response.text
         except Exception as e:
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, f"{self.base_url}{endpoint}", ENV_AGENT)
             raise AppException("AGT-00004", [e])
 
         return status_code, response.json()
@@ -238,7 +247,7 @@ class Exastro_API:
                 url=f"{self.base_url}{endpoint}",
                 headers=headers,
                 data=body,
-                verify=False,
+                verify=get_requests_verify(ENV_AGENT),
                 timeout=(12, 600)
             )
 
@@ -254,5 +263,7 @@ class Exastro_API:
             else:
                 raise AppException("AGT-00004", [(status_code, response.text)])
         except Exception as e:
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, f"{self.base_url}{endpoint}", ENV_AGENT)
             raise AppException("AGT-00004", [e])
 
