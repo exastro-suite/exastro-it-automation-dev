@@ -24,6 +24,7 @@ import traceback
 from socket import timeout
 
 from common_libs.common.util import ky_decrypt
+from common_libs.common.ssl_verify import is_ssl_verify_enabled, get_ssl_context, log_cert_verify_error, ENV_ANSIBLE_AAP
 from common_libs.ansible_driver.functions.util import getAnsibleConst
 from common_libs.common.util import arrange_stacktrace_format
 from socket import timeout
@@ -133,11 +134,12 @@ class RestApiCaller():
             httpContext['http']['proxy'] = address
             httpContext['http']['request_fulluri'] = True
 
-        # 暫定対応 SSL認証エラー無視
-        ssl_context = ssl._create_unverified_context()
+        # SSL証明書検証 (環境変数 ANSIBLE_AAP_SSL_VERIFY_ENABLED, 既定はFALSE=検証しない)
+        ssl_verify_enabled = is_ssl_verify_enabled(ENV_ANSIBLE_AAP)
+        ssl_context = get_ssl_context(ENV_ANSIBLE_AAP)
         httpContext['ssl'] = {}
-        httpContext['ssl']['verify_peer'] = False
-        httpContext['ssl']['verify_peer_name'] = False
+        httpContext['ssl']['verify_peer'] = ssl_verify_enabled
+        httpContext['ssl']['verify_peer_name'] = ssl_verify_enabled
 
         if DirectUrl == False:
             url = '%s%s' % (self.baseURI, apiUri)
@@ -209,6 +211,8 @@ class RestApiCaller():
                 self.apperrorloger(print_Except)
 
             except urllib.error.URLError as e:
+                # 証明書検証エラーの場合は専用のログを出力する
+                log_cert_verify_error(e, url, ENV_ANSIBLE_AAP)
                 # 返却用のArrayを編集
                 response_array['statusCode'] = -2
                 response_array['responseContents'] = {"errorMessage":"HTTP access error "}

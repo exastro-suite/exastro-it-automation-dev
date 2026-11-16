@@ -22,6 +22,7 @@ import inspect
 import os
 from flask import g
 from common_libs.common.util import ky_decrypt
+from common_libs.common.ssl_verify import is_ssl_verify_enabled, get_ssl_context, log_cert_verify_error, ENV_TERRAFORM
 
 
 class RestApiCaller():
@@ -95,11 +96,12 @@ class RestApiCaller():
             httpContext['http']['proxy'] = proxy_address
             httpContext['http']['request_fulluri'] = True
 
-        # [暫定対応] SSL認証エラー無視
-        ssl_context = ssl._create_unverified_context()
+        # SSL証明書検証 (環境変数 TERRAFORM_SSL_VERIFY_ENABLED, 既定はFALSE=検証しない)
+        ssl_verify_enabled = is_ssl_verify_enabled(ENV_TERRAFORM)
+        ssl_context = get_ssl_context(ENV_TERRAFORM)
         httpContext['ssl'] = {}
-        httpContext['ssl']['verify_peer'] = False
-        httpContext['ssl']['verify_peer_name'] = False
+        httpContext['ssl']['verify_peer'] = ssl_verify_enabled
+        httpContext['ssl']['verify_peer_name'] = ssl_verify_enabled
 
         # URL定義
         if direct_url:
@@ -176,6 +178,8 @@ class RestApiCaller():
                 self.appinfologer(print_HttpContext)
 
             except urllib.error.URLError as e:
+                # 証明書検証エラーの場合は専用のログを出力する
+                log_cert_verify_error(e, url, ENV_TERRAFORM)
                 # 返却用のArrayを編集
                 response_array['statusCode'] = -2
                 response_array['responseContents'] = {"errorMessage": "HTTP access error "}
@@ -292,11 +296,12 @@ class RestApiCaller():
         if not direct_flag:
             url = '%s%s' % (self.targetHost, url)
 
-        # [暫定対応] SSL認証エラー無視
-        ssl_context = ssl._create_unverified_context()
+        # SSL証明書検証 (環境変数 TERRAFORM_SSL_VERIFY_ENABLED, 既定はFALSE=検証しない)
+        ssl_verify_enabled = is_ssl_verify_enabled(ENV_TERRAFORM)
+        ssl_context = get_ssl_context(ENV_TERRAFORM)
         httpContext['ssl'] = {}
-        httpContext['ssl']['verify_peer'] = False
-        httpContext['ssl']['verify_peer_name'] = False
+        httpContext['ssl']['verify_peer'] = ssl_verify_enabled
+        httpContext['ssl']['verify_peer_name'] = ssl_verify_enabled
 
         print_HttpContext = 'http context\n%s' % (httpContext)
         print_url = "URL: %s\n" % (url)
@@ -345,6 +350,8 @@ class RestApiCaller():
                 responseContents = resp.read().decode('utf-8')
 
         except Exception as e:
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, url, ENV_TERRAFORM)
             self.apperrorloger(self.backtrace())
             self.apperrorloger(e)
             self.apperrorloger(print_url)

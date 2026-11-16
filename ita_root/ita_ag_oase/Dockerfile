@@ -24,6 +24,9 @@ ENV LANGUAGE=en
 ENV STORAGEPATH=/storage/
 
 ENV SERVICE_NAME=ita-ag-oase
+# SSL certificate verification of external communication (TRUE/FALSE, default FALSE = no verification)
+ENV EVENT_COLLECTION_SSL_VERIFY_ENABLED=FALSE
+ENV AGENT_SSL_VERIFY_ENABLED=FALSE
 ENV USER_ID=ita-ag-oase
 
 ENV SQL_INSERT_PROC_UNIT_NUM=100
@@ -50,6 +53,11 @@ RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted
 &&  poetry config virtualenvs.create false \
 &&  groupadd $GROUPNAME \
 &&  useradd -m -s /bin/bash -g $GROUPNAME $USERNAME
+
+# Update the OS CA store (ca-certificates)
+RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    dnf update -y ca-certificates
+RUN update-ca-trust extract
 
 WORKDIR $APP_PATH
 
