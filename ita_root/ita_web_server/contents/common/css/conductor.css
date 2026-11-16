@@ -2002,6 +2002,19 @@ margin-right: 16px;
 }
 
 
+/* 進捗表示専用（AIアシスタントなどへの埋め込み）：メニュー・ヘッダー・右パネル・操作説明を表示しない */
+.conductor-progress-view .editor-menu,
+.conductor-progress-view .editor-header,
+.conductor-progress-view .editor-panel,
+.conductor-progress-view .editor-display {
+display: none;
+}
+.conductor-progress-view.editor,
+.conductor-progress-view .editor-inner,
+.conductor-progress-view .editor-block-inner {
+border: 0;
+}
+
 .conductorInstanceIdStandBy .editor-header,
 .conductorInstanceIdStandBy .editor-body,
 .conductorInstanceIdStandBy .editor-panel {

@@ -25,6 +25,7 @@ import traceback
 import jmespath
 
 from common_libs.common.exception import AppException
+from common_libs.common.ssl_verify import is_ssl_verify_enabled, log_cert_verify_error, ENV_EVENT_COLLECTION
 
 class APIClientCommon:
     """
@@ -83,7 +84,10 @@ class APIClientCommon:
         no_proxy_large = os.environ['NO_PROXY'] if "NO_PROXY" in os.environ else ""
         no_proxy_small = os.environ['no_proxy'] if "no_proxy" in os.environ else ""
         # SSL 証明書の検証無効(verify = False)の設定
-        if no_proxy_large.find(noproxy_host) > -1 or \
+        if is_ssl_verify_enabled(ENV_EVENT_COLLECTION):
+            # 環境変数 EVENT_COLLECTION_SSL_VERIFY_ENABLED=TRUE の場合は証明書を検証する
+            self.verify = True
+        elif no_proxy_large.find(noproxy_host) > -1 or \
            no_proxy_small.find(noproxy_host) > -1:
             # 環境変数NO_PROXYに、接続先のドメインが存在していた場合、
             # プロキシ経由だと、Authorizationヘッダーがプロキシで破棄され、接続出来なくなる
@@ -189,6 +193,8 @@ class APIClientCommon:
             return False, api_response
 
         except Exception as e:
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, self.url, ENV_EVENT_COLLECTION)
             raise AppException("AGT-10029", [e, "HTTP-API Request"])
 
     def get_new_events(self, raw_json, now_time):
