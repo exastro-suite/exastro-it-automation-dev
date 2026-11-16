@@ -121,10 +121,31 @@ def create_requests_cert_error():
     return requests.exceptions.SSLError(max_retry)
 
 
+def create_error_raised_from_cert_error():
+    """raise ... from で証明書検証失敗を明示的に包んだ例外"""
+    try:
+        raise RuntimeError("wrapped") from create_cert_error()
+    except RuntimeError as e:
+        return e
+
+
+def create_error_raised_while_handling_cert_error():
+    """証明書検証失敗の処理中に、無関係な別の例外が出た場合（__context__ にだけ証明書検証失敗が入る）"""
+    try:
+        try:
+            raise create_cert_error()
+        except ssl.SSLCertVerificationError:
+            raise RuntimeError("cleanup failed")
+    except RuntimeError as e:
+        return e
+
+
 @pytest.mark.parametrize("exc, expected", [
     (create_cert_error(), True),
     (URLError(create_cert_error()), True),
     (create_requests_cert_error(), True),
+    (create_error_raised_from_cert_error(), True),
+    (create_error_raised_while_handling_cert_error(), False),            # 無関係な例外は、処理中だったというだけでは証明書検証失敗にしない
     (ssl.SSLError(1, "handshake failure"), False),                       # 証明書検証以外の SSL エラー
     (requests.exceptions.SSLError(urllib3.exceptions.SSLError("x")), False),
     (requests.exceptions.ConnectionError("refused"), False),
@@ -147,19 +168,33 @@ def mock_g():
         yield g
 
 
-def test_log_cert_verify_error_outputs_msg_00037(mock_g):
-    """証明書検証失敗なら MSG-00037 を（接続先、環境変数名）で出力する"""
+def test_log_cert_verify_error_outputs_msg_00037(monkeypatch, mock_g):
+    """検証が有効で証明書検証失敗なら MSG-00037 を（接続先、環境変数名）で出力する"""
+    monkeypatch.setenv(ENV_ANSIBLE_AAP, "TRUE")
     assert log_cert_verify_error(URLError(create_cert_error()), "https://aac.example.com/api", ENV_ANSIBLE_AAP) is True
     mock_g.appmsg.get_log_message.assert_called_once_with("MSG-00037", ["https://aac.example.com/api", ENV_ANSIBLE_AAP])
     mock_g.applogger.error.assert_called_once()
 
 
-def test_log_cert_verify_error_ignores_other_errors(mock_g):
-    """証明書検証失敗でなければ何も出力しない"""
+def test_log_cert_verify_error_ignores_other_errors(monkeypatch, mock_g):
+    """検証が有効でも、証明書検証失敗でなければ何も出力しない"""
+    monkeypatch.setenv(ENV_ANSIBLE_AAP, "TRUE")
     assert log_cert_verify_error(URLError("timed out"), "https://x", ENV_ANSIBLE_AAP) is False
     mock_g.applogger.error.assert_not_called()
 
 
-def test_log_cert_verify_error_does_not_raise_without_flask_context():
+@pytest.mark.parametrize("value", [None, "FALSE", "abc"])
+def test_log_cert_verify_error_skipped_when_verification_disabled(monkeypatch, mock_g, value):
+    """検証が無効（未設定・FALSE・不正値）なら、証明書検証失敗の形の例外でも何も出力しない"""
+    if value is None:
+        monkeypatch.delenv(ENV_ANSIBLE_AAP, raising=False)
+    else:
+        monkeypatch.setenv(ENV_ANSIBLE_AAP, value)
+    assert log_cert_verify_error(URLError(create_cert_error()), "https://x", ENV_ANSIBLE_AAP) is False
+    mock_g.applogger.error.assert_not_called()
+
+
+def test_log_cert_verify_error_does_not_raise_without_flask_context(monkeypatch):
     """flask の g が無くても（ログ出力に失敗しても）例外を投げない"""
+    monkeypatch.setenv(ENV_ANSIBLE_AAP, "TRUE")
     assert log_cert_verify_error(create_cert_error(), "https://x", ENV_ANSIBLE_AAP) is False

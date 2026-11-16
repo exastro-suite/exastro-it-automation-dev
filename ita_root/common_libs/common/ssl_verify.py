@@ -88,18 +88,24 @@ def is_cert_verify_error(exc):
         bool: 証明書検証失敗なら True
     """
     try:
+        # 例外が別の例外を包んでいるので、包まれた側を順にたどって SSLCertVerificationError を探す
         stack = [exc]
         visited = set()
-        while stack and len(visited) < 20:
+        # 同じ例外を二度たどらないよう visited で管理する（循環参照の防止）
+        while stack:
             current = stack.pop()
+            # args には文字列などが混ざるため、例外だけを対象にする
             if not isinstance(current, BaseException) or id(current) in visited:
                 continue
             visited.add(id(current))
             if isinstance(current, ssl.SSLCertVerificationError):
                 return True
+            # raise ... from で明示的に包まれた例外
+            # （__context__ は、無関係な例外の処理中に別の例外が出た場合にも入るため、たどらない）
             stack.append(current.__cause__)
-            stack.append(current.__context__)
+            # urllib の URLError や urllib3 の MaxRetryError は、包んだ例外を reason に持つ
             stack.append(getattr(current, "reason", None))
+            # requests の SSLError は、包んだ例外を args[0] に持つ
             for arg in getattr(current, "args", ()):
                 stack.append(arg)
     except Exception:
@@ -110,8 +116,8 @@ def is_cert_verify_error(exc):
 def log_cert_verify_error(exc, destination, env_name):
     """証明書検証失敗の場合に MSG-00037 をログ出力する / Output MSG-00037 log when certificate verification failed
 
-    証明書検証失敗でない場合は何もしない。呼び出し元の既存の例外処理・戻り値は変えない。
-    ログ出力自体が失敗しても例外を投げない。
+    検証が有効（env_name が TRUE）で、証明書検証失敗の場合のみログ出力する。それ以外は何もしない。
+    呼び出し元の例外処理・戻り値は変えない。ログ出力自体が失敗しても例外を投げない。
 
     Args:
         exc (BaseException): 発生した例外
@@ -122,6 +128,9 @@ def log_cert_verify_error(exc, destination, env_name):
         bool: 証明書検証失敗としてログ出力した場合 True
     """
     try:
+        # 検証が無効なら証明書検証エラーは起きないので、環境変数の確認を案内するログは出さない
+        if not is_ssl_verify_enabled(env_name):
+            return False
         if not is_cert_verify_error(exc):
             return False
         from flask import g
