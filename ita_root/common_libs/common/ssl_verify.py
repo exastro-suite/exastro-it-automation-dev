@@ -76,11 +76,6 @@ def get_requests_verify(env_name):
 def is_cert_verify_error(exc):
     """証明書検証失敗によるエラーか判定する / Whether the exception is caused by certificate verification failure
 
-    urllib の URLError(reason=SSLCertVerificationError) や、requests の SSLError
-    （urllib3 の MaxRetryError → SSLError → SSLCertVerificationError と包まれる）のように、
-    例外が別の例外を包んでいる場合も、包まれた例外をたどって判定する。
-    証明書検証失敗以外の SSL エラー・他の例外は False。例外を投げない。
-
     Args:
         exc (BaseException): 判定対象の例外
 
@@ -116,8 +111,7 @@ def is_cert_verify_error(exc):
 def log_cert_verify_error(exc, destination, env_name):
     """証明書検証失敗の場合に MSG-00037 をログ出力する / Output MSG-00037 log when certificate verification failed
 
-    検証が有効（env_name が TRUE）で、証明書検証失敗の場合のみログ出力する。それ以外は何もしない。
-    呼び出し元の例外処理・戻り値は変えない。ログ出力自体が失敗しても例外を投げない。
+    検証が有効（env_name が TRUE）で、証明書検証失敗の場合のみログ出力する。
 
     Args:
         exc (BaseException): 発生した例外
