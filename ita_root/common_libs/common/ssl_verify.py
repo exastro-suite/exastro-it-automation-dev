@@ -17,8 +17,6 @@
 Common functions to switch SSL certificate verification of external communication by environment variables
 
 - 環境変数は <機能>_SSL_VERIFY_ENABLED （TRUE/FALSE）。既定は FALSE（検証しない）
-- 不正値・未設定は FALSE として扱う（PF の val_to_boolean は不正値で TypeError だが、ここは例外にせず FALSE にする）
-- 例外を投げない（呼び出し元の except 節に依存した既存コードを壊さないため）
 """
 import os
 import ssl
