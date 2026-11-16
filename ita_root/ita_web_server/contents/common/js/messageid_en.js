@@ -1486,6 +1486,10 @@ export function messageid_en() {
         'FTE14370': 'The title could not be generated.',
         'FTE14371': function( message ){ return `Failed to save the title.\n${message}`},
         'FTE14372': function( title ){ return `The title of this conversation has been set to "${title}".\nThe title is displayed in the list of the conversation history (you can edit it from the conversation history tab).`},
+        'FTE14373': 'The result of this execution was omitted because the conversation exceeded the context limit.<br>The execution status cannot be restored on this screen, so please check the status in the list of the execution history and so on.',
+        'FTE14374': 'The result of this Conductor execution was omitted because the conversation exceeded the context limit. The execution status cannot be restored on this screen, so please check the status in the Conductor execution history list and so on.',
+        'FTE14375': function( id ){ return `The target Conductor instance ID [ ${id} ] does not exist.`;},
+        'FTE14376': function( id ){ return `The target Conductor class ID [ ${id} ] does not exist.`;},
 
         // AI assistant (file editor)
         'FTE14380': 'Open the AI assistant',
@@ -1553,6 +1557,12 @@ export function messageid_en() {
         'FTE14439': 'Choose one of the buttons below.',
         'FTE14440': 'The user ended the chat without answering the options.',
         'FTE14441': 'Checking AI service authentication',
+        'FTE14442': function( status ){ return `This Conductor execution was monitored on the server side until completion and has already finished with the final status "${status}". Do not call execute-conductor / get-conductor-instance again. Report this final status to the user and end the conversation.`},
+        'FTE14443': function( reason ){ return `The Conductor progress monitoring on the server side ended before it reached the final status (reason: ${reason}). The execution itself has already started, so you must not run execute-conductor again. Report the situation to the user and, if necessary, suggest checking the status manually.`},
+        'FTE14444': 'Could not retrieve the Conductor execution status.<br>Please check the latest status in the Conductor confirmation menu.',
+        'FTE14445': 'Check Conductor',
+        'FTE14447': 'Lock view position',
+        'FTE14448': 'Drag to resize (double-click to fit)',
 
         //gemini
         'FTE14101': 'API KEY',
