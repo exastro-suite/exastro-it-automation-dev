@@ -1603,11 +1603,36 @@ def retry_symlink_ignore_FileExistsError(src_path, dest_path, raise_error=True):
         else:
             return False
 
+def check_zip_member_name(name, dest_real):
+    """
+    zipのメンバ名が展開先の外に出ないことを検証する (Zip Slip対策)
+    Verify that a zip member name does not escape the destination directory
+
+    Args:
+        name (str): zipのメンバ名 / member name in the zip
+        dest_real (str): 展開先ディレクトリの実パス (os.path.realpath済み) / real path of the destination
+
+    Raises:
+        ValueError: 絶対パス、ドライブ指定、".."を含むパス、展開先の外に出るパス
+    """
+    norm = name.replace('\\', '/')
+    if norm.startswith('/'):
+        raise ValueError(f'Absolute path in zip: {name}')
+    if len(norm) > 1 and norm[1] == ':':
+        raise ValueError(f'Windows drive in zip: {name}')
+    if '..' in pathlib.PurePosixPath(norm).parts:
+        raise ValueError(f'Path traversal in zip: {name}')
+    target = os.path.realpath(os.path.join(dest_real, norm))
+    if os.path.commonpath([dest_real, target]) != dest_real:
+        raise ValueError(f'Outside destination in zip: {name}')
+
+
 # ZIP展開
 @file_read_retry
 def retry_zip_extract(file_path, dest_path, raise_error=True):
     """
         `zipfile.ZipFile(file_path).extractall(dest_path)` を`@file_read_retry`付きで実行する
+        展開前にメンバ名を検証する (Zip Slip対策)
         Args:
             file_path: 対象のZIPファイルパス
             dest_path: 展開先のディレクトリパス
@@ -1618,6 +1643,9 @@ def retry_zip_extract(file_path, dest_path, raise_error=True):
         os.listdir(os.path.dirname(file_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         os.listdir(os.path.dirname(dest_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         with zipfile.ZipFile(file_path) as zip:
+            dest_real = os.path.realpath(dest_path)
+            for name in zip.namelist():
+                check_zip_member_name(name, dest_real)
             zip.extractall(dest_path)
         return True
     except Exception as e:
@@ -1630,11 +1658,40 @@ def retry_zip_extract(file_path, dest_path, raise_error=True):
             return False
 
 
+def safe_extractall_tar(tar, dest_path, members=None):
+    """
+    tarの展開前にメンバ名を検証してから展開する (Zip Slip / CVE-2007-4559対策)
+    Validate member names before extracting a tar archive
+
+      - 絶対パス、展開先の外に出るパスを拒否する
+      - filterが使えるPythonでは filter='data' も併用する (リンク先の越境などはここで防ぐ)
+        ※filterを持たない古いPythonでは、メンバ名の検証のみ行われる
+
+    Args:
+        tar (tarfile.TarFile): 開いているtarfile / opened tarfile
+        dest_path (str): 展開先のディレクトリパス
+        members (list): 展開対象のメンバ (省略時は全メンバ) / members to extract (default: all)
+
+    Raises:
+        ValueError: 絶対パス、または展開先の外に出るパスを含む場合
+    """
+    dest_real = os.path.realpath(dest_path)
+    if members is None:
+        members = tar.getmembers()
+    for m in members:
+        target = os.path.realpath(os.path.join(dest_real, m.name))
+        if os.path.isabs(m.name) or os.path.commonpath([dest_real, target]) != dest_real:
+            raise ValueError(f"Unsafe path in archive: {m.name}")
+    kwargs = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
+    tar.extractall(path=dest_path, members=members, **kwargs)
+
+
 # tar展開
 @file_read_retry
 def retry_extract(file_path, dest_path, raise_error=True):
     """
         `tarfile.open(..., 'r:gz').extractall(...)` を`@file_read_retry`付きで実行する
+        展開前にメンバ名を検証する (Zip Slip / CVE-2007-4559対策)
         Args:
             file_path: 対象のtar.gzファイルパス
             dest_path: 展開先のディレクトリパス
@@ -1645,7 +1702,7 @@ def retry_extract(file_path, dest_path, raise_error=True):
         os.listdir(os.path.dirname(file_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         os.listdir(os.path.dirname(dest_path.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる
         with tarfile.open(file_path, 'r:gz') as tar:
-            tar.extractall(path=dest_path)
+            safe_extractall_tar(tar, dest_path)
         return True
     except Exception as e:
         g.applogger.info("retry_extract failed. file_path={}, dest_path={}".format(file_path, dest_path))

@@ -1024,10 +1024,15 @@ def unzip_file(file_path, uploadPath):
 
     try:
         with zipfile.ZipFile(file_path) as z:
-            for info in z.infolist():
+            dest_real = os.path.realpath(uploadPath)
+            infos = z.infolist()
+            # 展開前に、(文字コード変換後の)メンバ名を全て検証する (Zip Slip対策)
+            for info in infos:
                 info.filename = info.orig_filename.encode('cp437').decode('cp932')
                 if os.sep != "/" and os.sep in info.filename:
                     info.filename = info.filename.replace(os.sep, "/")
+                check_zip_member_name(info.filename, dest_real)  # noqa: F405
+            for info in infos:
                 z.extract(info, path=uploadPath)
 
     except Exception:

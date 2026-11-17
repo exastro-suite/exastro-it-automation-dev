@@ -1022,10 +1022,15 @@ def unzip_file(fileName, tmp_dir_path, upload_id):
 
     try:
         with zipfile.ZipFile(tmp_dir_path + "/" + fileName) as z:
-            for info in z.infolist():
+            dest_real = os.path.realpath(tmp_dir_path + "/" + upload_id)
+            infos = z.infolist()
+            # 展開前に、(文字コード変換後の)メンバ名を全て検証する (Zip Slip対策)
+            for info in infos:
                 info.filename = info.orig_filename.encode('cp437').decode('cp932')
                 if os.sep != "/" and os.sep in info.filename:
                     info.filename = info.filename.replace(os.sep, "/")
+                check_zip_member_name(info.filename, dest_real)  # noqa: F405
+            for info in infos:
                 z.extract(info, path=tmp_dir_path + "/" + upload_id)
 
     except Exception as e:
@@ -1046,6 +1051,18 @@ def unzip_file_cmd(fileName, tmp_dir_path, upload_id):
     # tmp配下で解凍する
     to_path = tmp_dir_path + "/" + upload_id
     from_path = tmp_dir_path + "/" + fileName
+    # 展開前にメンバ名を検証する (Zip Slip対策)
+    # unzip_file が検証で拒否した場合に、こちらのコマンドで展開されないようにする
+    try:
+        dest_real = os.path.realpath(to_path)
+        with zipfile.ZipFile(from_path) as z:
+            for name in z.namelist():
+                check_zip_member_name(name, dest_real)  # noqa: F405
+    except Exception as e:
+        g.applogger.info("unzip_file_cmd skipped. unsafe or unreadable zip. file={}".format(from_path))
+        print_exception_msg(e)
+        return
+
     cmd = ["unzip", "-d", to_path, from_path]
     cp = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -2078,7 +2095,7 @@ def _check_zip_file(upload_id, organization_id, workspace_id):
                 # 展開対象のファイル名と一致すれば展開
                 if member_item_name in targetfile_list:
                     extract_memberAry.append(member_item)
-            tar.extractall(path=importPath_id, members=extract_memberAry)
+            safe_extractall_tar(tar, importPath_id, members=extract_memberAry)  # noqa: F405
     except Exception as e:
         trace_msg = traceback.format_exc()
         g.applogger.info("[timestamp={}] {}".format(str(get_iso_datetime()), arrange_stacktrace_format(trace_msg)))
