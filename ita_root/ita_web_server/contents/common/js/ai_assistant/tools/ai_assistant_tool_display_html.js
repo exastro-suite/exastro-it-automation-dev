@@ -26,8 +26,9 @@
 //   その動作を1ファイルにまとめている。
 // ・LLMへ渡す使い方・デザインのルールは description に持たせる（システムプロンプトは
 //   プラットフォーム側が保持しており、画面側からは追記できないため）。
-// ・表示は Shadow DOM で隔離するため、アプリ本体のスタイルと相互に干渉しない。
-//   innerHTML 経由で描画するため <script> は実行されない。
+// ・LLMが生成したHTMLは信頼できない（プロンプトインジェクションで悪意あるHTMLになり得る）ため、
+//   スクリプト実行を禁止した sandbox iframe ＋ CSP で隔離して表示する。
+//   <script>・イベント属性は実行されず、外部リソースの読み込みも遮断される。スタイルも本体と干渉しない。
 // ・表示専用のツールであり、表示内容やユーザーの操作結果はLLMには返らない（成功可否のみ返す）。
 class AiAssistantToolDisplayHtml {
 /*
@@ -57,10 +58,10 @@ static get definition() {
             + '重要: 単純な表・箇条書き・見出し・通常の文章など、Markdownで表現できる内容にはこのツールを使わず、通常のテキスト応答（Markdown）で書くこと。特に表だけを見せたい場合はMarkdownの表を使い、このツールは使わないこと。'
             + '重要: このツールで表示した内容と同じもの（同じ表など）を、テキスト応答（Markdown）で重複して出力してはいけない。二重表示になる。'
             + 'このツールを使ったときは、テキスト側は短い導入・補足のみに留めること。'
-            + '表示したHTMLは Shadow DOM で隔離されるため、アプリ本体のスタイルと相互に干渉しない。'
+            + '表示したHTMLは sandbox iframe で隔離されるため、アプリ本体のスタイルと相互に干渉しない。'
             + '注意: これは「表示」専用であり、表示したHTMLの内容やユーザーの操作結果はLLMには返らない（成功可否のみ返る）。'
             + 'ユーザーへの選択・同意確認には使わず、その場合は ask_user_choice を使うこと。'
-            + '<script> は実行されず外部リソースの読み込みにも依存できないため、スタイルはインラインの <style> / style属性で完結させた静的なHTMLを渡すこと。'
+            + '<script> やイベント属性（onclick等）は実行されず、外部リソース（外部URLの画像・CSS・フォント）も読み込まれないため、スタイルはインラインの <style> / style属性で完結させた静的なHTMLを渡すこと。画像が必要な場合はインラインSVGを使うこと。'
             + '\n【分量のルール】'
             + '\n・1回の応答で出力できる量には上限があり、長いHTMLを1回で渡すと引数が途中で切れて表示に失敗する。'
             + '\n・レポートなど内容が多いものは1回で渡さず、セクション単位（例：概要・指標／明細／分析・補足）に分けてこのツールを複数回呼び出すこと。1回に渡すHTMLは3000文字程度までを目安とする。'
@@ -85,7 +86,7 @@ static get definition() {
                 },
                 html: {
                     type: 'string',
-                    description: '表示するHTML断片。<script>は実行されない。'
+                    description: '表示するHTML断片。<script>・イベント属性は実行されず、外部リソースは読み込まれない。'
                 }
             },
             required: [ 'html' ]
@@ -106,7 +107,7 @@ constructor( chat ) {
    実行（HTMLの表示）
 ##################################################
 */
-// LLMから渡されたHTMLを Shadow DOM 内に描画してチャット欄に表示し、
+// LLMから渡されたHTMLを sandbox iframe 内に描画してチャット欄に表示し、
 // LLMには「表示した」旨の tool_result を返す（表示内容自体はLLMに返さない）。
 execute( toolUse ) {
     const input = toolUse.arguments ?? toolUse.input ?? {};
@@ -160,7 +161,7 @@ appendElement( html, title ) {
     chatList.append( el );
     return el;
 }
-// 表示バブル（アシスタントメッセージ枠 + Shadow DOM ホスト）を生成する。
+// 表示バブル（アシスタントメッセージ枠 + sandbox iframe）を生成する。
 createElement( html, title ) {
     const el = this.chat.createAssistantMessageElement('', false );
     const inner = el.querySelector('.aiAssistantChatAssistantMessageInner');
@@ -182,18 +183,17 @@ createElement( html, title ) {
 
     const host = document.createElement('div');
     host.classList.add('aiAssistantChatDisplayHtmlHost');
-    // PDF出力（印刷）時に元のHTML／見出しを再利用できるよう、ホストに控えておく。
-    host._displayHtml = html;
-    host._displayTitle = title;
+    host.appendChild( this.createSandboxFrame( html, title ) );
     inner.appendChild( host );
-    this.renderShadowHtml( host, html );
     return el;
 }
-// 表示・PDFで共用するコンテンツ用CSS。
-// scope は適用先セレクタ（Shadow DOM は ':host'、印刷用ドキュメントは 'body'）。
-contentCss( scope ) {
+// sandbox iframe 内で表示するドキュメントのCSS。
+contentCss() {
     return `
-        ${scope} {
+        html { overflow-y: hidden; }
+        body {
+            display: flow-root;
+            margin: 0;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, sans-serif;
             font-size: 14px;
             line-height: 1.6;
@@ -201,33 +201,74 @@ contentCss( scope ) {
             word-break: break-word;
         }
         * { box-sizing: border-box; }
-        img, svg, canvas, video, iframe { max-width: 100%; height: auto; }
+        img, svg, canvas, video { max-width: 100%; height: auto; }
         table { border-collapse: collapse; max-width: 100%; }
         th, td { padding: 4px 8px; border: 1px solid #ccc; }
         a { color: #005FD8; }
         pre { white-space: pre-wrap; word-break: break-word; }
+        h1.aiAssistantPdfTitle { display: none; }
+        @page { margin: 12mm; }
+        @media print {
+            html { overflow: visible; }
+            h1.aiAssistantPdfTitle { display: block; font-size: 18px; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid #ccc; }
+        }
     `;
 }
-// Shadow DOM を生成し、隔離された領域にHTMLを描画する。
-// ・:host { all: initial } で外側からの継承（フォント・色など）を断ち切り、表示崩れを防ぐ
-// ・Shadow DOM 境界により、内側のスタイルがアプリ本体へ漏れることもない
-// ・innerHTML 経由のため <script> は実行されない
-renderShadowHtml( host, html ) {
-    const baseStyle = `
-        :host { all: initial; display: block; }
-        ${this.contentCss(':host')}
-    `;
-    let root;
-    try {
-        // 同じホストに二重で attachShadow するとエラーになるため、既存があれば再利用する。
-        root = host.shadowRoot ?? host.attachShadow({ mode: 'open'});
-    } catch ( error ) {
-        // Shadow DOM 非対応・生成失敗時は通常の innerHTML にフォールバックする。
-        console.warn('Shadow DOM の生成に失敗しました。通常表示にフォールバックします。', error );
-        host.innerHTML = html;
-        return;
+// iframe の srcdoc に設定する単独ドキュメントを組み立てる。
+// ・CSP で外部リソースの読み込み（画像ビーコン等によるデータ送信）を遮断する。
+//   LLM側のHTMLが別の CSP meta を含めても、CSP は厳しい方向にしか合成されないため緩められない。
+// ・<base target="_blank"> でリンクは別タブで開く（チャット内の iframe 自体を遷移させない）。
+// ・見出し（h1）は印刷（PDF出力）時のみ表示する。<title> はPDFの既定ファイル名に使われる。
+buildDocument( html, title ) {
+    const docTitle = ( title && title.trim() ) ? title.trim() : getMessage.FTE14107;
+    return '<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">'
+        + '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; img-src data:; font-src data:; form-action \'none\'; base-uri \'none\'">'
+        + '<meta name="referrer" content="no-referrer">'
+        + '<base target="_blank">'
+        + `<title>${fn.escape( docTitle )}</title>`
+        + `<style>${this.contentCss()}</style>`
+        + '</head><body>'
+        + ( title ? `<h1 class="aiAssistantPdfTitle">${fn.escape( title )}</h1>` : '')
+        + html
+        + '</body></html>';
+}
+// LLMが生成したHTMLを隔離して表示する sandbox iframe を生成する。
+// ・allow-scripts を付けないため、<script>・イベント属性（onerror 等）・javascript: URL は一切実行されない。
+// ・allow-same-origin は親から高さ計測・印刷を行うために付ける（スクリプトが動かないため親へは干渉できない）。
+//   ※ allow-scripts と allow-same-origin を同時に付けると sandbox を抜けられるため、絶対に併用しないこと。
+// ・allow-modals は print()（PDF出力）に必要。
+// ・allow-popups / allow-popups-to-escape-sandbox はリンクを別タブで通常のページとして開くために付ける。
+createSandboxFrame( html, title ) {
+    const iframe = document.createElement('iframe');
+    iframe.classList.add('aiAssistantChatDisplayHtmlFrame');
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-modals allow-popups allow-popups-to-escape-sandbox');
+    iframe.setAttribute('referrerpolicy', 'no-referrer');
+    iframe.setAttribute('title', title || getMessage.FTE14107 );
+    iframe.addEventListener('load', () => { this.observeFrameHeight( iframe ); });
+    iframe.srcdoc = this.buildDocument( html, title );
+    return iframe;
+}
+// iframe の高さを中身に合わせる（内容・幅の変化にも追従する）。
+observeFrameHeight( iframe ) {
+    const win = iframe.contentWindow;
+    const doc = iframe.contentDocument;
+    if ( !win || !doc?.body ) return;
+    const fit = () => {
+        // documentElement はビューポート未満に縮まないため body で計測する（body は flow-root でマージン相殺を防いでいる）。
+        const body = doc.body;
+        const content = Math.max( body.scrollHeight, body.getBoundingClientRect().height );
+        // 横スクロールバーが出ている場合はその分も加える。
+        const scrollbar = Math.max( 0, win.innerHeight - doc.documentElement.clientHeight );
+        const height = Math.ceil( content + scrollbar );
+        if ( iframe.style.height !== `${height}px`) iframe.style.height = `${height}px`;
+    };
+    fit();
+    iframe._resizeObserver?.disconnect();
+    if ( typeof ResizeObserver === 'function') {
+        iframe._resizeObserver = new ResizeObserver( fit );
+        iframe._resizeObserver.observe( doc.body );
+        iframe._resizeObserver.observe( iframe );
     }
-    root.innerHTML = `<style>${baseStyle}</style>${html}`;
 }
 /*
 ##################################################
@@ -235,75 +276,20 @@ renderShadowHtml( host, html ) {
 ##################################################
 */
 // 表示内容をPDFとしてダウンロードする。
-// 追加ライブラリに依存せず、非表示iframeに単独ドキュメントを書き出してブラウザの
-// 印刷（PDFに保存）を呼び出す方式。ベクターのまま出力でき、文字も選択可能なPDFになる。
-// button: クリックされたPDFボタン要素（同じ吹き出し内の表示ホストを辿る）。
+// 表示中の sandbox iframe をそのままブラウザの印刷（PDFに保存）に掛ける。
+// 追加ライブラリ不要で、ベクターのまま出力でき文字も選択可能なPDFになる。
+// button: クリックされたPDFボタン要素（同じ吹き出し内の iframe を辿る）。
 printAsPdf( button ) {
     const inner = button?.closest?.('.aiAssistantChatDisplayHtmlInner');
-    const host = inner?.querySelector?.('.aiAssistantChatDisplayHtmlHost');
-    if ( !host ) return;
-    const html = host._displayHtml ?? '';
-    const title = host._displayTitle ?? '';
-
-    // PDFのタイトル（＝Chrome等での既定ファイル名）に使う文字列。
-    const docTitle = ( title && title.trim() ) ? title.trim() : getMessage.FTE14107;
-    const printDoc = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">`
-        + `<title>${fn.escape( docTitle )}</title>`
-        + `<style>`
-        + `@page { margin: 12mm; }`
-        + `body { margin: 0; padding: 0; }`
-        + this.contentCss('body')
-        + `h1.aiAssistantPdfTitle { font-size: 18px; margin: 0 0 12px; padding-bottom: 6px; border-bottom: 1px solid #ccc; }`
-        + `</style></head><body>`
-        + ( title ? `<h1 class="aiAssistantPdfTitle">${fn.escape( title )}</h1>`: '')
-        + html
-        + `</body></html>`;
-
-    // 画面外の非表示iframeを作り、その中の印刷を呼び出す（アプリ本体のDOM/印刷に影響させない）。
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('aria-hidden', 'true');
-    iframe.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; opacity:0;';
-    document.body.appendChild( iframe );
-
-    // 印刷完了後（またはタイムアウト後）にiframeを片付ける。多重解放を防ぐ。
-    let cleaned = false;
-    const cleanup = () => {
-        if ( cleaned ) return;
-        cleaned = true;
-        setTimeout(() => { iframe.remove(); }, 1000 );
-    };
-
-    let printed = false;
-    const doPrint = () => {
-        if ( printed ) return;
-        printed = true;
-        try {
-            const win = iframe.contentWindow;
-            win.focus();
-            // 印刷ダイアログを閉じたら片付ける（対応ブラウザのみ。保険でタイムアウトも設定）。
-            win.addEventListener?.('afterprint', cleanup, { once: true });
-            win.print();
-            // afterprint が発火しない環境向けのフォールバック。
-            setTimeout( cleanup, 60000 );
-        } catch ( error ) {
-            console.error('PDF出力（印刷）に失敗しました。', error );
-            iframe.remove();
-        }
-    };
-
-    // iframeのドキュメントを書き出す。画像等の読み込みを待ってから印刷する。
-    iframe.addEventListener('load', () => {
-        // 画像のレンダリング反映を待つため、次フレームで印刷を呼ぶ。
-        setTimeout( doPrint, 200 );
-    }, { once: true });
-
-    const idoc = iframe.contentWindow?.document;
-    if ( !idoc ) { iframe.remove(); return; }
-    idoc.open();
-    idoc.write( printDoc );
-    idoc.close();
-    // about:blank への書き込みでは load が発火しないことがあるため、保険で明示的にも呼ぶ。
-    if ( idoc.readyState === 'complete') setTimeout( doPrint, 200 );
+    const iframe = inner?.querySelector?.('.aiAssistantChatDisplayHtmlFrame');
+    const win = iframe?.contentWindow;
+    if ( !win ) return;
+    try {
+        win.focus();
+        win.print();
+    } catch ( error ) {
+        console.error('PDF出力（印刷）に失敗しました。', error );
+    }
 }
 
 }

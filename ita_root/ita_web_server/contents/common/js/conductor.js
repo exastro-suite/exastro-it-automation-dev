@@ -33,7 +33,10 @@ constructor( menu, target, mode, conductorId, option ) {
     cd.target = target;
     cd.mode = mode;
     cd.id = conductorId;
-    cd.option = option;
+    // option.progressView: true の場合は進捗表示専用（メニュー・ヘッダー・右パネルなし、Movementクリックのみ有効）
+    cd.option = option || {};
+    // 進捗表示専用では、表示位置・倍率を固定する（ページのスクロールを妨げないため。外部のチェックボックスで解除できる）
+    cd.viewLocked = !!cd.option.progressView;
 
     cd.version = '2.0.0';
 }
@@ -44,7 +47,9 @@ constructor( menu, target, mode, conductorId, option ) {
 */
 createId( id, markFlag = true ) {
     const conductorId = ( this.id )? this.id: 'new-conductor';
-    return `${( markFlag )? `#`: ``}cd-${conductorId}-${id}`;
+    // option.idPrefix: 同じIDのConductorを同一ページに複数表示する場合（AIアシスタントなど）に、DOMのIDが重複しないようにする
+    const prefix = ( this.option && this.option.idPrefix )? this.option.idPrefix: '';
+    return `${( markFlag )? `#`: ``}cd-${prefix}${conductorId}-${id}`;
 }
 /*
 ##################################################
@@ -55,7 +60,7 @@ setup() {
     const cd = this;
 
     const html = `
-    <div id="${cd.createId('editor', false )}" class="editor conductor load-wait" data-editor-mode="${cd.mode}">
+    <div id="${cd.createId('editor', false )}" class="editor conductor load-wait${( cd.option.progressView )? ' conductor-progress-view': ''}" data-editor-mode="${cd.mode}">
         <div class="editor-inner">
             <div class="editor-main">
                 <div class="editor-menu">
@@ -137,12 +142,22 @@ setup() {
     fn.fetch( restApiUrls ).then(function( result ){
         cd.init( result[0], result[1] );
     }).catch(function( error ){
+        console.error( error );
+        if ( cd.option.progressView ) {
+            // 進捗表示専用の場合はアラートや画面遷移はせず、その場にエラーを表示する
+            // 指定IDのデータが無い（バリデーションエラー: 499）場合は、対象が存在しない旨を表示する
+            let message = error.message || String( error );
+            if ( String( error.result ?? '').startsWith('499') && cd.id ) {
+                message = ( cd.mode === 'confirmation')? getMessage.FTE14375( cd.id ): getMessage.FTE14376( cd.id );
+            }
+            cd.progressViewError( message );
+            return;
+        }
         if ( error.message ) {
             if ( error.message !== 'Failed to fetch') {
                 alert( error.message );
             }
         }
-        console.error( error );
         window.location.href = '?menu=' + cd.menu;
     });
 
@@ -392,6 +407,13 @@ infoHtml() {
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// 進捗表示専用で読み込みに失敗した場合、表示は呼び出し元（AIアシスタント）に任せるためイベントで通知する
+progressViewError( message ) {
+    const cd = this;
+    cd.$.editor.removeClass('load-wait');
+    cd.$.editor.trigger('conductorProgressError', [ message ]);
+}
+
 init( info, conductorData ) {
     const cd = this;
 
@@ -415,6 +437,10 @@ init( info, conductorData ) {
 
     if ( cd.mode === 'confirmation') {
         if ( conductorData.conductor_class && Object.keys( conductorData.conductor_class ).length === 0 ) {
+            if ( cd.option.progressView ) {
+                cd.progressViewError( getMessage.FTE14375( cd.id ) );
+                return false;
+            }
             alert(getMessage.FTE02018 + `[ ${cd.id} ]` + getMessage.FTE02028);
             window.location.href = '?menu=conductor_confirmation';
             return false;
@@ -426,7 +452,7 @@ init( info, conductorData ) {
         };
 
         // 作業実行確認
-        cd.$.window.one('conductorDrawEnd', function(){
+        cd.$.editor.one('conductorDrawEnd', function(){
             cd.initConductorStatus();
         });
     } else {
@@ -571,6 +597,8 @@ checkAction( mode ) {
 ##################################################
 */
 message( type, title, message ) {
+    // 進捗表示専用の場合は実行ログのトースト通知を出さない
+    if ( this.option.progressView && type === 'info') return;
     if ( message ) {
       const time = (type === 'danger')? 0: 5000;
       try {
@@ -1214,6 +1242,7 @@ initCanvas() {
     // --------------------------------------------------
     cd.$.area.on({
         'mousedown.canvas': function( e ) {
+            if ( cd.viewLocked ) return;
             if ( e.buttons === 2 && e.target.className !== 'node-link') {
                 e.preventDefault();
 
@@ -1256,6 +1285,8 @@ initCanvas() {
             }
         },
         'wheel.canvas': function( e ){
+            // 固定中は拡大縮小せず、ページ側のスクロールに任せる
+            if ( cd.viewLocked ) return;
             e.preventDefault();
 
             const $area = $( this );
@@ -1462,14 +1493,11 @@ canvasScaling( zoomType, positionX, positionY ){
 }
 /*
 ##################################################
-   全てのノードを表示する
+   全てのノードを表示するための範囲（座標・表示サイズ）を求める
 ##################################################
 */
-nodeViewAll( duration ) {
+nodeViewAllRange() {
     const cd = this;
-
-    const canvasWidth = cd.$.area.width(),
-          canvasHeight = cd.$.area.height();
 
     // 端の座標を求める
     let x1, y1, x2, y2;
@@ -1480,11 +1508,18 @@ nodeViewAll( duration ) {
                 nodeX2 = Number( cd.data[ key ].x ) + Number( cd.data[ key ].w ),
                 nodeY2 = Number( cd.data[ key ].y ) + Number( cd.data[ key ].h );
 
-            // Note分調整
-            const note = cd.data[ key ].note;
-            if ( !note ) {
-                const $note = $( cd.createId( key ) ).find('.node-note'),
-                      notePosition = 16,
+            // ノードの上に表示される部品（個別オペレーション・Note）の分を調整する。
+            // 表示されていない場合は範囲に含めない（その分を詰めて全体表示する）
+            const $node = $( cd.createId( key ) ),
+                  hasOperation = $node.hasClass('operation'),
+                  operationHeight = 36, // .node-operation（top: -36px）
+                  $note = $node.find('.node-note.note-open');
+            if ( hasOperation ) {
+                nodeY1 = Math.min( nodeY1, Number( cd.data[ key ].y ) - operationHeight );
+            }
+            if ( $note.length ) {
+                // Noteの下端はノード上端から16px（個別オペレーションありは48px）上
+                const notePosition = ( hasOperation )? 48: 16,
                       noteWidth = $note.outerWidth(),
                       noteHeight = $note.outerHeight();
                 if ( noteWidth > Number( cd.data[ key ].w ) ) {
@@ -1492,7 +1527,7 @@ nodeViewAll( duration ) {
                     nodeX1 = nodeX1 - noteXNum;
                     nodeX2 = nodeX2 + noteXNum;
                 }
-                nodeY1 = nodeY1 - noteHeight - notePosition;
+                nodeY1 = Math.min( nodeY1, Number( cd.data[ key ].y ) - noteHeight - notePosition );
             }
             // 左上座標
             if ( x1 > nodeX1 || x1 === undefined ) x1 = nodeX1;
@@ -1503,20 +1538,43 @@ nodeViewAll( duration ) {
         }
     }
 
+    const adjustPosition = 32; // 端Padding
+    // option.viewPaddingTop（上部に重ねた部品の高さ）がある場合は、上端の余白はそれで兼ねるため端Paddingは下側のみとする
+    const paddingTopCount = ( Number( cd.option.viewPaddingTop ) > 0 )? 1: 2;
+    return { x1, y1, x2, y2, viewWidth: x2 - x1 + ( adjustPosition * 2 ), viewHeight: y2 - y1 + ( adjustPosition * paddingTopCount ) };
+}
+/*
+##################################################
+   全てのノードを表示する
+##################################################
+*/
+nodeViewAll( duration ) {
+    const cd = this;
+
+    // option.viewPaddingTop：上部に重ねた部品の高さ。その分を除いた領域に全体表示する
+    const paddingTop = Number( cd.option.viewPaddingTop ) || 0;
+    const canvasWidth = cd.$.area.width(),
+          canvasHeight = cd.$.area.height() - paddingTop;
+
+    // 端の座標を求める
+    const { x1, y1, x2, y2, viewWidth, viewHeight } = cd.nodeViewAllRange();
+
     // センター座標と表示倍率
-    const adjustPosition = 32, // 端Padding
-          viewWidth = x2 - x1 + ( adjustPosition * 2 ),
-          viewHeight = y2 - y1 + ( adjustPosition * 2 ),
-          centerX = x1 + ( ( x2 - x1 ) / 2 ),
+    const centerX = x1 + ( ( x2 - x1 ) / 2 ),
           centerY = y1 + ( ( y2 - y1 ) / 2 ),
           scalingVertical = Math.floor( canvasWidth / viewWidth * 1000 ) / 1000,
           scalingHorizontal = Math.floor( canvasHeight / viewHeight * 1000 ) / 1000,
           scaling = ( scalingVertical < scalingHorizontal ) ? scalingVertical : scalingHorizontal;
 
+    // 縦位置：上部に重ねた部品がある場合は、表示範囲（ノード＋下側の端Padding）をその下の領域の中央に置く
+    const positionY = ( paddingTop > 0 )
+        ? Math.floor( ( -y1 - cd.editor.artBoardPt.y ) * scaling ) + paddingTop + ( ( canvasHeight - viewHeight * scaling ) / 2 )
+        : Math.floor( ( -centerY - cd.editor.artBoardPt.y ) * scaling ) + ( canvasHeight / 2 );
+
     // 全体を表示する
     cd.canvasPosition(
         Math.floor( ( -centerX - cd.editor.artBoardPt.x ) * scaling ) + ( cd.$.area.width() / 2 ),
-        Math.floor( ( -centerY - cd.editor.artBoardPt.y ) * scaling ) + ( cd.$.area.height() / 2 ),
+        positionY,
         scaling, duration
     );
 
@@ -2151,7 +2209,10 @@ initNode() {
             }
 
             // 拡大ノードがあれば解除
-            if ( !$( e.target ).closest('.node-jump').length ) {
+            // （進捗表示専用ではMovement上のクリックはすべて拡大を維持する）
+            const keepHover = $( e.target ).closest('.node-jump').length
+                || ( cd.option.progressView && $( e.target ).closest('.node.movement').length );
+            if ( !keepHover ) {
                 cd.$.artBoard.find('.hover-node').css('transform', `scale(1)`).removeClass('hover-node');
             }
 
@@ -2956,7 +3017,9 @@ createNode( nodeID ) {
                 LIST: [ nodeName ]
             };
             const link = `?menu=${linkData.menu}&filter=${fn.filterEncode(linkFilter)}`;
-            nodeNameHtml = `<a class="node-link" draggable="false" href="${link}">${fn.cv( nodeName, '', true )}</a>`;
+            // 進捗表示専用（AIアシスタント）の場合は新しいタブで開く
+            const linkTarget = ( cd.option.progressView )? ' target="_blank" rel="noopener"': '';
+            nodeNameHtml = `<a class="node-link" draggable="false"${linkTarget} href="${link}">${fn.cv( nodeName, '', true )}</a>`;
         } else {
             nodeNameHtml = `<span>${fn.cv( nodeName, '', true )}</span>`;
         }
@@ -6518,7 +6581,7 @@ nodeReSet( reSetConductorData ) {
           cd.clearAction();
           cd.$.editor.removeClass('load-conductor');
           // 描画終了トリガー
-          cd.$.window.trigger('conductorDrawEnd');
+          cd.$.editor.trigger('conductorDrawEnd');
       } else {
           timeoutCounter = timeoutCounter - loopCheckTime;
           if ( timeoutCounter > 0 ) {
@@ -6709,6 +6772,8 @@ executeCheckJump( $element ) {
     const cd = this;
 
     const type = $element.attr('data-type');
+    // 進捗表示専用の場合はMovementのみ詳細を開く
+    if ( cd.option.progressView && type !== 'movement') return;
     switch ( type ) {
         // 読み出しコンダクターをモーダルで表示する
         case 'call': {

@@ -29,7 +29,7 @@ const fn = ( function() {
     'use strict';
 
     // バージョン
-    const version = '2.10.0';
+    const version = '2.10.1';
 
     // AbortController
     const controller = new AbortController();
@@ -3923,8 +3923,12 @@ modalIframe: function( menu, title, option){
             cancel: function() {
                 modalInstance[ menu ] = null;
                 modal.close();
+                // 閉じたときのコールバック（option.onClose）
+                if ( typeof option.onClose === 'function') option.onClose();
             }
         };
+        // ヘッダーの「×」で閉じた場合も、キャンセルと同じ後処理（onClose呼び出し・インスタンス解放）を行う
+        modalFuncs.headerClose = modalFuncs.cancel;
 
         let width = '100%';
         if ( option.width ) width = option.width;
@@ -3956,6 +3960,9 @@ modalIframe: function( menu, title, option){
 
         const modal = modalInstance[ menu ];
         modal.open(`<iframe class="iframe" src="${url.join('')}"></iframe>`);
+    } else if ( typeof option.onClose === 'function') {
+        // すでに開いている場合は何もしない（待っている呼び出し元が止まらないよう、すぐに完了を通知する）
+        option.onClose();
     }
 },
 

@@ -28,6 +28,8 @@ ENV DB_CONNECT_TIMEOUT=10
 ENV DB_CONNECT_RETRY_SLEEP_TIME=0.5
 ENV DB_CONNECT_RETRY_LIMIT=2
 ENV SERVICE_NAME=ita-by-ansible-towermaster-sync
+# SSL certificate verification of external communication (TRUE/FALSE, default FALSE = no verification)
+ENV ANSIBLE_AAP_SSL_VERIFY_ENABLED=FALSE
 # ハングアップ監視用ファイル
 ENV FILE_PATH_LIVENESS=/tmp/liveness
 
@@ -49,6 +51,11 @@ RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted
 &&  poetry config virtualenvs.create false \
 &&  groupadd $GROUPNAME \
 &&  useradd -m -s /bin/bash -g $GROUPNAME $USERNAME
+
+# Update the OS CA store (ca-certificates)
+RUN --mount=type=secret,id=host_certificate_file,dst=/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    dnf update -y ca-certificates
+RUN update-ca-trust extract
 
 WORKDIR $APP_PATH
 

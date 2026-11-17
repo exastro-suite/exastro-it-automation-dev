@@ -14,7 +14,9 @@ cd ../ita_api_organization
 poetry update
 cd ../ita_by_ansible_execute
 poetry update
-cd ../ita_by_ansible_legacy_role_vars_listup
+cd ita_ansible_agent
+poetry update
+cd ../../ita_by_ansible_legacy_role_vars_listup
 poetry update
 cd ../ita_by_ansible_legacy_vars_listup
 poetry update

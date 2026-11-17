@@ -449,6 +449,10 @@ async executeTool( toolUse, runningEl = null, signal = null ) {
         // ドライバー実行系ツールなら進捗を購読して実行状況を表示し、
         // 確定した最終ステータスを取得する（完了まで待機）
         const progressOutcome = await this.watchDriverProgress( toolUse, toolResult, runningEl );
+        // Conductor実行ツールなら Conductor の進捗を表示し、完了まで待機する
+        const conductorOutcome = await this.watchConductorProgress( toolUse, toolResult, runningEl );
+        // Conductor構成取得ツールなら、構成（閲覧モード）を表示する（待機は不要）
+        this.watchConductorClassPreview( toolUse, toolResult, runningEl );
 
         // 最終ステータスが取れた場合は tool_result に反映する。
         // execute-driver の即時レスポンス（「実行を開始しました」）だけだと
@@ -479,6 +483,33 @@ async executeTool( toolUse, runningEl = null, signal = null ) {
                         message: progressOutcome.message ?? '',
                         // 未完了でも自動リトライ（再実行）はさせない
                         instruction: getMessage.FTE14234( progressOutcome.type )
+                    }
+                };
+            }
+        }
+
+        if ( conductorOutcome ) {
+            if ( conductorOutcome.type === 'done') {
+                resultForLlm = {
+                    ...toolResult,
+                    conductor_execution: {
+                        monitored_by_server: true,
+                        completed: true,
+                        final_status: conductorOutcome.status ?? '',
+                        status_detail: conductorOutcome.result ?? null,
+                        // LLMへの明示指示（再実行・再確認ループを防ぐ）
+                        instruction: getMessage.FTE14442( conductorOutcome.status ?? '')
+                    }
+                };
+            } else {
+                resultForLlm = {
+                    ...toolResult,
+                    conductor_execution: {
+                        monitored_by_server: true,
+                        completed: false,
+                        reason: conductorOutcome.type,
+                        message: conductorOutcome.message ?? '',
+                        instruction: getMessage.FTE14443( conductorOutcome.type )
                     }
                 };
             }
@@ -2806,6 +2837,667 @@ stopMessage() {
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+//   Conductor
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+##################################################
+    Conductorプレビュー
+##################################################
+*/
+/*
+##################################################
+    Conductor実行進捗
+##################################################
+*/
+// Conductorの作業実行ツール
+static CONDUCTOR_TOOLS = ['execute-conductor'];
+// 作業確認に使うメニュー（REST名）
+static CONDUCTOR_CONFIRMATION_MENU = 'conductor_confirmation';
+// 結果データ取得APIは、作業確認ではなくConductor作業履歴(シートタイプ0)のメニューを指定する
+static CONDUCTOR_INSTANCE_LIST_MENU = 'conductor_list';
+// Conductorインスタンスの終了ステータスID（6:正常終了 7:異常終了 8:警告終了 9:緊急停止 10:予約取消 11:想定外エラー）
+static CONDUCTOR_FINAL_STATES = ['6', '7', '8', '9', '10', '11'];
+static CONDUCTOR_STATUS_NAMES = {
+    '1': 'Unexecuted', '2': 'Unexecuted (schedule)', '3': 'Executing', '4': 'Executing (delay)',
+    '5': 'Pause', '6': 'Completed', '7': 'Completed (error)', '8': 'Completed (warning)',
+    '9': 'Emergency stop', '10': 'Schedule canceled', '11': 'Unexpected error'
+};
+// Conductor表示に必要なアセットを一度だけ読み込む（conductor.jsは二重に読み込むとクラスの再宣言になる）
+static loadConductorAssets() {
+    if ( typeof Conductor === 'function') return Promise.resolve();
+    if ( !AiAssistantChat._loadConductorAssets ) {
+        AiAssistantChat._loadConductorAssets = fn.loadAssets([
+            { type: 'js', url: '/_/ita/js/conductor.js'},
+            { type: 'css', url: '/_/ita/css/editor_common.css'},
+            { type: 'css', url: '/_/ita/css/conductor.css'}
+        ]).catch(( error ) => {
+            AiAssistantChat._loadConductorAssets = null;
+            throw error;
+        });
+    }
+    return AiAssistantChat._loadConductorAssets;
+}
+// 結果オブジェクトの中から指定キーの値を再帰的に探す（構造のゆらぎに対応）
+_findValueByKey( node, key ) {
+    if ( Array.isArray( node )) {
+        for ( const item of node ) {
+            const found = this._findValueByKey( item, key );
+            if ( found !== undefined ) return found;
+        }
+    } else if ( node && typeof node === 'object') {
+        if ( node[ key ] !== undefined && node[ key ] !== null && typeof node[ key ] !== 'object') return node[ key ];
+        for ( const val of Object.values( node )) {
+            const found = this._findValueByKey( val, key );
+            if ( found !== undefined ) return found;
+        }
+    }
+    return undefined;
+}
+// execute-conductor の結果から conductor_instance_id を取り出す
+_conductorInstanceIdFromResult( toolResult ) {
+    const structured = toolResult?.result?.structuredContent ?? {};
+    if ( structured.isError === true || toolResult?.result?.isError === true ) return '';
+    const id = this._findValueByKey( structured.result ?? structured, 'conductor_instance_id');
+    return ( id === undefined )? '': String( id );
+}
+// get-conductor-instance の結果から Conductor 全体の情報（status_id を持つ conductor）を探す
+_findConductorInfo( node ) {
+    if ( Array.isArray( node )) {
+        for ( const item of node ) {
+            const found = this._findConductorInfo( item );
+            if ( found ) return found;
+        }
+    } else if ( node && typeof node === 'object') {
+        if ( node.conductor && typeof node.conductor === 'object' && node.conductor.status_id !== undefined ) return node.conductor;
+        for ( const val of Object.values( node )) {
+            const found = this._findConductorInfo( val );
+            if ( found ) return found;
+        }
+    }
+    return null;
+}
+// execute-conductor の結果から進捗（Conductor）を表示し、完了まで監視して最終結果を返す。
+// 対象外や取得失敗時は null。
+async watchConductorProgress( toolUse, toolResult, runningEl ) {
+    if ( !AiAssistantChat.CONDUCTOR_TOOLS.includes( toolUse.name )) return null;
+
+    const instanceId = this._conductorInstanceIdFromResult( toolResult );
+    if ( !instanceId ) {
+        // 実行失敗（エラー応答など）時は進捗表示に置き換えないため、ローディングclassは残す。
+        // 残しておけば次の吹き出し表示時に「ツール実行中」がまとめて消える。
+        console.warn('watchConductorProgress: conductor_instance_id が取得できませんでした', toolResult );
+        return null;
+    }
+
+    // 進捗表示に置き換えるので、ローディングclassをremove（次の吹き出し表示で消されないように）
+    runningEl?.classList.remove('aiAssistantChatItemLoading');
+
+    // 実行に必要な定義を取るための get-conductor-class のプレビューは、実行画面と重複するため取り除く
+    this.removeConductorClassPreviewBefore( toolUse, runningEl );
+
+    // Conductor表示
+    const progress = this.conductorProgressElement( instanceId );
+    runningEl?.querySelector('.aiAssistantChatAssistantMessageInner')?.replaceChildren( progress );
+    this.renderConductorProgress( progress.querySelector('.conductorProgressBody'), instanceId );
+
+    try {
+        return await this.pollConductorStatus( instanceId );
+    } catch ( error ) {
+        console.warn('watchConductorProgress: 進捗監視でエラー', error );
+        return null;
+    }
+}
+// Conductor進捗のHTML（Conductor本体は renderConductorProgress で描画する）
+// 上部の操作ボタンはMovementの進捗表示と同じレイアウト（operationMenu）で並べる。
+conductorProgressElement( instanceId ) {
+    const menu = {
+        Main: [
+            { html: {
+                    // Conductor確認（作業状態確認。Movementと同じ文言）
+                    html: fn.html.iconButton(
+                        'note',
+                        getMessage.FTE14289,
+                        'itaButton operationMenuButton conductorStatusCheckButton',
+                        { type: 'conductorStatusCheck', action: 'default', disabled: instanceId ? undefined : true, 'instance-id': instanceId }
+                    )
+                }
+            },
+            { html: {
+                    // 結果データ（終了後に有効化）
+                    html: fn.html.iconButton(
+                        'download',
+                        getMessage.FTE14290,
+                        'itaButton operationMenuButton conductorResultDownloadButton',
+                        { type: 'conductorResultDownload', action: 'default', disabled: true, 'instance-id': instanceId }
+                    )
+                }
+            },
+            this.conductorLockItem()
+        ],
+        Sub: [
+            { html: {
+                    // 緊急停止（実行中のみ有効化）
+                    html: fn.html.iconButton(
+                        'stop',
+                        getMessage.FTE02017,
+                        'itaButton operationMenuButton conductorEmergencyStopButton',
+                        { type: 'conductorEmergencyStop', action: 'danger', disabled: true, 'instance-id': instanceId }
+                    )
+                }
+            }
+        ]
+    };
+    const progress = document.createElement('div');
+    progress.className = 'conductorProgressArea';
+    progress.innerHTML = `
+    ${fn.html.operationMenu( menu )}
+    <div class="conductorProgressFrame">
+        <div class="conductorProgressBody"></div>
+        ${this.conductorFrameOverlayHtml()}
+    </div>
+    ${this.conductorResizeBarHtml()}`;
+    return progress;
+}
+// Conductor枠内に重ねて表示する部品（左上：全体表示、右上：使用したオペレーション名）
+conductorFrameOverlayHtml() {
+    return fn.html.iconButton(
+        'eye_open',
+        getMessage.FTE02026,
+        'itaButton conductorViewAllButton',
+        { type: 'conductorViewAll', action: 'normal', disabled: true }
+    ) + `<div class="conductorProgressOperation" hidden><span class="conductorProgressOperationLabel">OP</span><span class="conductorProgressOperationName"></span></div>`;
+}
+// Conductor枠の下に置く高さ変更バー（ドラッグで高さを変更、ダブルクリックで自動調整）
+conductorResizeBarHtml() {
+    return `<div class="conductorResizeBar" title="${fn.escape( getMessage.FTE14448 )}"><span class="conductorResizeBarGrip"></span></div>`;
+}
+// 高さ変更バーのドラッグ
+conductorResizeStart( e, bar ) {
+    if ( e.button !== 0 ) return;
+    const bodyEl = bar.closest('.conductorProgressArea')?.querySelector('.conductorProgressBody');
+    if ( !bodyEl ) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startHeight = bodyEl.offsetHeight;
+    const min = AiAssistantChat.CONDUCTOR_BODY_MIN_HEIGHT;
+    bar.setPointerCapture?.( e.pointerId );
+    bar.classList.add('conductorResizeBarActive');
+    document.body.classList.add('conductorResizing');
+    const move = ( ev ) => {
+        bodyEl.style.height = `${Math.max( min, Math.round( startHeight + ev.clientY - startY ))}px`;
+    };
+    const end = () => {
+        bar.removeEventListener('pointermove', move );
+        bar.removeEventListener('pointerup', end );
+        bar.removeEventListener('pointercancel', end );
+        bar.classList.remove('conductorResizeBarActive');
+        document.body.classList.remove('conductorResizing');
+        // conductor.js が保持している表示エリアのサイズを更新する（拡大縮小の基準位置に使われる）
+        const cd = bodyEl._conductor;
+        if ( cd?.$?.area?.length && cd.editor ) cd.editor.area = cd.getSize( cd.$.area );
+    };
+    bar.addEventListener('pointermove', move );
+    bar.addEventListener('pointerup', end );
+    bar.addEventListener('pointercancel', end );
+}
+// 高さ変更バーのダブルクリックで、全体表示が収まる高さに戻す
+conductorResizeReset( bar ) {
+    const bodyEl = bar.closest('.conductorProgressArea')?.querySelector('.conductorProgressBody');
+    const cd = bodyEl?._conductor;
+    if ( !cd ) return;
+    this.fitConductorHeight( bodyEl, cd );
+    if ( cd.$?.area?.length && cd.editor ) cd.editor.area = cd.getSize( cd.$.area );
+}
+// 使用したオペレーション名を右上に表示する（空なら非表示）
+updateConductorOperation( progressEl, operationName ) {
+    const operationEl = progressEl?.querySelector('.conductorProgressOperation');
+    if ( !operationEl ) return;
+    const name = operationName ?? '';
+    operationEl.querySelector('.conductorProgressOperationName').textContent = name;
+    operationEl.title = name;
+    operationEl.hidden = !name;
+}
+// 表示位置の固定チェックボックス（初期は固定。固定中はホイールでの拡大縮小・右ドラッグでの移動をしない）
+conductorLockItem() {
+    this._conductorLockSeq = ( this._conductorLockSeq ?? 0 ) + 1;
+    const id = `aiConductorLock-${this._conductorLockSeq}`;
+    return { html: {
+            html: fn.html.checkboxText('conductorLockCheck', '1', id, id, { type: 'conductorLock', checked: 'checked'}, getMessage.FTE14447 )
+        }
+    };
+}
+// 固定の切り替え
+conductorLockChange( check ) {
+    const bodyEl = check.closest('.conductorProgressArea')?.querySelector('.conductorProgressBody');
+    if ( bodyEl?._conductor ) bodyEl._conductor.viewLocked = check.checked;
+}
+// Conductorのステータスに合わせて、操作ボタンの有効・無効を切り替える
+updateConductorButtons( progressEl, statusId ) {
+    if ( !progressEl ) return;
+    statusId = String( statusId ?? '');
+    const running = ['3', '4', '5'].includes( statusId );
+    const finished = AiAssistantChat.CONDUCTOR_FINAL_STATES.includes( statusId );
+    // 緊急停止済みで実行中扱いのまま残らないよう、終了後は必ず無効化する
+    const stopButton = progressEl.querySelector('.conductorEmergencyStopButton');
+    if ( stopButton ) stopButton.disabled = !running;
+    // 枠・背景の色（Movementと同様。6:正常終了 7,11:異常 8:警告 9,10:停止）
+    const result = { '6': 'done', '7': 'error', '11': 'error', '8': 'warning', '9': 'stop', '10': 'stop' }[ statusId ] ?? '';
+    progressEl.querySelector('.conductorProgressBody')?.setAttribute('data-result', result );
+    const downloadButton = progressEl.querySelector('.conductorResultDownloadButton');
+    if ( downloadButton ) downloadButton.disabled = !finished;
+}
+// 全体表示
+conductorViewAll( button ) {
+    const bodyEl = button.closest('.conductorProgressArea')?.querySelector('.conductorProgressBody');
+    bodyEl?._conductor?.nodeViewAll( 0 );
+}
+// Conductor確認（作業確認をモーダルで表示）
+async conductorExecuteCheck( button ) {
+    const instanceId = button.dataset.instanceId;
+    if ( !instanceId ) return;
+    button.disabled = true;
+    try {
+        await new Promise(( resolve ) => {
+            fn.modalIframe(`${AiAssistantChat.CONDUCTOR_CONFIRMATION_MENU}&conductor_instance_id=${encodeURIComponent( instanceId )}`, getMessage.FTE02128, { onClose: resolve });
+        });
+    } finally {
+        button.disabled = false;
+    }
+}
+// Conductor緊急停止
+async conductorStop( button ) {
+    const instanceId = button.dataset.instanceId;
+    if ( !instanceId ) {
+        alert( getMessage.FTE14292 );
+        return;
+    }
+    if ( !window.confirm( getMessage.FTE02044 )) return;
+    button.disabled = true;
+    try {
+        const result = await fn.fetch(`/menu/${AiAssistantChat.CONDUCTOR_CONFIRMATION_MENU}/conductor/${instanceId}/scram/`, null, 'PATCH', {});
+        alert( result );
+    } catch ( error ) {
+        alert( error.message ?? getMessage.FTE14293 );
+        button.disabled = false;
+    }
+}
+// Conductor結果データダウンロード（全Movementの結果データをまとめたzip）
+async conductorResultDownload( button ) {
+    const instanceId = button.dataset.instanceId;
+    if ( !instanceId ) return;
+    button.disabled = true;
+    const endPoint = `/menu/${AiAssistantChat.CONDUCTOR_INSTANCE_LIST_MENU}/conductor/${instanceId}/result_data/?file=binary`;
+    try {
+        const file = await fn.getFile( endPoint, 'GET', null, { title: getMessage.FTE00185 });
+        await fn.download('file', file, `ResultData_Conductor_${instanceId}.zip`);
+    } catch ( error ) {
+        if ( error !== 'break') {
+            console.error( error );
+            alert( getMessage.FTE00179 );
+        }
+    }
+    button.disabled = false;
+}
+// 要素が画面内（上下200px手前から）に入るまで待つ。IntersectionObserver が使えない場合は即座に解決する。
+waitUntilVisible( el ) {
+    if ( typeof IntersectionObserver !== 'function') return Promise.resolve();
+    return new Promise(( resolve ) => {
+        const observer = new IntersectionObserver(( entries ) => {
+            if ( !entries.some(( entry ) => entry.isIntersecting )) return;
+            observer.disconnect();
+            resolve();
+        }, { rootMargin: '200px 0px' });
+        observer.observe( el );
+    });
+}
+// conductor.js を読み込み、作業確認モード（進捗表示専用）で表示する。
+// 表示は conductor.js 自身が更新するため、ここでは描画の開始だけを行う。
+async renderConductorProgress( bodyEl, instanceId, mode = 'confirmation', menu = AiAssistantChat.CONDUCTOR_CONFIRMATION_MENU ) {
+    if ( !bodyEl ) return;
+    // Conductorの描画が始まるまで、Movementの待機中と同じ見た目で「読み込み中」を表示する
+    const waitingEl = document.createElement('div');
+    waitingEl.className = 'conductorWaiting';
+    waitingEl.innerHTML = this.loadingHtml( getMessage.FTE02161 );
+    bodyEl.after( waitingEl );
+    // 読み込みに失敗した場合は、Movementの停止表示と同じ見た目でメッセージを表示する
+    const showError = ( messageHtml ) => {
+        waitingEl.classList.add('conductorWaitingStopped');
+        waitingEl.innerHTML = `<div class="movementStopped">${fn.html.icon('circle_exclamation')}<span>${messageHtml}</span></div>`;
+        bodyEl.classList.add('conductorProgressBodyError');
+        const areaEl = bodyEl.closest('.conductorProgressArea');
+        // 確認ボタン・全体表示・表示位置の固定は操作できないようにし、高さは表示に必要な最小限にする
+        areaEl?.classList.add('conductorProgressAreaError');
+        areaEl?.querySelectorAll('.conductorViewAllButton, .conductorStatusCheckButton, .conductorClassOpenButton, .operationMenu input[type="checkbox"]')
+            .forEach(( el ) => { el.disabled = true; });
+        bodyEl.style.height = `${Math.max( waitingEl.offsetHeight + 32, 72 )}px`;
+    };
+    // 画面内（の少し手前）に入るまで描画を保留する。履歴に大量のConductorがあっても、
+    // 復元時の描画・通信・ポーリングが一斉に走らないようにするため。
+    await this.waitUntilVisible( bodyEl );
+    try {
+        await AiAssistantChat.loadConductorAssets();
+    } catch ( error ) {
+        console.error('renderConductorProgress: conductor.js の読み込みに失敗', error );
+        showError( getMessage.FTE14444 );
+        return;
+    }
+    // 同時に複数表示した場合でもConductor同士の描画が混ざらないよう、順番に描画する
+    const previous = this._conductorRenderQueue ?? Promise.resolve();
+    this._conductorRenderQueue = previous.then(() => new Promise(( resolve ) => {
+        if ( !bodyEl.isConnected ) { waitingEl.remove(); resolve(); return; }
+        this._conductorSeq = ( this._conductorSeq ?? 0 ) + 1;
+        bodyEl.id = `aiConductor-${instanceId}-${this._conductorSeq}`;
+        // 同じIDのConductorが複数表示されてもDOMのIDが重複しないよう、表示ごとに接頭辞を付ける
+        const cd = new Conductor( menu, `#${bodyEl.id}`, mode, instanceId, { progressView: true, idPrefix: `ai${this._conductorSeq}-`, viewPaddingTop: AiAssistantChat.CONDUCTOR_OVERLAY_HEIGHT });
+        cd.setup();
+        bodyEl._conductor = cd;
+        // 全体表示ボタンを有効化し、Conductorのステータス更新に合わせて操作ボタンを切り替える
+        const progressEl = bodyEl.closest('.conductorProgressArea');
+        const viewAllButton = progressEl?.querySelector('.conductorViewAllButton');
+        if ( viewAllButton ) viewAllButton.disabled = false;
+        if ( mode === 'confirmation') {
+            cd.$?.editor?.on(`${instanceId}_conductorStatusUpdate`, () => {
+                this.updateConductorButtons( progressEl, cd.confirmation?.conductor?.status_id );
+                this.updateConductorOperation( progressEl, cd.confirmation?.conductor?.operation_name );
+            });
+        }
+        // 描画完了（またはエラー表示）まで待ってから次へ。描画イベントが来ない場合に備えて上限を設ける。
+        const done = () => {
+            clearTimeout( timer );
+            waitingEl.remove();
+            this.fitConductorHeight( bodyEl, cd );
+            resolve();
+        };
+        const timer = setTimeout(() => { waitingEl.remove(); resolve(); }, 10000 );
+        if ( cd.$?.editor ) {
+            // 対象が存在しない等で読み込みに失敗した場合
+            cd.$.editor.one('conductorProgressError', ( e, message ) => {
+                clearTimeout( timer );
+                showError( fn.escape( message ?? '') );
+                resolve();
+            });
+            cd.$.editor.one('conductorDrawEnd', done );
+        } else {
+            done();
+        }
+    }));
+    return this._conductorRenderQueue;
+}
+/*
+##################################################
+    Conductor構成プレビュー（get-conductor-class）
+##################################################
+*/
+// Conductorの構成を表示するツール（構成の取得・作成・更新）
+static CONDUCTOR_CLASS_TOOLS = ['get-conductor-class', 'create-conductor', 'update-conductor'];
+// 構成の確認に使うメニュー（REST名）
+static CONDUCTOR_CLASS_MENU = 'conductor_class_edit';
+// conductor_class_id を取り出す。引数にあればそれを、無ければ（create-conductor など）結果から探す。
+_conductorClassIdFromToolUse( toolUse, toolResult ) {
+    let id = toolUse?.arguments?.conductor_class_id ?? toolUse?.input?.conductor_class_id;
+    if ( id === undefined || id === null || id === '') {
+        const structured = toolResult?.result?.structuredContent ?? {};
+        id = this._findValueByKey( structured.result ?? structured, 'conductor_class_id');
+    }
+    return ( id === undefined || id === null )? '': String( id );
+}
+// Conductor構成プレビューのHTML（上部に Conductor確認 / 全体表示 ボタン）
+conductorPreviewElement( classId, toolName = '') {
+    const menu = {
+        Main: [
+            { html: {
+                    html: fn.html.iconButton(
+                        'note',
+                        getMessage.FTE14445,
+                        'itaButton operationMenuButton conductorClassOpenButton',
+                        { type: 'conductorClassOpen', action: 'default', 'class-id': classId }
+                    )
+                }
+            },
+            this.conductorLockItem()
+        ]
+    };
+    const preview = document.createElement('div');
+    preview.className = 'conductorProgressArea';
+    preview.dataset.previewTool = toolName;
+    preview.dataset.classId = classId;
+    preview.innerHTML = `
+    ${fn.html.operationMenu( menu )}
+    <div class="conductorProgressFrame">
+        <div class="conductorProgressBody"></div>
+        ${this.conductorFrameOverlayHtml()}
+    </div>
+    ${this.conductorResizeBarHtml()}`;
+    return preview;
+}
+// get/create/update-conductor の結果から構成（閲覧モード）を表示する。対象外や失敗時は何もしない。
+watchConductorClassPreview( toolUse, toolResult, runningEl ) {
+    if ( !AiAssistantChat.CONDUCTOR_CLASS_TOOLS.includes( toolUse.name )) return;
+    const structured = toolResult?.result?.structuredContent ?? {};
+    if ( structured.isError === true || toolResult?.result?.isError === true ) return;
+    const classId = this._conductorClassIdFromToolUse( toolUse, toolResult );
+    if ( !classId || !runningEl ) return;
+
+    runningEl.classList.remove('aiAssistantChatItemLoading');
+    const preview = this.conductorPreviewElement( classId, toolUse.name );
+    runningEl.querySelector('.aiAssistantChatAssistantMessageInner')?.replaceChildren( preview );
+    this.renderConductorProgress( preview.querySelector('.conductorProgressBody'), classId, 'view', AiAssistantChat.CONDUCTOR_CLASS_MENU );
+}
+// execute-conductor の直前に表示した get-conductor-class のプレビューを取り除く。
+// 実行には定義（Setting）が必要なため LLM は実行前に get-conductor-class を呼ぶが、
+// そのプレビューと実行画面が並んで同じConductorが2つ表示されてしまうため。
+// ユーザ発言より前（ユーザが閲覧を依頼して表示したもの）は残す。
+// beforeEl … 実行画面の吹き出し（その手前から探す）。null ならチャット欄の末尾から探す。
+removeConductorClassPreviewBefore( toolUse, beforeEl ) {
+    const list = this.elements.chatList;
+    if ( !list ) return;
+    const args = toolUse?.arguments ?? toolUse?.input ?? {};
+    const classId = String( args.conductor_class_id ?? args.conductor_data?.conductor?.id ?? '');
+
+    let item = ( beforeEl && beforeEl.parentElement === list )? beforeEl.previousElementSibling: list.lastElementChild;
+    for ( ; item; item = item.previousElementSibling ) {
+        if ( item.classList.contains('aiAssistantChatUserMessage')) return;
+        const preview = item.querySelector(':scope > .aiAssistantChatAssistantMessageInner > .conductorProgressArea[data-preview-tool="get-conductor-class"]');
+        if ( !preview ) continue;
+        if ( classId !== '' && preview.dataset.classId !== classId ) continue;
+
+        const next = item.nextElementSibling;
+        item.remove();
+        // 取り除いた後の並びに合わせて、次の吹き出しの連続クラスを付け直す
+        if ( next?.classList.contains('aiAssistantChatAssistantMessage')) {
+            const prev = next.previousElementSibling;
+            next.classList.toggle('aiAssistantChatAssistantMessageChain', !!prev?.classList.contains('aiAssistantChatAssistantMessage'));
+        }
+        return;
+    }
+}
+// 履歴復元時に get-conductor-class のConductor構成を再描画する。
+resumeConductorClassPreview( toolUse, toolResult ) {
+    if ( !AiAssistantChat.CONDUCTOR_CLASS_TOOLS.includes( toolUse.name )) return;
+    const parsed = this.parseToolResultContent( toolResult );
+    const structured = parsed?.result?.structuredContent ?? {};
+    if ( !parsed || structured.isError === true || parsed?.result?.isError === true ) return;
+    const classId = this._conductorClassIdFromToolUse( toolUse, parsed );
+    if ( !classId ) return;
+
+    const el = this.createAssistantMessageElement('', false );
+    const preview = this.conductorPreviewElement( classId, toolUse.name );
+    el.querySelector('.aiAssistantChatAssistantMessageInner').replaceChildren( preview );
+    const prevItem = this.elements.chatList.lastElementChild;
+    if ( prevItem?.classList.contains('aiAssistantChatAssistantMessage')) {
+        el.classList.add('aiAssistantChatAssistantMessageChain');
+    }
+    this.elements.chatList.append( el );
+    this.renderConductorProgress( preview.querySelector('.conductorProgressBody'), classId, 'view', AiAssistantChat.CONDUCTOR_CLASS_MENU );
+}
+// Conductor確認（conductor_class_edit をモーダルで表示）
+async conductorClassOpen( button ) {
+    const classId = button.dataset.classId;
+    if ( !classId ) return;
+    button.disabled = true;
+    // モーダルを閉じるまで待つ（fn.modalIframe は閉じたときに option.onClose を呼ぶ）
+    await new Promise(( resolve ) => {
+        fn.modalIframe(`${AiAssistantChat.CONDUCTOR_CLASS_MENU}&conductor_class_id=${encodeURIComponent( classId )}`, getMessage.FTE14445, { onClose: resolve });
+    });
+    button.disabled = false;
+
+    // モーダルで編集された可能性があるため、閉じたら構成表示を最新の状態に更新する
+    const bodyEl = button.closest('.conductorProgressArea')?.querySelector('.conductorProgressBody');
+    if ( bodyEl?.isConnected ) {
+        // 描画済みのConductorを破棄して、新しい表示を作り直す（位置固定の状態は引き継ぐ）
+        const locked = bodyEl.closest('.conductorProgressArea').querySelector('[data-type="conductorLock"]')?.checked ?? true;
+        bodyEl._conductor = null;
+        bodyEl.removeAttribute('data-result');
+        bodyEl.style.height = '';
+        bodyEl.replaceChildren();
+        await this.renderConductorProgress( bodyEl, classId, 'view', AiAssistantChat.CONDUCTOR_CLASS_MENU );
+        if ( bodyEl._conductor ) bodyEl._conductor.viewLocked = locked;
+    }
+}
+// Conductorの全体表示がちょうど横幅に収まるよう、表示枠の高さを調整してから全体表示する。
+// 高さは CONDUCTOR_BODY_MIN_HEIGHT〜CONDUCTOR_BODY_MAX_HEIGHT の範囲に収める。
+// 枠内上部に重ねる部品（全体表示・オペレーション名）の高さ。全体表示ではこの分を空けて配置する
+static CONDUCTOR_OVERLAY_HEIGHT = 40;
+static CONDUCTOR_BODY_MIN_HEIGHT = 160;
+static CONDUCTOR_BODY_MAX_HEIGHT = 720;
+fitConductorHeight( bodyEl, cd ) {
+    try {
+        if ( !bodyEl.isConnected || !cd.$?.area?.length || !cd.data ) return;
+        const { viewWidth, viewHeight } = cd.nodeViewAllRange();
+        if ( !( viewWidth > 0 ) || !( viewHeight > 0 )) return;
+        // 表示エリア（canvas）と枠の高さの差（枠線など）
+        const frame = bodyEl.clientHeight - cd.$.area.height();
+        const areaHeight = Math.ceil( cd.$.area.width() * viewHeight / viewWidth ) + AiAssistantChat.CONDUCTOR_OVERLAY_HEIGHT;
+        const height = Math.min( Math.max( areaHeight + frame, AiAssistantChat.CONDUCTOR_BODY_MIN_HEIGHT ), AiAssistantChat.CONDUCTOR_BODY_MAX_HEIGHT );
+        bodyEl.style.height = `${height}px`;
+        cd.nodeViewAll( 0 );
+    } catch ( error ) {
+        console.warn('fitConductorHeight: 高さの調整に失敗', error );
+    }
+}
+// get-conductor-instance を一定間隔でポーリングして終了を待つ。
+// 終了状態に達したら { type:'done', status, statusId, result } を返す。
+pollConductorStatus( instanceId ) {
+    return new Promise(async ( resolve ) => {
+        const { signal } = this._sendController ?? {};
+        const interval = AiAssistantChat.PROGRESS_POLL_INTERVAL;
+        const maxDuration = AiAssistantChat.PROGRESS_MAX_DURATION;
+        let elapsed = 0;
+
+        while ( elapsed <= maxDuration ) {
+            if ( signal?.aborted ) {
+                resolve({ type: 'error', message: getMessage.FTE14286 });
+                return;
+            }
+
+            let statusResult;
+            try {
+                const response = await AiAssistantChat.fetchWithRetry( AiAssistantChat.apiUrl.mcp( this.promptProfile ), {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        // 毎回最新トークンを取得する（長時間監視での401対策）
+                        "Authorization": `Bearer ${this.getToken()}`
+                    },
+                    body: JSON.stringify({
+                        jsonrpc: "2.0",
+                        id: 1,
+                        method: "tools/call",
+                        params: {
+                            name: 'get-conductor-instance',
+                            arguments: { menu: AiAssistantChat.CONDUCTOR_CONFIRMATION_MENU, conductor_instance_id: instanceId }
+                        }
+                    }),
+                    signal
+                });
+                statusResult = await response.json();
+            } catch ( error ) {
+                if ( error?.name === 'AbortError') {
+                    resolve({ type: 'error', message: getMessage.FTE14286 });
+                    return;
+                }
+                console.warn('pollConductorStatus: ステータス取得でエラー', error );
+                resolve({ type: 'error', message: fn.jsonStringify( error ) });
+                return;
+            }
+
+            const structured = statusResult?.result?.structuredContent ?? {};
+            if ( structured.isError === true || statusResult?.result?.isError === true ) {
+                const message = this._extractToolErrorText( statusResult );
+                console.warn('pollConductorStatus: get-conductor-instance がエラー応答', message );
+                resolve({ type: 'error', message });
+                return;
+            }
+
+            const info = this._findConductorInfo( structured.result ?? structured );
+            const statusId = String( info?.status_id ?? '');
+            if ( AiAssistantChat.CONDUCTOR_FINAL_STATES.includes( statusId )) {
+                resolve({
+                    type: 'done',
+                    status: AiAssistantChat.CONDUCTOR_STATUS_NAMES[ statusId ] ?? statusId,
+                    statusId,
+                    result: structured.result ?? null
+                });
+                return;
+            }
+
+            await this.sleepOrAbort( interval, signal );
+            elapsed += interval;
+        }
+
+        resolve({ type: 'timeout', message: 'Progress polling exceeded max duration' });
+    });
+}
+// 履歴復元時に execute-conductor の進捗表示（Conductor）を再描画する。
+// 復元時の Conductor は conductor.js が最新の状態を取得し、実行中であれば更新を続ける。
+resumeConductorExecution( toolUse, toolResult ) {
+    if ( !AiAssistantChat.CONDUCTOR_TOOLS.includes( toolUse.name )) return;
+
+    const instanceId = this._conductorInstanceIdFromResult( this.parseToolResultContent( toolResult ));
+    if ( !instanceId ) {
+        // tool_result がコンテキスト上限で省略されていた場合は、実行画面を復元できない旨を表示する
+        if ( this.isToolResultOmitted( toolResult )) {
+            this.removeConductorClassPreviewBefore( toolUse, null );
+            const omittedEl = this.createAssistantMessageElement( getMessage.FTE14374, false );
+            const prev = this.elements.chatList.lastElementChild;
+            if ( prev?.classList.contains('aiAssistantChatAssistantMessage')) {
+                omittedEl.classList.add('aiAssistantChatAssistantMessageChain');
+            }
+            this.elements.chatList.append( omittedEl );
+        }
+        return;
+    }
+
+    // 実行直前の get-conductor-class のプレビューは、実行時と同じく取り除く
+    this.removeConductorClassPreviewBefore( toolUse, null );
+
+    const el = this.createAssistantMessageElement('', false );
+    const progress = this.conductorProgressElement( instanceId );
+    el.querySelector('.aiAssistantChatAssistantMessageInner').replaceChildren( progress );
+
+    // 直前がアシスタントなら連続クラスを付与
+    const prevItem = this.elements.chatList.lastElementChild;
+    if ( prevItem?.classList.contains('aiAssistantChatAssistantMessage')) {
+        el.classList.add('aiAssistantChatAssistantMessageChain');
+    }
+    this.elements.chatList.append( el );
+    this.renderConductorProgress( progress.querySelector('.conductorProgressBody'), instanceId );
+}
+// 履歴の tool_result（content が JSON 文字列）を、実行直後の応答と同じ形に戻す
+parseToolResultContent( toolResult ) {
+    let parsed = toolResult?.content;
+    if ( typeof parsed === 'string') {
+        try {
+            parsed = JSON.parse( parsed );
+        } catch ( e ) {
+            return null;
+        }
+    }
+    return parsed && typeof parsed === 'object'? parsed: null;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 //   Movement
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2822,10 +3514,8 @@ static DRIVER_TOOLS = ['execute-driver', 'dry-run-driver'];
 async watchDriverProgress( toolUse, toolResult, runningEl ) {
     if ( !AiAssistantChat.DRIVER_TOOLS.includes( toolUse.name ) ) return null;
 
-    // ローディングclassをremove
-    runningEl.classList.remove('aiAssistantChatItemLoading');
-
     // execution_no を取り出す（result.data.execution_no を想定。ゆらぎに対応）
+    // 実行失敗時はローディングclassを残し、次の吹き出し表示時に「ツール実行中」を消させる。
     const structured = toolResult?.result?.structuredContent ?? {};
     if ( structured.isError === true || toolResult?.result?.isError === true ) return null;
     const apiResult = structured.result ?? {};
@@ -2835,6 +3525,9 @@ async watchDriverProgress( toolUse, toolResult, runningEl ) {
         console.warn('watchDriverProgress: execution_no が取得できませんでした', toolResult );
         return null;
     }
+
+    // 進捗表示に置き換えるので、ローディングclassをremove（次の吹き出し表示で消されないように）
+    runningEl?.classList.remove('aiAssistantChatItemLoading');
 
     // 実行メニュー（execution_*）→ ステータス確認メニュー（check_operation_status_*）へ変換
     console.log('toolUse: ', toolUse );
@@ -3458,6 +4151,10 @@ _renderChatHistory( history ) {
                     } else {
                         // execute-driver / dryrun-driver は専用の実行画面を復元する
                         this.resumeDriverExecution( item, toolResultMap.get( item.id ));
+                        // execute-conductor は Conductor の進捗表示を復元する
+                        this.resumeConductorExecution( item, toolResultMap.get( item.id ));
+                        // get-conductor-class は Conductor の構成を復元する
+                        this.resumeConductorClassPreview( item, toolResultMap.get( item.id ));
                         // maintenance-all / create-menu なら更新先メニューを控える
                         this.collectUpdatedMenuFromHistory( item, toolResultMap.get( item.id ));
                     }
@@ -3831,8 +4528,15 @@ resumeDriverExecution( toolUse, toolResult ) {
         // 回り続けて固まって見えるため、停止表示に切り替える。
         // ・tool_result 自体が無い（ツール呼び出し途中でページを閉じた）＝ページ離脱による中断。
         // ・tool_result はあるが最終ステータスが取れていない＝監視が確定前に終了した。
-        this.markDriverExecutionInterrupted( el, { hasToolResult: !!toolResult, executionNo } );
+        // tool_result がコンテキスト上限で省略されていた場合は、その旨を表示する。
+        const resultOmitted = this.isToolResultOmitted( toolResult );
+        this.markDriverExecutionInterrupted( el, { hasToolResult: !!toolResult, executionNo, resultOmitted } );
     }
+}
+// tool_result がコンテキスト上限により省略（プレースホルダに置換）されているか
+isToolResultOmitted( toolResult ) {
+    const content = toolResult?.content;
+    return typeof content === 'string' && content.startsWith('[Omitted:');
 }
 // 実行状況が確定しないまま中断された Movement 実行バブルを「停止」表示に切り替える。
 // ・「待機中」スピナーを止め、指定メッセージに差し替える。
@@ -3851,7 +4555,9 @@ markDriverExecutionInterrupted( runningEl, opts = {} ) {
     const canCheckStatus = !!executionNo;
 
     let messageHtml;
-    if ( !canCheckStatus ) {
+    if ( opts.resultOmitted ) {
+        messageHtml = getMessage.FTE14373;
+    } else if ( !canCheckStatus ) {
         messageHtml = getMessage.FTE14299;
     } else if ( !opts.hasToolResult ) {
         messageHtml = getMessage.FTE14300;
@@ -5206,6 +5912,13 @@ bodyEventActions = {
     movementResultDownload: { whileRunning: true, run:( button ) => this.movementResultDownload( button ) },
     movementEmergencyStop:  { whileRunning: true, run:( button ) => this.movementStop( button ) },
 
+    // Conductor（作業実行）
+    conductorStatusCheck:   { whileRunning: true, run:( button ) => this.conductorExecuteCheck( button ) },
+    conductorClassOpen:     { whileRunning: true, run:( button ) => this.conductorClassOpen( button ) },
+    conductorViewAll:       { whileRunning: true, run:( button ) => this.conductorViewAll( button ) },
+    conductorResultDownload:{ whileRunning: true, run:( button ) => this.conductorResultDownload( button ) },
+    conductorEmergencyStop: { whileRunning: true, run:( button ) => this.conductorStop( button ) },
+
     // コードブロック・表示専用HTML
     codeCopy:       { whileRunning: true, run:( button ) => this.copyCodeBlock( button ) },
     codeToInput:    { whileRunning: true, run:( button ) => this.setCodeBlockToInput( button ) },
@@ -5232,6 +5945,16 @@ bindBodyEvents() {
     // 添付ファイルのLLM送信トグル
     this.delegate( body, 'change', '[data-type="fileToggle"]',
         ( e, check ) => this.toggleFileLlm( Number( check.dataset.index ) ), { whileRunning: true });
+
+    // Conductor表示の位置固定
+    this.delegate( body, 'change', '[data-type="conductorLock"]',
+        ( e, check ) => this.conductorLockChange( check ), { whileRunning: true });
+
+    // Conductor表示の高さ変更バー
+    this.delegate( body, 'pointerdown', '.conductorResizeBar',
+        ( e, bar ) => this.conductorResizeStart( e, bar ), { whileRunning: true });
+    this.delegate( body, 'dblclick', '.conductorResizeBar',
+        ( e, bar ) => this.conductorResizeReset( bar ), { whileRunning: true });
 
     // 入力欄へのファイルドラッグ&ドロップ
     this.bindComposerDragEvents( body );

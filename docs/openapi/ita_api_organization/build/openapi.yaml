@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Exastro IT Automation API
   description: Exastro IT Automation API
-  version: 2.10.0
+  version: 2.10.1
   license:
     name: Apache 2.0
     url: 'https://www.apache.org/licenses/LICENSE-2.0'
@@ -1437,14 +1437,17 @@ paths:
                                     id: '10101'
                                     menu_name: メニュー1
                                     menu_name_rest: menu_1
+                                    show_in_menu: '1'
                                   - disp_seq: 20
                                     id: '10102'
                                     menu_name: メニュー2
                                     menu_name_rest: menu_2
+                                    show_in_menu: '1'
                                   - disp_seq: 30
                                     id: '10103'
                                     menu_name: メニュー3
                                     menu_name_rest: menu_3
+                                    show_in_menu: '1'
                               - disp_seq: 20
                                 id: '102'
                                 parent_id: '101'
@@ -1454,14 +1457,17 @@ paths:
                                     id: '10104'
                                     menu_name: メニュー4
                                     menu_name_rest: menu_4
+                                    show_in_menu: '1'
                                   - disp_seq: 20
                                     id: '10105'
                                     menu_name: メニュー5
                                     menu_name_rest: menu_5
+                                    show_in_menu: '1'
                                   - disp_seq: 30
                                     id: '10106'
                                     menu_name: メニュー6
                                     menu_name_rest: menu_6
+                                    show_in_menu: '1'
                               - disp_seq: 30
                                 id: '103'
                                 parent_id: '101'
@@ -1471,14 +1477,17 @@ paths:
                                     id: '10107'
                                     menu_name: メニュー7
                                     menu_name_rest: menu_7
+                                    show_in_menu: '1'
                                   - disp_seq: 20
                                     id: '10108'
                                     menu_name: メニュー8
                                     menu_name_rest: menu_8
+                                    show_in_menu: '1'
                                   - disp_seq: 30
                                     id: '10109'
                                     menu_name: メニュー9
                                     menu_name_rest: menu_9
+                                    show_in_menu: '1'
                       message:
                         type: string
                         example: SUCCESS
@@ -5238,8 +5247,11 @@ paths:
         content:
           application/json:
             schema:
-              description: Workspace名およびVersionを指定(Versionがnullの場合、自動的に最新のVersionが適用されます。)
+              description: Project名・Workspace名・Versionを指定(Versionがnullの場合、自動的に最新のVersionが適用されます。)
               properties:
+                tf_project_name:
+                  type: string
+                  example: example_project
                 tf_workspace_name:
                   type: string
                   example: example_workspace
@@ -5301,8 +5313,11 @@ paths:
         content:
           application/json:
             schema:
-              description: Versionを指定
+              description: Project名・Versionを指定
               properties:
+                tf_project_name:
+                  type: string
+                  example: example_project
                 terraform_version:
                   type: string
                   example: 1.0.0

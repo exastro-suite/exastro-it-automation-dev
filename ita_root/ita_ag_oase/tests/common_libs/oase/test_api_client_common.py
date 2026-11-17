@@ -4292,3 +4292,82 @@ def test_get_new_events(api_response_raw_json, dummy_setting, expected_response_
 
     # テスト結果の検証
     assert result_json == expected_response_json  # 新規イベントのリストを確認
+
+# ---------------------------------------------------------------------------
+# 証明書検証の環境変数 EVENT_COLLECTION_SSL_VERIFY_ENABLED
+# 期待値（オフ時）は、改修前の実装で一度だけ生成した値。NO_PROXY / https 判定による
+# verify の決定が改修前と変わらないことを確かめる。
+# ---------------------------------------------------------------------------
+# (URL, NO_PROXY, no_proxy, 改修前の self.verify)
+VERIFY_OFF_CASES = [
+    ("http://host1:8080/api", "", "", None),
+    ("https://host1/api", "", "", False),
+    ("http://host1/api", "host1", "", False),
+    ("http://host1/api", "", "host1,other", False),
+    ("https://host2/api", "host1", "", False),
+    ("http://host2/api", "host1", "", None),
+    ("http://host1/api", "xhost1y", "", False),
+    ("https://host1:8443/api", "host1,host3", "", False),
+    ("http://host1/api", "ho", "", None),
+    ("http://host2/api", "", "host2", False),
+]
+
+
+def create_minimal_setting(url):
+    return {
+        "EVENT_COLLECTION_SETTINGS_ID": "id", "EVENT_COLLECTION_SETTINGS_NAME": "name", "REQUEST_METHOD_ID": "1",
+        "PORT": None, "PROXY": None, "AUTH_TOKEN": None, "USERNAME": None, "PASSWORD": None,
+        "ACCESS_KEY_ID": None, "SECRET_ACCESS_KEY": None, "MAILBOXNAME": None,
+        "LAST_FETCHED_TIMESTAMP": 1700000000, "RESPONSE_LIST_FLAG": "0", "RESPONSE_KEY": "", "EVENT_ID_KEY": "id",
+        "URL": url, "REQUEST_HEADER": "{}", "PARAMETER": "{}", "CONNECTION_METHOD_ID": "1", "TTL": 60,
+    }
+
+
+def create_client_with_env(monkeypatch, url, no_proxy_large, no_proxy_small, verify_env):
+    for key in ("NO_PROXY", "no_proxy", "EVENT_COLLECTION_SSL_VERIFY_ENABLED"):
+        monkeypatch.delenv(key, raising=False)
+    if no_proxy_large:
+        monkeypatch.setenv("NO_PROXY", no_proxy_large)
+    if no_proxy_small:
+        monkeypatch.setenv("no_proxy", no_proxy_small)
+    if verify_env is not None:
+        monkeypatch.setenv("EVENT_COLLECTION_SSL_VERIFY_ENABLED", verify_env)
+    return APIClientCommon(create_minimal_setting(url), None)
+
+
+@pytest.mark.parametrize("verify_env", [None, "FALSE", "abc"])
+@pytest.mark.parametrize("url, no_proxy_large, no_proxy_small, expected_verify", VERIFY_OFF_CASES)
+def test_verify_when_disabled_same_as_before(monkeypatch, url, no_proxy_large, no_proxy_small, expected_verify, verify_env):
+    """オフ（未設定・FALSE・不正値）のとき、NO_PROXY・https による verify の判定が改修前と同じ"""
+    client = create_client_with_env(monkeypatch, url, no_proxy_large, no_proxy_small, verify_env)
+    assert client.verify is expected_verify
+
+
+@pytest.mark.parametrize("url, no_proxy_large, no_proxy_small, expected_verify", VERIFY_OFF_CASES)
+def test_verify_when_enabled(monkeypatch, url, no_proxy_large, no_proxy_small, expected_verify):
+    """オン（TRUE）のとき、NO_PROXY・https に関係なく verify=True"""
+    client = create_client_with_env(monkeypatch, url, no_proxy_large, no_proxy_small, "TRUE")
+    assert client.verify is True
+
+
+def test_cert_verify_error_is_logged_and_exception_unchanged(monkeypatch):
+    """証明書検証エラー時に MSG-00037 が出力され、例外は AppException(AGT-10029)"""
+    import ssl
+    import urllib3
+    import requests
+    from unittest.mock import Mock
+    from common_libs.common.exception import AppException
+
+    def raise_cert_error(*args, **kwargs):
+        ssl_error = urllib3.exceptions.SSLError(ssl.SSLCertVerificationError(1, "certificate verify failed"))
+        raise requests.exceptions.SSLError(urllib3.exceptions.MaxRetryError(None, "https://dummy", reason=ssl_error))
+
+    client = create_client_with_env(monkeypatch, "https://host1/api", "", "", "TRUE")
+    monkeypatch.setattr("requests.request", raise_cert_error)
+    g.appmsg = Mock()
+    g.appmsg.get_log_message = Mock(side_effect=lambda msg_id, args=None: (msg_id, args))
+    g.applogger = Mock()
+    with pytest.raises(AppException) as exc_info:
+        client.call_api()
+    assert exc_info.value.args[0] == "AGT-10029"
+    g.appmsg.get_log_message.assert_any_call("MSG-00037", ["https://host1/api", "EVENT_COLLECTION_SSL_VERIFY_ENABLED"])

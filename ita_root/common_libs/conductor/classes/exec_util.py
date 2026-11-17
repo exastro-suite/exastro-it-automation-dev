@@ -34,6 +34,7 @@ import time
 from common_libs.common import *  # noqa: F403
 from common_libs.common.util import get_iso_datetime, arrange_stacktrace_format
 from common_libs.common.util import print_exception_msg
+from common_libs.common.ssl_verify import is_ssl_verify_enabled, get_ssl_context, log_cert_verify_error, ENV_CONDUCTOR_NOTICE
 from common_libs.loadtable import *  # noqa: F403
 from common_libs.column import *  # noqa: F403
 
@@ -1788,11 +1789,12 @@ class ConductorExecuteLibs():
                 httpContext['http']['proxy'] = proxySetting
                 httpContext['http']['request_fulluri'] = True
 
-            # ssl
-            ssl_context = ssl._create_unverified_context()
+            # ssl (環境変数 CONDUCTOR_NOTICE_SSL_VERIFY_ENABLED, 既定はFALSE=検証しない)
+            ssl_verify_enabled = is_ssl_verify_enabled(ENV_CONDUCTOR_NOTICE)
+            ssl_context = get_ssl_context(ENV_CONDUCTOR_NOTICE)
             httpContext['ssl'] = {}
-            httpContext['ssl']['verify_peer'] = False
-            httpContext['ssl']['verify_peer_name'] = False
+            httpContext['ssl']['verify_peer'] = ssl_verify_enabled
+            httpContext['ssl']['verify_peer_name'] = ssl_verify_enabled
 
         except Exception:
             err_type = "ParameterError"
@@ -1831,6 +1833,8 @@ class ConductorExecuteLibs():
             g.applogger.info(addline_msg('{}{}'.format(e, sys._getframe().f_code.co_name)))
         except urllib.error.URLError as e:
             # URLError
+            # 証明書検証エラーの場合は専用のログを出力する
+            log_cert_verify_error(e, url, ENV_CONDUCTOR_NOTICE)
             responseContents = e.reason
             err_type = "URLError"
             g.applogger.info(addline_msg('{} {}'.format(err_type, sys._getframe().f_code.co_name)))
