@@ -23,10 +23,13 @@ import requests
 from common_libs.common.dbconnect import DBConnectWs
 from common_libs.common.exception import AppException
 from flask import g
-from jinja2 import Template
+from jinja2.sandbox import SandboxedEnvironment
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
 from collections import defaultdict
+
+# SSTI対策: ユーザー入力のテンプレートはサンドボックス化されたJinja2環境でレンダリングする
+_sandbox_env = SandboxedEnvironment()
 
 
 class Notification(ABC):
@@ -295,7 +298,7 @@ class Notification(ABC):
         """
         item = cls._convert_message(item)
 
-        jinja_template = Template(template)
+        jinja_template = _sandbox_env.from_string(template)
         try:
             tmp_message = jinja_template.render(item)
         except Exception as e:
