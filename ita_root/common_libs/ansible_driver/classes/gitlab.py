@@ -413,15 +413,18 @@ class GitLabAgent:
             if status_code == "400":
                 # Project has already been marked for deletion
                 pass
+            elif status_code == "400":
+                g.applogger.info("[Trace] gitlab project( {} ) is already deleted.".format(project_id))
+                return True
             else:
                 raise
 
-        # 削除予定にすると、パスが「{user}/{project_name}-deletion_scheduled-{id}」に変更されるため、
-        # full_path には、削除予定にした後のプロジェクトのpath_with_namespaceを取得して指定する
-        project = self.get_project(project_id)
-
         try:
+            project = self.get_project(project_id)
+
             # 2. 完全削除
+            # 削除予定にすると、パスが「{user}/{project_name}-deletion_scheduled-{id}」に変更されるため、
+            # full_path には、削除予定にした後のプロジェクトのpath_with_namespaceを取得して指定する
             payload = {
                 "permanently_remove": True,
                 "full_path": project.get("path_with_namespace")
