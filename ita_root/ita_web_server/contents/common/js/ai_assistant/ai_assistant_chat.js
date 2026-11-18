@@ -2453,6 +2453,10 @@ async _runResponseLoop( ctx ) {
     // 再送カウンタ。分割して出力し直すよう促して再送する（無限ループ防止のため上限を設ける）。
     let maxTokensRetries = 0;
     const maxMaxTokensRetries = 2;
+    // 応答が thinking だけで、表示する本文（text）もツール呼び出し（tool_use）も無かったときの
+    // 再送カウンタ。本文で回答するよう促して再送する（無限ループ防止のため上限を設ける）。
+    let emptyResponseRetries = 0;
+    const maxEmptyResponseRetries = 2;
     // 再送時の待機表示に出す文言。処理が止まったように見せないため、
     // 次のループ先頭の待機スピナーへ「再試行中」である旨を伝える。null のときは通常の「思考中」。
     let waitMessage = null;
@@ -2471,6 +2475,8 @@ async _runResponseLoop( ctx ) {
     // 最初の送信を「継続」（新規 user を積まず、既存履歴末尾へ alreadyPushed で送る）にするか。
     // 中断後の自動継続や、ツール結果を先に履歴へ確定させた後の再送で true になる。
     let alreadyPushedNext = ( ctx.continuation === true );
+    // 次の送信が、応答の崩れを正すための是正指示（再送）か。履歴に目印を付け、復元時に吹き出しにしない。
+    let correctiveNext = false;
     for ( let i = 0; i < maxAttempts; i++ ) {
         // アシスタント待機中表示（再送中は文言を差し替えて「再試行中」であることを伝える）
         this.updateChat({ role: 'assistantWait', text: waitMessage });
@@ -2479,6 +2485,8 @@ async _runResponseLoop( ctx ) {
         // この回の送信を継続送信（再push抑止）にするか
         const alreadyPushed = alreadyPushedNext;
         alreadyPushedNext = false;
+        const corrective = correctiveNext;
+        correctiveNext = false;
 
         // LLMにメッセージ送信（ファイルは初回のユーザメッセージ時のみ渡す）
         if ( signal.aborted ) {
@@ -2499,6 +2507,7 @@ async _runResponseLoop( ctx ) {
             response = await llm.send( sendPayload, sendFiles, signal, {
                 ...( sendOptions || {} ),
                 alreadyPushed,
+                corrective,
                 onTimeout: ( status, param ) => this.openTimeoutRetryDialog( status, param )
             });
         } catch ( error ) {
@@ -2548,6 +2557,7 @@ async _runResponseLoop( ctx ) {
                 sendPayload = ( truncatedToolUse )
                     ? getMessage.FTE14278
                     : getMessage.FTE14279;
+                correctiveNext = true;
                 continue;
             }
             // 再送上限に達した：ユーザに状況と対処を伝えてループを終了する。
@@ -2557,6 +2567,36 @@ async _runResponseLoop( ctx ) {
             this.updateChat({ role: 'assistant', text: overMessage });
             maxAttemptsFlag = false;
             errorFlag = true;
+            break;
+        }
+
+        // 応答が thinking だけ（または空）で、表示する本文もツール呼び出しも無かった。
+        // そのまま正常完了として扱うと、画面には何も出ずに待機表示（思考中）だけが残り、
+        // ユーザーには止まったように見える。ユーザーへの説明を thinking の中だけで済ませてしまう
+        // ケースで起こるため、そのターンを履歴から取り除き、本文で回答するよう促して再送する。
+        const hasVisibleOutput = ( response.content ?? [] ).some(( block ) =>
+            block.type === 'tool_use' ||
+            ( block.type === 'text' && typeof block.text === 'string' && block.text.trim() !== '')
+        );
+        if ( !hasVisibleOutput ) {
+            // 中身の無いターンは会話として意味が無く、残すと次の送信でも同じ振る舞いを誘発しやすいため取り除く
+            this._popLastAssistantTurn( llm );
+            if ( emptyResponseRetries < maxEmptyResponseRetries ) {
+                emptyResponseRetries++;
+                console.warn(`応答に本文・ツール呼び出しがありませんでした（stop_reason: ${response.stop_reason}）。本文での回答を促して再送します（${emptyResponseRetries}/${maxEmptyResponseRetries}）。`);
+                waitMessage = getMessage.FTE14281( emptyResponseRetries, maxEmptyResponseRetries );
+                sendPayload = getMessage.FTE14449;
+                correctiveNext = true;
+                continue;
+            }
+            // 再送上限に達した：ユーザに状況を伝えてループを終了する。
+            console.error('本文・ツール呼び出しの無い応答が規定回を超えて解消しませんでした。');
+            this.updateChat({
+                role: 'assistant',
+                text: getMessage.FTE14283
+            });
+            errorFlag = true;
+            maxAttemptsFlag = false;
             break;
         }
 
@@ -2580,6 +2620,7 @@ async _runResponseLoop( ctx ) {
                 waitMessage = getMessage.FTE14281( invalidToolFormatRetries, maxInvalidToolFormatRetries );
                 // 是正指示を user メッセージとして返し、tool_use 機能での呼び出し直しを促す。
                 sendPayload = getMessage.FTE14282;
+                correctiveNext = true;
                 continue;
             }
             // 再送上限に達した：ユーザに状況を伝えてループを終了する（壊れたタグは表示しない）。
@@ -2611,6 +2652,7 @@ async _runResponseLoop( ctx ) {
                 waitMessage = getMessage.FTE14281( invalidToolFormatRetries, maxInvalidToolFormatRetries );
                 // 是正指示を user メッセージとして返し、正しい形式での呼び出し直しを促す。
                 sendPayload = getMessage.FTE14284;
+                correctiveNext = true;
                 continue;
             }
             // 再送上限に達した：可能な範囲で救済（mergeChoiceBlocks）して表示し、行き止まりを避ける。
@@ -2801,6 +2843,13 @@ async _runResponseLoop( ctx ) {
             this._enqueueHistorySafe();
         }
     }
+
+    // 待機中／ツール実行中の表示を必ず消す。通常は次の吹き出しの表示（updateChat）で消えるが、
+    // 何も表示せずにターンが終わった場合に「思考中」のまま残らないよう、終了のたびに片付ける。
+    // （Conductorの進捗表示などターン後も残す要素は、ローディングclassを外してあるため対象外）
+    this.elements.chatList
+        ?.querySelectorAll('.aiAssistantChatItemLoading')
+        .forEach(( item ) => item.remove() );
 
     // 応答完了
     this.isRunning = false;
@@ -4102,6 +4151,8 @@ _renderChatHistory( history ) {
         // 分裂した選択肢には同じ user ターン内に複数の tool_result を返しているため、
         // 回答の吹き出しは1ターンにつき1つだけ表示する（残りはまとめて処理済みの応答）。
         let choiceAnswerShown = false;
+        // 画面側が自動で送った是正指示（再送）はユーザーの発言ではないため、吹き出しにしない
+        if ( block.role === 'user' && block._corrective === true ) continue;
         if ( fn.typeof( content ) === 'array' && block.role ) {
             for ( const [ itemIndex, item ] of content.entries() ) {
                 const type = item.type;
@@ -5599,6 +5650,8 @@ buildTranscript( history, maxLength = 8000, options = {} ) {
     for ( const turn of history ) {
         // システム操作（会話終了など）の指示文は学習事項のノイズになるため除外する
         if ( turn?._displaySystem === true ) continue;
+        // 画面側が自動で送った是正指示（再送）も会話の内容ではないため除外する
+        if ( turn?._corrective === true ) continue;
         if ( !Array.isArray( turn?.content ) ) continue;
         const roleLabel = ( turn.role === 'assistant')? getMessage.FTE14352: getMessage.FTE14353;
         for ( const [ blockIndex, block ] of turn.content.entries() ) {
