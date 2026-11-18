@@ -24,10 +24,13 @@ import copy
 import re
 import gc
 
+import common_libs.column
+
 from flask import g
 from common_libs.column import *  # noqa: F403
 from common_libs.common import *  # noqa: F403
 from common_libs.common.util import print_exception_msg, get_iso_datetime, arrange_stacktrace_format
+from common_libs.common.validate_callable import get_validate_callable
 
 
 # 定数
@@ -693,12 +696,10 @@ class loadTable():
             col_class_name = self.get_col_class_name(rest_key)
             if col_class_name is None:
                 col_class_name = 'TextColumn'
-            eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-            objcolumn = eval(eval_class_str)
+            col_class = get_validate_callable(common_libs.column, col_class_name)
+            objcolumn = col_class(self.objdbca, self.objtable, rest_key, cmd_type)
         except Exception:
-            col_class_name = 'TextColumn'
-            eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-            objcolumn = eval(eval_class_str)
+            objcolumn = common_libs.column.TextColumn(self.objdbca, self.objtable, rest_key, cmd_type)
 
         # objcolumnを設定
         if rest_key in self.objtable[COLINFO]:
@@ -723,15 +724,11 @@ class loadTable():
             self.set_columnclass(rest_key, cmd_type)
             objcol = self.get_objcol(rest_key)
             if objcol is None:
-                col_class_name = 'TextColumn'
-                eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-                objcolumn = eval(eval_class_str)
+                objcolumn = common_libs.column.TextColumn(self.objdbca, self.objtable, rest_key, cmd_type)
             else:
                 objcolumn = objcol.get('objcolumn')
             if self.is_columnclass(rest_key) is False:
-                col_class_name = 'TextColumn'
-                eval_class_str = "{}(self.objdbca,self.objtable,rest_key,cmd_type)".format(col_class_name)
-                objcolumn = eval(eval_class_str)
+                objcolumn = common_libs.column.TextColumn(self.objdbca, self.objtable, rest_key, cmd_type)
 
         return objcolumn
 
@@ -2510,14 +2507,16 @@ class loadTable():
             else:
                 external_validate_path = 'common_libs.validate.valid_{}'.format(self.get_menu_id())
             exec_func = importlib.import_module(external_validate_path)  # noqa: F841
-            eval_str = 'exec_func.{}(self.objdbca, self.objtable, target_option)'.format(exec_config)
-            tmp_exec = eval(eval_str)
-
-            if tmp_exec[0] is not True:
+            try:
+                tmp_exec = get_validate_callable(exec_func, exec_config)(self.objdbca, self.objtable, target_option)
+                if tmp_exec[0] is not True:
+                    retBool = False
+                    msg = tmp_exec[1]
+                else:
+                    target_option = tmp_exec[2]
+            except ValueError as e:
                 retBool = False
-                msg = tmp_exec[1]
-            else:
-                target_option = tmp_exec[2]
+                msg = str(e)
 
         return retBool, msg, target_option,
 
@@ -2542,13 +2541,16 @@ class loadTable():
             else:
                 external_validate_path = 'common_libs.validate.valid_{}'.format(self.get_menu_id())
             exec_func = importlib.import_module(external_validate_path)  # noqa: F841
-            eval_str = 'exec_func.{}(self.objdbca, self.objtable, target_option)'.format(exec_config)
-            tmp_exec = eval(eval_str)
-            if tmp_exec[0] is not True:
+            try:
+                tmp_exec = get_validate_callable(exec_func, exec_config)(self.objdbca, self.objtable, target_option)
+                if tmp_exec[0] is not True:
+                    retBool = False
+                    msg = tmp_exec[1]
+                else:
+                    target_option = tmp_exec[2]
+            except ValueError as e:
                 retBool = False
-                msg = tmp_exec[1]
-            else:
-                target_option = tmp_exec[2]
+                msg = str(e)
 
         return retBool, msg, target_option,
 
