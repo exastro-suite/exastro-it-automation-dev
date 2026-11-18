@@ -18,7 +18,7 @@ import textwrap
 import traceback
 
 from flask import g
-from jinja2 import Template
+from jinja2.sandbox import SandboxedEnvironment
 
 # action
 from common_libs.apply import apply
@@ -33,6 +33,9 @@ from libs.common_functions import addline_msg, getIDtoLabelName
 from libs.notification_data import Notification_data
 from libs.notification_process import NotificationProcessManager
 from libs.writer_process import WriterProcessManager
+
+# SSTI対策: ユーザー入力のテンプレートはサンドボックス化されたJinja2環境でレンダリングする
+_sandbox_env = SandboxedEnvironment()
 
 
 class Action():
@@ -260,7 +263,7 @@ class Action():
             template_string = setting["label_value"]
             template = self.template_cache.get(template_string)
             if template is None:
-                template = Template(template_string)
+                template = _sandbox_env.from_string(template_string)
                 self.template_cache[template_string] = template
             try:
                 label_value = template.render(A=event_A_labels, B=event_B_labels)

@@ -132,7 +132,7 @@ def external_valid_menu_before(objdbca, objtable, option):
         file_name = entry_parameter.get('after_notification')
         if file_name:
             # ファイルの中身を取得
-            file_path = option.get('entry_parameter', {}).get('file', {}).get('after_notification', '')
+            file_path = option.get('entry_parameter', {}).get('file_path', {}).get('after_notification', '')
             if file_path is not None and os.path.isfile(file_path):
                 with open(file_path, 'rb') as f:  # バイナリファイルとしてファイルをオープン
                     template_data_binary = f.read()
