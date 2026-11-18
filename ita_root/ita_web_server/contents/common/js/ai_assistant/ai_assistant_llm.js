@@ -839,7 +839,7 @@ appendToolResults( toolResults ) {
 // prompt  … テキスト（文字列）または contentブロックの配列（tool_result等）
 // files   … 送信するファイル（アップロード済みの情報。useLlm=trueのものは実体も渡す）
 // signal  … 停止用のAbortSignal
-// options … { displayText, systemAction, timestamp, alreadyPushed, onTimeout }
+// options … { displayText, systemAction, corrective, timestamp, alreadyPushed, onTimeout }
 //   onTimeout … タイムアウト時に再送の方法を選ばせる関数（→ askTimeoutRetry）。省略時は確認ダイアログ
 async send( prompt, files, signal, options = {} ) {
     // 継続送信（alreadyPushed）の場合、送るべきメッセージ（tool_result等）は呼び出し側が
@@ -1016,6 +1016,8 @@ static completionMessageText( userMessage ) {
     if ( userMessage._displayText !== undefined || userMessage._displaySystem !== undefined || userMessage._choiceSelected !== undefined ) return null;
     // タイムアウト時に添えた指示（_timeoutHint）は差し込みブロックとして渡すため、messageでは送れない
     if ( userMessage._timeoutHint !== undefined ) return null;
+    // 是正指示（_corrective）も、messageで送ると目印が保存されずに復元時に吹き出しになるため全置換で渡す
+    if ( userMessage._corrective !== undefined ) return null;
     // 引き継いだ要約（_carryOverSummary）も、messageで送ると保存されずに失われるため全置換で渡す
     if ( userMessage._carryOverSummary !== undefined ) return null;
     const content = userMessage.content;
@@ -1170,6 +1172,11 @@ buildUserMessage( prompt, files, options = {} ) {
     // システム操作（会話終了など）としての表示種別を持たせる（同上）
     if ( options.systemAction === true ) {
         userMessage._displaySystem = true;
+    }
+    // 応答の崩れを正すために画面側が自動で送った是正指示（max_tokens・本文なし等の再送）。
+    // ユーザーの発言ではないため、履歴の復元時に吹き出しにしない（同上）
+    if ( options.corrective === true ) {
+        userMessage._corrective = true;
     }
     // 前の会話から引き継いだ要約（吹き出しに開閉式で表示する。本文にも含めてLLMへ渡している）（同上）
     if ( typeof options.carryOverSummary === 'string' && options.carryOverSummary !== '') {
@@ -1461,7 +1468,19 @@ async requestCompletion( signal, messageText = null, debugContextOverflow = null
         throw error;
     }
 
-    return await this.request(AiAssistantLlm.apiUrl.completion( this.conversationId ), 'POST', body, signal, completionRetryOptions );
+    const data = await this.request(AiAssistantLlm.apiUrl.completion( this.conversationId ), 'POST', body, signal, completionRetryOptions );
+
+    // 【テスト用機能】本文の無い応答の擬似発生（→「テスト用機能（擬似エラー）」の節）。
+    // 実際に問い合わせたうえで、応答の内容だけを差し替える（サーバー側には本来の応答が保存される）。
+    const debugEmpty = AiAssistantLlm.takeDebugEmptyResponse();
+    if ( debugEmpty ) {
+        console.warn(`[debug] 本文の無い応答を擬似的に発生させます（mode=${debugEmpty.mode}、残り${debugEmpty.rest}回）`);
+        const blocks = ( debugEmpty.mode === 'thinking')
+            ? [{ 'type': 'thinking', 'thinking': '', 'signature': '' }]
+            : [];
+        return { ...data, content_blocks: blocks, stop_reason: 'end_turn' };
+    }
+    return data;
 }
 /*
 ##################################################
@@ -1496,6 +1515,13 @@ async requestCompletion( signal, messageText = null, debugContextOverflow = null
 //   ・省略できる古いツール結果（直近のターンより前の大きな tool_result）が無い会話では、trim でも
 //     再送せずにダイアログが出る。省略を確かめる場合は、ツールを何度か使った会話で試す。
 //   ・一度省略した会話（contextTrimmed）では、trim は失敗させずに回数だけ消費する。
+//
+// ■ 本文の無い応答（キー: aiAssistantDebugEmptyResponse）… 問い合わせ1回ごとに数える
+//   localStorage.setItem('aiAssistantDebugEmptyResponse', 'thinking:1') … thinking ブロックだけの応答にする
+//   localStorage.setItem('aiAssistantDebugEmptyResponse', 'empty:1')    … content が空の応答にする
+//   localStorage.removeItem('aiAssistantDebugEmptyResponse')            … 解除
+//   ・実際に問い合わせてから応答の内容だけを差し替える（サーバー側には本来の応答が保存される）。
+//   ・画面側は本文での回答を促して再送する（上限2回）。回数を3以上にすると再送の上限超過を確かめられる。
 
 // タイムアウトの擬似エラーの設定を、問い合わせ1回分取り出す（設定が無ければnull）。
 // 戻り値: { mode: 'before' | 'after' | 'network', rest: 残りの回数 }
@@ -1531,6 +1557,29 @@ static takeDebugContextOverflow() {
 
     const [ mode, countText ] = value.split(':');
     if ( !['trim', 'full'].includes( mode ) ) return null;
+    const count = Number( countText ?? 1 );
+    if ( !Number.isInteger( count ) || count < 1 ) {
+        window.localStorage.removeItem( key );
+        return null;
+    }
+    const rest = count - 1;
+    if ( rest > 0 ) {
+        window.localStorage.setItem( key, `${mode}:${rest}`);
+    } else {
+        window.localStorage.removeItem( key );
+    }
+    return { mode, rest };
+}
+// 本文の無い応答の擬似発生の設定を、問い合わせ1回分取り出す（設定が無ければnull）。
+// 戻り値: { mode: 'thinking' | 'empty', rest: 残りの回数 }
+static takeDebugEmptyResponse() {
+    const key = 'aiAssistantDebugEmptyResponse';
+    let value = null;
+    try { value = window.localStorage.getItem( key ); } catch ( error ) { return null; }
+    if ( !value ) return null;
+
+    const [ mode, countText ] = value.split(':');
+    if ( !['thinking', 'empty'].includes( mode ) ) return null;
     const count = Number( countText ?? 1 );
     if ( !Number.isInteger( count ) || count < 1 ) {
         window.localStorage.removeItem( key );
