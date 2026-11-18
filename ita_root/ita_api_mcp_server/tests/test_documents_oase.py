@@ -320,3 +320,52 @@ class TestReviewFindings:
         step6 = step6[:step6.index("\n## ")]
         assert '"available_flag": "False"' in step6
         assert '"available_flag": "True"' not in step6
+
+    @pytest.mark.parametrize("lang", LANGUAGES)
+    def test_labeling_explains_missing_and_mismatched_fields(self, lang):
+        # 正常系: 欠損・型違い・複数値のイベントでは、例外にならずラベルが付かないだけであること
+        # (空判定だけは欠損を空として扱う)が labeling.md に書かれていること
+        heading = (
+            "## イベント項目が欠損・型違い・複数値の場合の挙動" if lang == "ja"
+            else "## Behavior when the event field is missing, has a mismatched type, or holds multiple values"
+        )
+        text = _read(lang, "menu-reference/labeling.md")
+        assert heading in text
+        section = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        words = ["falsy", "search_key_name"] + (
+            ["ラベルは付かない", "スキップ"] if lang == "ja" else ["does not attach a label", "skipped"]
+        )
+        for word in words:
+            assert word in section, "{}: {}".format(lang, word)
+
+    @pytest.mark.parametrize("lang", LANGUAGES)
+    def test_rule_explains_notification_template_missing_variables(self, lang):
+        # 正常系: 通知テンプレートで無いラベルは空欄になり、events が空で events[0] を参照すると
+        # 通知自体が作られないことが rule.md に書かれていること
+        heading = (
+            "### 変数が無い・空のときの挙動（重要）" if lang == "ja"
+            else "### Behavior when a variable is missing or empty (important)"
+        )
+        text = _read(lang, "menu-reference/rule.md")
+        assert heading in text
+        section = text.split(heading, 1)[1].split("\n## ", 1)[0].split("\n### ", 1)[0]
+        words = ["events[0]", "{% if"] + (["空文字", "送信されない"] if lang == "ja" else ["empty string", "not sent"])
+        for word in words:
+            assert word in section, "{}: {}".format(lang, word)
+
+    @pytest.mark.parametrize("lang", LANGUAGES)
+    def test_rule_ttl_is_quantized_to_judgement_interval(self, lang):
+        # 正常系: ttl・AND相関の待ち時間は判定処理の実行間隔ぶんずれることが rule.md の ttl 列に書かれていること
+        text = _read(lang, "menu-reference/rule.md")
+        heading = "## ttl column"
+        assert heading in text
+        section = text.split(heading, 1)[1].split("\n## ", 1)[0]
+        word = "判定処理の実行間隔" if lang == "ja" else "judgement cycle interval"
+        assert word in section
+
+    @pytest.mark.parametrize("lang", LANGUAGES)
+    def test_event_collection_has_measured_agent_interval(self, lang):
+        # 正常系: OASEエージェントの収集間隔を実測した結果（5秒→10秒に追従）が event_collection.md にあること
+        text = _read(lang, "menu-reference/event_collection.md")
+        assert "EXECUTE_INTERVAL" in text
+        assert "5.0" in text and "10.0" in text

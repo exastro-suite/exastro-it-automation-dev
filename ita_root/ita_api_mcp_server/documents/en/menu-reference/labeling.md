@@ -58,6 +58,15 @@ The behaviour of `labeling` changes depending on which combination of fields you
 - Note that trying to inspect received event data in the `event_history` menu does not work: `menu-filter` fails with `System Error (999-99999)`. **Do not try `event_history` as a way to learn the event structure** (it only wastes turns).
 - If left blank, `type_name`/`comparison_method`/`search_value_name` must also all be blank (Pattern B: always attaches a fixed label value without using a search condition). In that case `label_value_name` is required.
 
+## Behavior when the event field is missing, has a mismatched type, or holds multiple values
+
+Confirmed in `libs/label_event.py` (oase-receiver).
+
+- **If the field matching `search_key_name` is missing from the event, an ordinary comparison does not attach a label (and raises no error).** The one exception is the empty-value check (`type_name: "falsy"`, `comparison_method: "=="`), which treats a missing field as "empty" and attaches the label.
+- **A type mismatch also just skips the label; it does not stop processing.** For example, if a numeric comparison (`>`, etc.) is run against a string that cannot be converted to a number, or a regular-expression comparison is run against an array, that single labeling setting is skipped internally (and logged), while the other labeling settings and other events continue to be processed.
+- **Multiple values (arrays/objects) are handled the same way: if the comparison cannot be made, it is silently skipped.** The empty-value check still works directly on arrays/objects (`[]` is empty, `[1,2]` is not).
+- As a result, **a misconfigured labeling setting, or an event structure that differs from what was assumed, does not crash processing**, but it can show up as "the label was supposed to be attached but wasn't," which is hard to notice. When a field that might be missing or of a mismatched type is used as a label condition, tell the user before registering that "if this field is missing or has a different type, the label will not be attached, and any filter/rule relying on that label will not react either."
+
 ## type_name column and comparison_method column (compatibility table)
 
 The data type of the value and the comparison method must be combined correctly. Combinations not in the table below result in a validation error.

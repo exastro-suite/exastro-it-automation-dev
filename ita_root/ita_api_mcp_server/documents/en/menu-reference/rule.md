@@ -249,6 +249,14 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
 {% endfor %}
 ```
 
+### Behavior when a variable is missing or empty (important)
+
+Confirmed in `_create_notise_message` in `common_libs/notification/notification_base.py`.
+
+- **Referencing a label that is not attached to that event does not raise an error; it renders as an empty string.** For example, if an event has no `alert_type` label, `{{ event.labels.alert_type }}` just leaves that spot blank (e.g., "Type: ") while the rest of the message is built normally. The email **is still sent, with the blank left in**.
+- **If `events` is empty and the template references a nonexistent index like `events[0]`, building the whole template fails and that notification is not sent at all** (it is only logged; the user receives nothing). If a template references the first event directly instead of looping with `{% for event in events %}`, check whether `events` can actually be empty in that case.
+- So, **when putting a label that is only attached to some events into the body, tell the user up front that it will be blank when the label is missing.** If a blank would be confusing, suggest checking for its presence with `{% if event.labels.alert_type %}` before displaying it, or using a fixed placeholder (e.g., "unknown type").
+
 ### When asked to "also notify Y only when X" (adding a destination conditionally)
 
 - Destinations are decided per rule, and the destination cannot be switched inside a template. Create a **dedicated filter and rule** with the extra condition (e.g. `severity == Critical`), and place the dedicated rule above the existing rule (lower the existing rule's priority).
@@ -301,6 +309,7 @@ Response: {{ action.action_name }} (Conductor: {{ action.conductor_name }})
 ## ttl column
 
 - In seconds. Minimum 10, maximum 2147483647. Default 3600.
+- **The ttl / AND-correlation wait time is quantized to the judgement cycle interval (default 1 second).** Testing against the judgement engine showed that a partner event arriving exactly 1 second after the nominal deadline still matched, while one arriving 2 or more seconds after it timed out. It is not a strict "within N seconds" guarantee; tell the user it can slip by about one cycle interval.
 
 ## Caution when `Update`-ing an existing rule (important)
 
