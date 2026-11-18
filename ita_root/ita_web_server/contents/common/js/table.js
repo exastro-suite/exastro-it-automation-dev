@@ -4074,6 +4074,10 @@ viewCellHtml( item, columnKey, journal ) {
         // リンク
         case 'HostInsideLinkTextColumn':
             if ( value !== '') {
+                // javascript: スキームの場合は、リンクにせず文字として表示する（判定はエスケープ前の元の値で行う）
+                if ( fn.isJavascriptScheme( parameter[ columnName ] ) ) {
+                    return checkJournal( value );
+                }
                 return checkJournal(`<a href="${value}" target="_blank">${value}</a>`);
             } else {
                 return checkJournal( value );
