@@ -3010,8 +3010,9 @@ createNode( nodeID ) {
     typeCheck = ['start', 'end', 'movement'];
     if ( typeCheck.indexOf( nodeData.type ) !== -1 ) {
         let nodeNameHtml;
-        if ( nodeData.type === 'movement') {
-            const linkData = cd.setting.movementMenuLink[ nodeData.orchestra_id ];
+        // 紐づけリンク情報が無い場合（Movement不明、過去バージョンのデータ等）はリンクにしない
+        const linkData = ( nodeData.type === 'movement')? cd.setting.movementMenuLink[ nodeData.orchestra_id ]: undefined;
+        if ( linkData ) {
             const linkFilter = {};
             linkFilter[ linkData.column ] = {
                 LIST: [ nodeName ]
@@ -6650,9 +6651,23 @@ loadConductor( loadConductorData ) {
     }
 
     try {
-      cd.count.node = cd.data.config.nodeNumber;
-      cd.count.terminal = cd.data.config.terminalNumber;
-      cd.count.edge = cd.data.config.edgeNumber;
+      // configの連番が実在IDより小さいとIDが重複するため、実在する最大IDの次の値と比較して大きい方を使用する
+      const maxId = { node: 0, terminal: 0, edge: 0 };
+      const checkId = function( id, type, prefix ) {
+        const m = RegExp('^' + prefix + '-(\\d+)$').exec( id );
+        if ( m ) maxId[ type ] = Math.max( maxId[ type ], Number( m[1] ) );
+      };
+      for ( const key of Object.keys( cd.data ) ) {
+        checkId( key, 'node', 'node');
+        checkId( key, 'edge', 'line');
+        const terminals = ( cd.data[ key ] && cd.data[ key ].terminal ) || {};
+        for ( const terminalID of Object.keys( terminals ) ) {
+          checkId( terminalID, 'terminal', 'terminal');
+        }
+      }
+      cd.count.node = Math.max( Number( cd.data.config.nodeNumber ) || 1, maxId.node + 1 );
+      cd.count.terminal = Math.max( Number( cd.data.config.terminalNumber ) || 1, maxId.terminal + 1 );
+      cd.count.edge = Math.max( Number( cd.data.config.edgeNumber ) || 1, maxId.edge + 1 );
 
       cd.nodeReSet( cd.data );
       cd.nodeViewAll( 0 );
