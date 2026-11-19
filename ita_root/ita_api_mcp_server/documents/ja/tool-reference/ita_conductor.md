@@ -4,6 +4,15 @@ ITAの各種ドライバーで動作するMovementを、連続や並列、条件
 ## general attention for conductor control
 Conductorの内容を参照したい場合にはツール`get_conductor_class`を使用して、Conductorの構造を調査してください。
 
+## Attention for creating new conductor_data
+以下の項目についてはサンプルの値を無視してこちらの指示を優先すること。
+  - `config`の中身については次のように設定すること。
+    - edgeNumber: そのConductorに含まれるline(`"type": "edge"`が含まれる要素)の総数に1だけ足した数
+    - nodeNumber: そのConductorに含まれるnode(`"node-N"`というキーの要素)の総数に1だけ足した数
+    - terminalNumber: そのConductorに含まれるterminal(`"type": "in"`もしくは`"type": "out"`が含まれる要素)の総数に1だけ足した数
+  - 各nodeのx座標を次のように設定すること。
+    - 各lineで設定されている`outTerminal`のx座標に84だけ足した数が`inTerminal`のx座標となるように、各terminalが属しているnodeのx座標を調整すること。
+
 ## Minimal conductor_data Example
 ```json
 {
@@ -1075,9 +1084,6 @@ Conductorの内容を参照したい場合にはツール`get_conductor_class`�
     }
 }
 ```
-
-## Attention for creating new conductor data
-nodeの持つx, yの値(座標)はサンプルの値だけを参考にせず、wの値(幅)をから差分を取るなどして適宜間隔を調節すること。
 
 ## Confirmation before update-conductor / create-conductor
 Before calling `update-conductor` (or `create-conductor`), always ask the user for
