@@ -298,7 +298,8 @@ static get uiToolClasses() {
     return [
         AiAssistantToolAskUserChoice,
         AiAssistantToolDisplayHtml,
-        AiAssistantToolDownloadAttachmentFile
+        AiAssistantToolDownloadAttachmentFile,
+        AiAssistantToolShowConductorClass
     ];
 }
 initUiTools() {
@@ -451,7 +452,7 @@ async executeTool( toolUse, runningEl = null, signal = null ) {
         const progressOutcome = await this.watchDriverProgress( toolUse, toolResult, runningEl );
         // Conductor実行ツールなら Conductor の進捗を表示し、完了まで待機する
         const conductorOutcome = await this.watchConductorProgress( toolUse, toolResult, runningEl );
-        // Conductor構成取得ツールなら、構成（閲覧モード）を表示する（待機は不要）
+        // Conductor作成・更新ツールなら、構成（閲覧モード）を表示する（待機は不要）
         this.watchConductorClassPreview( toolUse, toolResult, runningEl );
 
         // 最終ステータスが取れた場合は tool_result に反映する。
@@ -2982,9 +2983,6 @@ async watchConductorProgress( toolUse, toolResult, runningEl ) {
     // 進捗表示に置き換えるので、ローディングclassをremove（次の吹き出し表示で消されないように）
     runningEl?.classList.remove('aiAssistantChatItemLoading');
 
-    // 実行に必要な定義を取るための get-conductor-class のプレビューは、実行画面と重複するため取り除く
-    this.removeConductorClassPreviewBefore( toolUse, runningEl );
-
     // Conductor表示
     const progress = this.conductorProgressElement( instanceId );
     runningEl?.querySelector('.aiAssistantChatAssistantMessageInner')?.replaceChildren( progress );
@@ -3275,11 +3273,11 @@ async renderConductorProgress( bodyEl, instanceId, mode = 'confirmation', menu =
 }
 /*
 ##################################################
-    Conductor構成プレビュー（get-conductor-class）
+    Conductor構成プレビュー（create/update-conductor・画面専用ツール show_conductor_class）
 ##################################################
 */
-// Conductorの構成を表示するツール（構成の取得・作成・更新）
-static CONDUCTOR_CLASS_TOOLS = ['get-conductor-class', 'create-conductor', 'update-conductor'];
+// Conductorの構成を自動表示するMCPツール（作成・更新）。get-conductor-class は表示しない
+static CONDUCTOR_CLASS_TOOLS = ['create-conductor', 'update-conductor'];
 // 構成の確認に使うメニュー（REST名）
 static CONDUCTOR_CLASS_MENU = 'conductor_class_edit';
 // conductor_class_id を取り出す。引数にあればそれを、無ければ（create-conductor など）結果から探す。
@@ -3292,7 +3290,7 @@ _conductorClassIdFromToolUse( toolUse, toolResult ) {
     return ( id === undefined || id === null )? '': String( id );
 }
 // Conductor構成プレビューのHTML（上部に Conductor確認 / 全体表示 ボタン）
-conductorPreviewElement( classId, toolName = '') {
+conductorPreviewElement( classId ) {
     const menu = {
         Main: [
             { html: {
@@ -3309,8 +3307,6 @@ conductorPreviewElement( classId, toolName = '') {
     };
     const preview = document.createElement('div');
     preview.className = 'conductorProgressArea';
-    preview.dataset.previewTool = toolName;
-    preview.dataset.classId = classId;
     preview.innerHTML = `
     ${fn.html.operationMenu( menu )}
     <div class="conductorProgressFrame">
@@ -3320,7 +3316,7 @@ conductorPreviewElement( classId, toolName = '') {
     ${this.conductorResizeBarHtml()}`;
     return preview;
 }
-// get/create/update-conductor の結果から構成（閲覧モード）を表示する。対象外や失敗時は何もしない。
+// create/update-conductor の結果から構成（閲覧モード）を表示する。対象外や失敗時は何もしない。
 watchConductorClassPreview( toolUse, toolResult, runningEl ) {
     if ( !AiAssistantChat.CONDUCTOR_CLASS_TOOLS.includes( toolUse.name )) return;
     const structured = toolResult?.result?.structuredContent ?? {};
@@ -3329,39 +3325,11 @@ watchConductorClassPreview( toolUse, toolResult, runningEl ) {
     if ( !classId || !runningEl ) return;
 
     runningEl.classList.remove('aiAssistantChatItemLoading');
-    const preview = this.conductorPreviewElement( classId, toolUse.name );
+    const preview = this.conductorPreviewElement( classId );
     runningEl.querySelector('.aiAssistantChatAssistantMessageInner')?.replaceChildren( preview );
     this.renderConductorProgress( preview.querySelector('.conductorProgressBody'), classId, 'view', AiAssistantChat.CONDUCTOR_CLASS_MENU );
 }
-// execute-conductor の直前に表示した get-conductor-class のプレビューを取り除く。
-// 実行には定義（Setting）が必要なため LLM は実行前に get-conductor-class を呼ぶが、
-// そのプレビューと実行画面が並んで同じConductorが2つ表示されてしまうため。
-// ユーザ発言より前（ユーザが閲覧を依頼して表示したもの）は残す。
-// beforeEl … 実行画面の吹き出し（その手前から探す）。null ならチャット欄の末尾から探す。
-removeConductorClassPreviewBefore( toolUse, beforeEl ) {
-    const list = this.elements.chatList;
-    if ( !list ) return;
-    const args = toolUse?.arguments ?? toolUse?.input ?? {};
-    const classId = String( args.conductor_class_id ?? args.conductor_data?.conductor?.id ?? '');
-
-    let item = ( beforeEl && beforeEl.parentElement === list )? beforeEl.previousElementSibling: list.lastElementChild;
-    for ( ; item; item = item.previousElementSibling ) {
-        if ( item.classList.contains('aiAssistantChatUserMessage')) return;
-        const preview = item.querySelector(':scope > .aiAssistantChatAssistantMessageInner > .conductorProgressArea[data-preview-tool="get-conductor-class"]');
-        if ( !preview ) continue;
-        if ( classId !== '' && preview.dataset.classId !== classId ) continue;
-
-        const next = item.nextElementSibling;
-        item.remove();
-        // 取り除いた後の並びに合わせて、次の吹き出しの連続クラスを付け直す
-        if ( next?.classList.contains('aiAssistantChatAssistantMessage')) {
-            const prev = next.previousElementSibling;
-            next.classList.toggle('aiAssistantChatAssistantMessageChain', !!prev?.classList.contains('aiAssistantChatAssistantMessage'));
-        }
-        return;
-    }
-}
-// 履歴復元時に get-conductor-class のConductor構成を再描画する。
+// 履歴復元時に create/update-conductor のConductor構成を再描画する。
 resumeConductorClassPreview( toolUse, toolResult ) {
     if ( !AiAssistantChat.CONDUCTOR_CLASS_TOOLS.includes( toolUse.name )) return;
     const parsed = this.parseToolResultContent( toolResult );
@@ -3369,9 +3337,13 @@ resumeConductorClassPreview( toolUse, toolResult ) {
     if ( !parsed || structured.isError === true || parsed?.result?.isError === true ) return;
     const classId = this._conductorClassIdFromToolUse( toolUse, parsed );
     if ( !classId ) return;
-
+    this.appendConductorClassPreview( classId );
+}
+// Conductor構成（閲覧モード）の吹き出しをチャット欄の末尾に追加する。
+// 履歴復元と、画面専用ツール show_conductor_class で共用する。
+appendConductorClassPreview( classId ) {
     const el = this.createAssistantMessageElement('', false );
-    const preview = this.conductorPreviewElement( classId, toolUse.name );
+    const preview = this.conductorPreviewElement( classId );
     el.querySelector('.aiAssistantChatAssistantMessageInner').replaceChildren( preview );
     const prevItem = this.elements.chatList.lastElementChild;
     if ( prevItem?.classList.contains('aiAssistantChatAssistantMessage')) {
@@ -3379,6 +3351,7 @@ resumeConductorClassPreview( toolUse, toolResult ) {
     }
     this.elements.chatList.append( el );
     this.renderConductorProgress( preview.querySelector('.conductorProgressBody'), classId, 'view', AiAssistantChat.CONDUCTOR_CLASS_MENU );
+    return el;
 }
 // Conductor確認（conductor_class_edit をモーダルで表示）
 async conductorClassOpen( button ) {
@@ -3507,7 +3480,6 @@ resumeConductorExecution( toolUse, toolResult ) {
     if ( !instanceId ) {
         // tool_result がコンテキスト上限で省略されていた場合は、実行画面を復元できない旨を表示する
         if ( this.isToolResultOmitted( toolResult )) {
-            this.removeConductorClassPreviewBefore( toolUse, null );
             const omittedEl = this.createAssistantMessageElement( getMessage.FTE14374, false );
             const prev = this.elements.chatList.lastElementChild;
             if ( prev?.classList.contains('aiAssistantChatAssistantMessage')) {
@@ -3517,9 +3489,6 @@ resumeConductorExecution( toolUse, toolResult ) {
         }
         return;
     }
-
-    // 実行直前の get-conductor-class のプレビューは、実行時と同じく取り除く
-    this.removeConductorClassPreviewBefore( toolUse, null );
 
     const el = this.createAssistantMessageElement('', false );
     const progress = this.conductorProgressElement( instanceId );
@@ -4204,7 +4173,7 @@ _renderChatHistory( history ) {
                         this.resumeDriverExecution( item, toolResultMap.get( item.id ));
                         // execute-conductor は Conductor の進捗表示を復元する
                         this.resumeConductorExecution( item, toolResultMap.get( item.id ));
-                        // get-conductor-class は Conductor の構成を復元する
+                        // create/update-conductor は Conductor の構成を復元する
                         this.resumeConductorClassPreview( item, toolResultMap.get( item.id ));
                         // maintenance-all / create-menu なら更新先メニューを控える
                         this.collectUpdatedMenuFromHistory( item, toolResultMap.get( item.id ));
