@@ -565,13 +565,19 @@ static get UPDATE_MENU_TOOLS() {
         'create-menu': ( args ) => ({
             menuNameRest: args?.menu_definition?.menu?.menu_name_rest ?? '',
             label: args?.menu_definition?.menu?.menu_name ?? args?.menu_definition?.menu?.menu_name_rest ?? ''
+        }),
+        // パラメーター集のプリセット（検索条件）の登録/更新。uuid は結果（新規）か引数（更新）から得る。
+        'register-parameter-collection-filter': ( args ) => ({
+            menuNameRest: 'parameter_collection',
+            label: args?.filter_name ?? 'parameter_collection'
         })
     };
 }
 // 更新先メニューを（menu_name_rest をキーに）このターン分として控える共通処理。
 // 同一メニューへの複数操作は1リンクに集約する（表示名・IDリストは後勝ちで更新）。
 // idList: maintenance-all で登録・更新されたレコードの uuid 群（絞り込み用、無ければ空）。
-_addUpdatedMenu( name, args, idList = [] ) {
+// presetId: パラメーター集のプリセットの uuid（?preset= でプリセットを開くために使う、無ければ空）。
+_addUpdatedMenu( name, args, idList = [], presetId = '') {
     const extractor = AiAssistantChat.UPDATE_MENU_TOOLS[ name ];
     if ( !extractor ) return;
     const { menuNameRest, label } = extractor( args ?? {} );
@@ -580,7 +586,8 @@ _addUpdatedMenu( name, args, idList = [] ) {
     this._turnUpdatedMenus.set( menuNameRest, {
         menuNameRest,
         label: label || menuNameRest,
-        idList: Array.isArray( idList ) ? idList : []
+        idList: Array.isArray( idList ) ? idList : [],
+        presetId: ( typeof presetId === 'string')? presetId: ''
     });
 }
 // tool_result（JSON-RPC の structuredContent 等）から登録・更新レコードの uuid 群を取り出す。
@@ -599,6 +606,13 @@ _extractIdList( node, depth = 0 ) {
     }
     return [];
 }
+// プリセット登録・更新ツールの結果から、プリセットの uuid を取り出す。
+// 新規登録は結果の uuid、更新は引数の uuid を使う。対象外のツールや取得できない場合は空文字。
+_extractPresetId( args, structured, name = '') {
+    if ( name !== 'register-parameter-collection-filter') return '';
+    const id = structured?.uuid || args?.uuid;
+    return ( typeof id === 'string')? id.trim(): '';
+}
 // ツール実行結果（ライブ）が ITA ページの更新なら、更新先メニューを控える。
 // エラー応答（isError）や menu_name_rest 不明のものは対象外。
 collectUpdatedMenu( toolUse, toolResult ) {
@@ -609,7 +623,8 @@ collectUpdatedMenu( toolUse, toolResult ) {
     const structured = toolResult?.result?.structuredContent ?? {};
     if ( structured.isError === true || toolResult?.result?.isError === true ) return;
 
-    this._addUpdatedMenu( name, toolUse.arguments ?? toolUse.input, this._extractIdList( structured ) );
+    const args = toolUse.arguments ?? toolUse.input;
+    this._addUpdatedMenu( name, args, this._extractIdList( structured ), this._extractPresetId( args, structured, name ) );
 }
 // 履歴（保存済み tool_use / tool_result）から更新先メニューを控える（再開時用）。
 // tool_result.content は executeTool で JSON文字列化されているためパースして判定する。
@@ -626,7 +641,8 @@ collectUpdatedMenuFromHistory( toolUse, toolResult ) {
     const structured = parsed?.result?.structuredContent ?? {};
     if ( structured.isError === true || parsed?.result?.isError === true ) return;
 
-    this._addUpdatedMenu( name, toolUse.arguments ?? toolUse.input, this._extractIdList( structured ) );
+    const args = toolUse.arguments ?? toolUse.input;
+    this._addUpdatedMenu( name, args, this._extractIdList( structured ), this._extractPresetId( args, structured, name ) );
 }
 /*
 ##################################################
@@ -653,12 +669,16 @@ async getMenuPkRest( menuNameRest ) {
 // ITA本体（トップ画面）は ?menu=<menu_name_rest> でメニューを切り替えるため、
 // 現在のトップ画面のパスに menu パラメータを付与した絶対URLを返す。
 // filter を渡すと ITA のフィルター形式（{ 列: { LIST: [...] } }）を &filter= に付与する。
-buildMenuUrl( menuNameRest, filter = null ) {
+// preset を渡すと、パラメーター集で開くプリセットの uuid を &preset= に付与する。
+buildMenuUrl( menuNameRest, filter = null, preset = '') {
     const base = `${top.location.origin}${top.location.pathname}`;
     let url = `${base}?menu=${encodeURIComponent( menuNameRest )}`;
     if ( filter ) {
         // fn.filterEncode = encodeURIComponent( JSON.stringify( filter ) )
         url += `&filter=${fn.filterEncode( filter )}`;
+    }
+    if ( preset ) {
+        url += `&preset=${encodeURIComponent( preset )}`;
     }
     return url;
 }
@@ -682,14 +702,14 @@ renderUpdatedMenuLinks( scroll = true ) {
 
     const list = document.createElement('ul');
     list.classList.add('aiAssistantUpdatedMenusList');
-    for ( const { menuNameRest, label, idList } of menus.values() ) {
+    for ( const { menuNameRest, label, idList, presetId } of menus.values() ) {
         const item = document.createElement('li');
         item.classList.add('aiAssistantUpdatedMenusItem');
 
         const a = document.createElement('a');
         a.classList.add('aiAssistantUpdatedMenusLink');
         // まずはフィルター無しの基本URLを設定しておく（主キー取得失敗時のフォールバック）。
-        a.href = this.buildMenuUrl( menuNameRest );
+        a.href = this.buildMenuUrl( menuNameRest, null, presetId );
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         a.innerText = label || menuNameRest;

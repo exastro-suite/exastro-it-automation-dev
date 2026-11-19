@@ -18,6 +18,12 @@ If the target operation cannot be determined, confirm it with the user.
 - `filter_json`: JSON string representing the search conditions for the parameter collection
     - `mode`: Display mode, such as `"operation"` or `"host"`
     - `operation` / `mainOperation`: UUID of the target operation
-    - `host`: List of UUIDs of the target hosts
-    - `parameter`: List of UUIDs of the target parameter items
+    - `host`: List of IDs of the target hosts (the host's `managed_system_item_number`)
+    - `parameter`: List of IDs of the target parameter sheets (the parameter sheet's `menu_id`)
+        - The parameter collection selects by parameter sheet, not by column (item) inside a sheet, so do not specify column IDs.
+    - For `operation` / `host` / `parameter`, specify only values that can be selected on the parameter collection screen. An ID that does not exist there does not cause an error, but is ignored on the screen.
 - When updating, specify the values obtained with `get-parameter-collection-filter` for `uuid` and `last_update_date_time`
+
+#### Return value
+
+- `uuid`: UUID of the registered/updated preset. For a new registration it is looked up from the list by `filter_name` after registering; it is omitted if it could not be identified.
