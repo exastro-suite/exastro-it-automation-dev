@@ -81,6 +81,10 @@ setup() {
 
          pc.updateHostList();
          pc.updateParameterList();
+
+         // URLに preset=<uuid> があれば、そのプリセットを読み込む（存在しないuuidは無視される）
+         const presetId = fn.getParams().preset;
+         if ( presetId ) pc.presetLoad( presetId );
       } else {
          const message = ``
          + `<div class="commonMessage">`

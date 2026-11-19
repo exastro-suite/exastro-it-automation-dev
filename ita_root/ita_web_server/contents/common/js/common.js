@@ -548,6 +548,24 @@ escape: function( value, br, space ) {
 },
 /*
 ##################################################
+   javascript: スキームの判定
+   ブラウザは「先頭の制御文字・空白」と「途中のタブ・改行」を無視してURLを解釈するため、
+   それらを取り除き、小文字にそろえてから判定する。
+   ※ エスケープ前の元の値を渡すこと。
+##################################################
+*/
+isJavascriptScheme: function( value ) {
+    if ( typeofValue( value ) !== 'string') return false;
+
+    const normalized = value
+        .replace(/[\t\n\r]/g, '')
+        .replace(/^[\u0000- ]+/, '')
+        .toLowerCase();
+
+    return normalized.startsWith('javascript:');
+},
+/*
+##################################################
    JSON文字列変換（区切り文字「, 」）
 ##################################################
 */

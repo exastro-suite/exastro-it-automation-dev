@@ -17,6 +17,7 @@ from flask import g
 import traceback
 from common_libs.common import *
 from common_libs.common.util import get_iso_datetime, arrange_stacktrace_format, print_exception_msg
+from common_libs.notification.validator import is_jinja2_template
 
 # import column_class
 from .individual_dialog_column_class import IndividualDialogColumn  # noqa: F401
@@ -96,7 +97,15 @@ class ConclusionEventSettingColumn(IndividualDialogColumn):
             return False, msg, result_value
         if type(val[1]) is not str:
             status_code = 'MSG-00032'
-            msg_args = [str(val[1])] # true/false/数値対策
+            msg_args = [str(val[1])]  # true/false/数値対策
+            msg = g.appmsg.get_api_message(status_code, msg_args)
+            return False, msg, result_value
+
+        # SSTI対策: label_value がJinja2テンプレートとして不正（構文エラー・危険な属性アクセス）な場合は保存を拒否する
+        if not is_jinja2_template(val[1]):
+            status_code = '499-01711'
+            # 項目名はカラム定義から現在の言語で取得する（日本語固定にしない）
+            msg_args = [self.get_label().get("COLUMN_NAME_{}".format(g.LANGUAGE.upper()))]
             msg = g.appmsg.get_api_message(status_code, msg_args)
             return False, msg, result_value
         result_value["label_value"] = val[1]

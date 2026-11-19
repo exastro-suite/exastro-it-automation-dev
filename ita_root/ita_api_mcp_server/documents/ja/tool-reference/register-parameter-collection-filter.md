@@ -18,6 +18,12 @@
 - `filter_json`: パラメータ集の検索条件を表すJSON文字列
     - `mode`: `"operation"` または `"host"` などの表示モード
     - `operation` / `mainOperation`: 対象オペレーションのUUID
-    - `host`: 対象ホストのUUID一覧
-    - `parameter`: 対象パラメータ項目のUUID一覧
+    - `host`: 対象ホストのID一覧(ホストの `managed_system_item_number`)
+    - `parameter`: 対象パラメータシートのID一覧(パラメータシートの `menu_id`)
+        - パラメータ集はパラメータシート単位で選択します。シート内の項目(カラム)のIDではありません。
+    - `operation` / `host` / `parameter` には、パラメータ集の画面で選択できる値だけを指定してください。画面に存在しないIDを指定しても、エラーにはならず、画面上では無視されます。
 - 更新時は `uuid` と `last_update_date_time` に `get-parameter-collection-filter` で取得した値を指定する
+
+#### 返却値
+
+- `uuid`: 登録・更新したプリセットのUUID。新規登録では登録後に一覧から `filter_name` で特定します。特定できなかった場合は含まれません。

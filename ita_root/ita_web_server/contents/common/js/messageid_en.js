@@ -1563,6 +1563,7 @@ export function messageid_en() {
         'FTE14445': 'Check Conductor',
         'FTE14447': 'Lock view position',
         'FTE14448': 'Drag to resize (double-click to fit)',
+        'FTE14449': 'The previous response only thought internally and output neither body text visible to the user nor a tool call. What you think is not shown to the user. Always write your answer or explanation for the user as body text, and call a tool if needed.',
 
         //gemini
         'FTE14101': 'API KEY',

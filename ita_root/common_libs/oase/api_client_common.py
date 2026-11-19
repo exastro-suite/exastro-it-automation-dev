@@ -17,7 +17,7 @@ from flask import g
 import requests
 import json
 from urllib.parse import urlparse
-from jinja2 import Template
+from jinja2.sandbox import SandboxedEnvironment
 import datetime
 import time
 import copy
@@ -26,6 +26,10 @@ import jmespath
 
 from common_libs.common.exception import AppException
 from common_libs.common.ssl_verify import is_ssl_verify_enabled, log_cert_verify_error, ENV_EVENT_COLLECTION
+
+# SSTI対策: ユーザー入力のテンプレートはサンドボックス化されたJinja2環境でレンダリングする
+_sandbox_env = SandboxedEnvironment()
+
 
 class APIClientCommon:
     """
@@ -113,7 +117,7 @@ class APIClientCommon:
             return setting_temaplte
 
         try:
-            template = Template(str(setting_temaplte))
+            template = _sandbox_env.from_string(str(setting_temaplte))
 
             res = template.render(
                 EXASTRO_LAST_FETCHED_EVENT_IS_EXIST=True if self.last_fetched_event else False,  # （最新）前回取得イベントの存在フラグ

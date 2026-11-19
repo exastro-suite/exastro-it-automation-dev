@@ -14,8 +14,13 @@
 
 from flask import g
 import json
-import jinja2
+from jinja2.sandbox import SandboxedEnvironment
+from jinja2.exceptions import SecurityError
+from common_libs.notification.validator import has_unsafe_jinja2_access
 import re
+
+# SSTI対策: 保存時点でも危険な属性アクセスを検知できるようサンドボックス化された環境を使う
+_sandbox_env = SandboxedEnvironment()
 
 # メニュー「イベント収集」設定のバリデーション
 
@@ -120,7 +125,7 @@ def agent_setting_valid(objdbca, objtable, option):
                 if is_use_jinja2_variable(entry_parameter['request_header']) is True:
                     # jinja2の形式として問題無いか確認する
                     if not is_jinja2_template(entry_parameter['request_header']):
-                        msg.append(g.appmsg.get_api_message("499-01815", [objtable["COLINFO"]["request_header"]["COLUMN_NAME_{}".format(LANG)]]))
+                        msg.append(g.appmsg.get_api_message("MSG-120014", [connection_method_name, objtable["COLINFO"]["request_header"]["COLUMN_NAME_{}".format(LANG)]]))
                 else:
                     # JSON形式チェック
                     if not isJsonFormat(entry_parameter['request_header']):
@@ -130,7 +135,7 @@ def agent_setting_valid(objdbca, objtable, option):
                 if is_use_jinja2_variable(entry_parameter['parameter']) is True:
                     # jinja2の形式チェック
                     if not is_jinja2_template(entry_parameter['parameter']):
-                        msg.append(g.appmsg.get_api_message("499-01815", [objtable["COLINFO"]["parameter"]["COLUMN_NAME_{}".format(LANG)]]))
+                        msg.append(g.appmsg.get_api_message("MSG-120014", [connection_method_name, objtable["COLINFO"]["parameter"]["COLUMN_NAME_{}".format(LANG)]]))
                 else:
                     # JSON形式チェック
                     if not isJsonFormat(entry_parameter['parameter']):
@@ -212,7 +217,7 @@ def is_use_jinja2_variable(template_data_decoded):
 
 
 def is_jinja2_template(template_data_decoded):
-    """jinja2のテンプレートとして問題無いかチェックする。
+    """jinja2のテンプレートとして問題無いか（構文エラー・SSTIにつながる危険な属性アクセス）をチェックする。
 
     Args:
         template_data_decoded (str): 評価する文字列
@@ -221,8 +226,23 @@ def is_jinja2_template(template_data_decoded):
     """
 
     try:
-        jinja2.Template(template_data_decoded)
+        template_ast = _sandbox_env.parse(template_data_decoded)
+        template = _sandbox_env.from_string(template_data_decoded)
     except Exception:
+        # 構文エラー(TemplateSyntaxError)のほか、None等の不正な入力で発生する例外も不正として扱う
         return False
+
+    # 静的検査: 評価の成否に依存せず、危険な属性アクセスを含む式を検出する
+    if has_unsafe_jinja2_access(template_ast):
+        return False
+
+    try:
+        # 保存時点では予約変数の値が無いためコンテキスト無しでrenderし、SecurityErrorのみを不正とみなす
+        template.render()
+    except SecurityError:
+        return False
+    except Exception:
+        # 未定義変数によるUndefinedError等は保存時点では想定内のため許容する
+        pass
 
     return True

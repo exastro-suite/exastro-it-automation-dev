@@ -511,7 +511,7 @@ def decompress_tar_file(organization_id, workspace_id, driver_id, dir_path, file
 
     # in,outのtarファイルを展開
     with tarfile.open(dir_path + file_name, 'r:gz') as tar:
-        tar.extractall(path=tar_path)
+        safe_extractall_tar(tar, tar_path)  # noqa: F405
 
     # 展開したファイルの一覧を取得
     lst = os.listdir(tar_path)

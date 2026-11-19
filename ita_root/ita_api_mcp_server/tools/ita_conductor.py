@@ -345,7 +345,7 @@ def tool_update_conductor(arguments: dict, payload: dict) -> dict:
         "properties": {
             "menu": {
                 "type": "string",
-                "description": "Menu name (REST name). Normally 'execution_list' or 'conductor_class_edit'."
+                "description": "Menu name (REST name). Normally 'conductor_class_edit'."
             },
             "conductor_class_name": {
                 "type": "string",
@@ -483,7 +483,7 @@ def tool_execute_conductor(arguments: dict, payload: dict) -> dict:
         "properties": {
             "menu": {
                 "type": "string",
-                "description": "Menu name (REST name). Normally 'execution_list' or 'conductor_class_edit'."
+                "description": "Menu name (REST name). Normally 'conductor_confirmation'."
             },
             "conductor_instance_id": {
                 "type": "string",
@@ -698,7 +698,7 @@ def tool_get_conductor_class(arguments: dict, payload: dict) -> dict:
         "properties": {
             "menu": {
                 "type": "string",
-                "description": "Menu name (REST name). Normally 'execution_list' or 'conductor_class_edit'."
+                "description": "Menu name (REST name). Normally 'conductor_list'."
             },
             "conductor_instance_id": {
                 "type": "string",
@@ -819,7 +819,7 @@ def tool_get_conductor_input_data(arguments: dict, payload: dict) -> dict:
         "properties": {
             "menu": {
                 "type": "string",
-                "description": "Menu name (REST name). Normally 'execution_list' or 'conductor_class_edit'."
+                "description": "Menu name (REST name). Normally 'conductor_list'."
             },
             "conductor_instance_id": {
                 "type": "string",

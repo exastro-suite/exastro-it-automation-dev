@@ -298,7 +298,8 @@ static get uiToolClasses() {
     return [
         AiAssistantToolAskUserChoice,
         AiAssistantToolDisplayHtml,
-        AiAssistantToolDownloadAttachmentFile
+        AiAssistantToolDownloadAttachmentFile,
+        AiAssistantToolShowConductorClass
     ];
 }
 initUiTools() {
@@ -451,7 +452,7 @@ async executeTool( toolUse, runningEl = null, signal = null ) {
         const progressOutcome = await this.watchDriverProgress( toolUse, toolResult, runningEl );
         // Conductor実行ツールなら Conductor の進捗を表示し、完了まで待機する
         const conductorOutcome = await this.watchConductorProgress( toolUse, toolResult, runningEl );
-        // Conductor構成取得ツールなら、構成（閲覧モード）を表示する（待機は不要）
+        // Conductor作成・更新ツールなら、構成（閲覧モード）を表示する（待機は不要）
         this.watchConductorClassPreview( toolUse, toolResult, runningEl );
 
         // 最終ステータスが取れた場合は tool_result に反映する。
@@ -564,13 +565,19 @@ static get UPDATE_MENU_TOOLS() {
         'create-menu': ( args ) => ({
             menuNameRest: args?.menu_definition?.menu?.menu_name_rest ?? '',
             label: args?.menu_definition?.menu?.menu_name ?? args?.menu_definition?.menu?.menu_name_rest ?? ''
+        }),
+        // パラメーター集のプリセット（検索条件）の登録/更新。uuid は結果（新規）か引数（更新）から得る。
+        'register-parameter-collection-filter': ( args ) => ({
+            menuNameRest: 'parameter_collection',
+            label: args?.filter_name ?? 'parameter_collection'
         })
     };
 }
 // 更新先メニューを（menu_name_rest をキーに）このターン分として控える共通処理。
 // 同一メニューへの複数操作は1リンクに集約する（表示名・IDリストは後勝ちで更新）。
 // idList: maintenance-all で登録・更新されたレコードの uuid 群（絞り込み用、無ければ空）。
-_addUpdatedMenu( name, args, idList = [] ) {
+// presetId: パラメーター集のプリセットの uuid（?preset= でプリセットを開くために使う、無ければ空）。
+_addUpdatedMenu( name, args, idList = [], presetId = '') {
     const extractor = AiAssistantChat.UPDATE_MENU_TOOLS[ name ];
     if ( !extractor ) return;
     const { menuNameRest, label } = extractor( args ?? {} );
@@ -579,7 +586,8 @@ _addUpdatedMenu( name, args, idList = [] ) {
     this._turnUpdatedMenus.set( menuNameRest, {
         menuNameRest,
         label: label || menuNameRest,
-        idList: Array.isArray( idList ) ? idList : []
+        idList: Array.isArray( idList ) ? idList : [],
+        presetId: ( typeof presetId === 'string')? presetId: ''
     });
 }
 // tool_result（JSON-RPC の structuredContent 等）から登録・更新レコードの uuid 群を取り出す。
@@ -598,6 +606,13 @@ _extractIdList( node, depth = 0 ) {
     }
     return [];
 }
+// プリセット登録・更新ツールの結果から、プリセットの uuid を取り出す。
+// 新規登録は結果の uuid、更新は引数の uuid を使う。対象外のツールや取得できない場合は空文字。
+_extractPresetId( args, structured, name = '') {
+    if ( name !== 'register-parameter-collection-filter') return '';
+    const id = structured?.uuid || args?.uuid;
+    return ( typeof id === 'string')? id.trim(): '';
+}
 // ツール実行結果（ライブ）が ITA ページの更新なら、更新先メニューを控える。
 // エラー応答（isError）や menu_name_rest 不明のものは対象外。
 collectUpdatedMenu( toolUse, toolResult ) {
@@ -608,7 +623,8 @@ collectUpdatedMenu( toolUse, toolResult ) {
     const structured = toolResult?.result?.structuredContent ?? {};
     if ( structured.isError === true || toolResult?.result?.isError === true ) return;
 
-    this._addUpdatedMenu( name, toolUse.arguments ?? toolUse.input, this._extractIdList( structured ) );
+    const args = toolUse.arguments ?? toolUse.input;
+    this._addUpdatedMenu( name, args, this._extractIdList( structured ), this._extractPresetId( args, structured, name ) );
 }
 // 履歴（保存済み tool_use / tool_result）から更新先メニューを控える（再開時用）。
 // tool_result.content は executeTool で JSON文字列化されているためパースして判定する。
@@ -625,7 +641,8 @@ collectUpdatedMenuFromHistory( toolUse, toolResult ) {
     const structured = parsed?.result?.structuredContent ?? {};
     if ( structured.isError === true || parsed?.result?.isError === true ) return;
 
-    this._addUpdatedMenu( name, toolUse.arguments ?? toolUse.input, this._extractIdList( structured ) );
+    const args = toolUse.arguments ?? toolUse.input;
+    this._addUpdatedMenu( name, args, this._extractIdList( structured ), this._extractPresetId( args, structured, name ) );
 }
 /*
 ##################################################
@@ -652,12 +669,16 @@ async getMenuPkRest( menuNameRest ) {
 // ITA本体（トップ画面）は ?menu=<menu_name_rest> でメニューを切り替えるため、
 // 現在のトップ画面のパスに menu パラメータを付与した絶対URLを返す。
 // filter を渡すと ITA のフィルター形式（{ 列: { LIST: [...] } }）を &filter= に付与する。
-buildMenuUrl( menuNameRest, filter = null ) {
+// preset を渡すと、パラメーター集で開くプリセットの uuid を &preset= に付与する。
+buildMenuUrl( menuNameRest, filter = null, preset = '') {
     const base = `${top.location.origin}${top.location.pathname}`;
     let url = `${base}?menu=${encodeURIComponent( menuNameRest )}`;
     if ( filter ) {
         // fn.filterEncode = encodeURIComponent( JSON.stringify( filter ) )
         url += `&filter=${fn.filterEncode( filter )}`;
+    }
+    if ( preset ) {
+        url += `&preset=${encodeURIComponent( preset )}`;
     }
     return url;
 }
@@ -681,14 +702,14 @@ renderUpdatedMenuLinks( scroll = true ) {
 
     const list = document.createElement('ul');
     list.classList.add('aiAssistantUpdatedMenusList');
-    for ( const { menuNameRest, label, idList } of menus.values() ) {
+    for ( const { menuNameRest, label, idList, presetId } of menus.values() ) {
         const item = document.createElement('li');
         item.classList.add('aiAssistantUpdatedMenusItem');
 
         const a = document.createElement('a');
         a.classList.add('aiAssistantUpdatedMenusLink');
         // まずはフィルター無しの基本URLを設定しておく（主キー取得失敗時のフォールバック）。
-        a.href = this.buildMenuUrl( menuNameRest );
+        a.href = this.buildMenuUrl( menuNameRest, null, presetId );
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
         a.innerText = label || menuNameRest;
@@ -2453,6 +2474,10 @@ async _runResponseLoop( ctx ) {
     // 再送カウンタ。分割して出力し直すよう促して再送する（無限ループ防止のため上限を設ける）。
     let maxTokensRetries = 0;
     const maxMaxTokensRetries = 2;
+    // 応答が thinking だけで、表示する本文（text）もツール呼び出し（tool_use）も無かったときの
+    // 再送カウンタ。本文で回答するよう促して再送する（無限ループ防止のため上限を設ける）。
+    let emptyResponseRetries = 0;
+    const maxEmptyResponseRetries = 2;
     // 再送時の待機表示に出す文言。処理が止まったように見せないため、
     // 次のループ先頭の待機スピナーへ「再試行中」である旨を伝える。null のときは通常の「思考中」。
     let waitMessage = null;
@@ -2471,6 +2496,8 @@ async _runResponseLoop( ctx ) {
     // 最初の送信を「継続」（新規 user を積まず、既存履歴末尾へ alreadyPushed で送る）にするか。
     // 中断後の自動継続や、ツール結果を先に履歴へ確定させた後の再送で true になる。
     let alreadyPushedNext = ( ctx.continuation === true );
+    // 次の送信が、応答の崩れを正すための是正指示（再送）か。履歴に目印を付け、復元時に吹き出しにしない。
+    let correctiveNext = false;
     for ( let i = 0; i < maxAttempts; i++ ) {
         // アシスタント待機中表示（再送中は文言を差し替えて「再試行中」であることを伝える）
         this.updateChat({ role: 'assistantWait', text: waitMessage });
@@ -2479,6 +2506,8 @@ async _runResponseLoop( ctx ) {
         // この回の送信を継続送信（再push抑止）にするか
         const alreadyPushed = alreadyPushedNext;
         alreadyPushedNext = false;
+        const corrective = correctiveNext;
+        correctiveNext = false;
 
         // LLMにメッセージ送信（ファイルは初回のユーザメッセージ時のみ渡す）
         if ( signal.aborted ) {
@@ -2499,6 +2528,7 @@ async _runResponseLoop( ctx ) {
             response = await llm.send( sendPayload, sendFiles, signal, {
                 ...( sendOptions || {} ),
                 alreadyPushed,
+                corrective,
                 onTimeout: ( status, param ) => this.openTimeoutRetryDialog( status, param )
             });
         } catch ( error ) {
@@ -2548,6 +2578,7 @@ async _runResponseLoop( ctx ) {
                 sendPayload = ( truncatedToolUse )
                     ? getMessage.FTE14278
                     : getMessage.FTE14279;
+                correctiveNext = true;
                 continue;
             }
             // 再送上限に達した：ユーザに状況と対処を伝えてループを終了する。
@@ -2557,6 +2588,36 @@ async _runResponseLoop( ctx ) {
             this.updateChat({ role: 'assistant', text: overMessage });
             maxAttemptsFlag = false;
             errorFlag = true;
+            break;
+        }
+
+        // 応答が thinking だけ（または空）で、表示する本文もツール呼び出しも無かった。
+        // そのまま正常完了として扱うと、画面には何も出ずに待機表示（思考中）だけが残り、
+        // ユーザーには止まったように見える。ユーザーへの説明を thinking の中だけで済ませてしまう
+        // ケースで起こるため、そのターンを履歴から取り除き、本文で回答するよう促して再送する。
+        const hasVisibleOutput = ( response.content ?? [] ).some(( block ) =>
+            block.type === 'tool_use' ||
+            ( block.type === 'text' && typeof block.text === 'string' && block.text.trim() !== '')
+        );
+        if ( !hasVisibleOutput ) {
+            // 中身の無いターンは会話として意味が無く、残すと次の送信でも同じ振る舞いを誘発しやすいため取り除く
+            this._popLastAssistantTurn( llm );
+            if ( emptyResponseRetries < maxEmptyResponseRetries ) {
+                emptyResponseRetries++;
+                console.warn(`応答に本文・ツール呼び出しがありませんでした（stop_reason: ${response.stop_reason}）。本文での回答を促して再送します（${emptyResponseRetries}/${maxEmptyResponseRetries}）。`);
+                waitMessage = getMessage.FTE14281( emptyResponseRetries, maxEmptyResponseRetries );
+                sendPayload = getMessage.FTE14449;
+                correctiveNext = true;
+                continue;
+            }
+            // 再送上限に達した：ユーザに状況を伝えてループを終了する。
+            console.error('本文・ツール呼び出しの無い応答が規定回を超えて解消しませんでした。');
+            this.updateChat({
+                role: 'assistant',
+                text: getMessage.FTE14283
+            });
+            errorFlag = true;
+            maxAttemptsFlag = false;
             break;
         }
 
@@ -2580,6 +2641,7 @@ async _runResponseLoop( ctx ) {
                 waitMessage = getMessage.FTE14281( invalidToolFormatRetries, maxInvalidToolFormatRetries );
                 // 是正指示を user メッセージとして返し、tool_use 機能での呼び出し直しを促す。
                 sendPayload = getMessage.FTE14282;
+                correctiveNext = true;
                 continue;
             }
             // 再送上限に達した：ユーザに状況を伝えてループを終了する（壊れたタグは表示しない）。
@@ -2611,6 +2673,7 @@ async _runResponseLoop( ctx ) {
                 waitMessage = getMessage.FTE14281( invalidToolFormatRetries, maxInvalidToolFormatRetries );
                 // 是正指示を user メッセージとして返し、正しい形式での呼び出し直しを促す。
                 sendPayload = getMessage.FTE14284;
+                correctiveNext = true;
                 continue;
             }
             // 再送上限に達した：可能な範囲で救済（mergeChoiceBlocks）して表示し、行き止まりを避ける。
@@ -2802,6 +2865,13 @@ async _runResponseLoop( ctx ) {
         }
     }
 
+    // 待機中／ツール実行中の表示を必ず消す。通常は次の吹き出しの表示（updateChat）で消えるが、
+    // 何も表示せずにターンが終わった場合に「思考中」のまま残らないよう、終了のたびに片付ける。
+    // （Conductorの進捗表示などターン後も残す要素は、ローディングclassを外してあるため対象外）
+    this.elements.chatList
+        ?.querySelectorAll('.aiAssistantChatItemLoading')
+        .forEach(( item ) => item.remove() );
+
     // 応答完了
     this.isRunning = false;
     this.elements.body.classList.remove('exchangingMessages');
@@ -2932,9 +3002,6 @@ async watchConductorProgress( toolUse, toolResult, runningEl ) {
 
     // 進捗表示に置き換えるので、ローディングclassをremove（次の吹き出し表示で消されないように）
     runningEl?.classList.remove('aiAssistantChatItemLoading');
-
-    // 実行に必要な定義を取るための get-conductor-class のプレビューは、実行画面と重複するため取り除く
-    this.removeConductorClassPreviewBefore( toolUse, runningEl );
 
     // Conductor表示
     const progress = this.conductorProgressElement( instanceId );
@@ -3226,11 +3293,11 @@ async renderConductorProgress( bodyEl, instanceId, mode = 'confirmation', menu =
 }
 /*
 ##################################################
-    Conductor構成プレビュー（get-conductor-class）
+    Conductor構成プレビュー（create/update-conductor・画面専用ツール show_conductor_class）
 ##################################################
 */
-// Conductorの構成を表示するツール（構成の取得・作成・更新）
-static CONDUCTOR_CLASS_TOOLS = ['get-conductor-class', 'create-conductor', 'update-conductor'];
+// Conductorの構成を自動表示するMCPツール（作成・更新）。get-conductor-class は表示しない
+static CONDUCTOR_CLASS_TOOLS = ['create-conductor', 'update-conductor'];
 // 構成の確認に使うメニュー（REST名）
 static CONDUCTOR_CLASS_MENU = 'conductor_class_edit';
 // conductor_class_id を取り出す。引数にあればそれを、無ければ（create-conductor など）結果から探す。
@@ -3243,7 +3310,7 @@ _conductorClassIdFromToolUse( toolUse, toolResult ) {
     return ( id === undefined || id === null )? '': String( id );
 }
 // Conductor構成プレビューのHTML（上部に Conductor確認 / 全体表示 ボタン）
-conductorPreviewElement( classId, toolName = '') {
+conductorPreviewElement( classId ) {
     const menu = {
         Main: [
             { html: {
@@ -3260,8 +3327,6 @@ conductorPreviewElement( classId, toolName = '') {
     };
     const preview = document.createElement('div');
     preview.className = 'conductorProgressArea';
-    preview.dataset.previewTool = toolName;
-    preview.dataset.classId = classId;
     preview.innerHTML = `
     ${fn.html.operationMenu( menu )}
     <div class="conductorProgressFrame">
@@ -3271,7 +3336,7 @@ conductorPreviewElement( classId, toolName = '') {
     ${this.conductorResizeBarHtml()}`;
     return preview;
 }
-// get/create/update-conductor の結果から構成（閲覧モード）を表示する。対象外や失敗時は何もしない。
+// create/update-conductor の結果から構成（閲覧モード）を表示する。対象外や失敗時は何もしない。
 watchConductorClassPreview( toolUse, toolResult, runningEl ) {
     if ( !AiAssistantChat.CONDUCTOR_CLASS_TOOLS.includes( toolUse.name )) return;
     const structured = toolResult?.result?.structuredContent ?? {};
@@ -3280,39 +3345,11 @@ watchConductorClassPreview( toolUse, toolResult, runningEl ) {
     if ( !classId || !runningEl ) return;
 
     runningEl.classList.remove('aiAssistantChatItemLoading');
-    const preview = this.conductorPreviewElement( classId, toolUse.name );
+    const preview = this.conductorPreviewElement( classId );
     runningEl.querySelector('.aiAssistantChatAssistantMessageInner')?.replaceChildren( preview );
     this.renderConductorProgress( preview.querySelector('.conductorProgressBody'), classId, 'view', AiAssistantChat.CONDUCTOR_CLASS_MENU );
 }
-// execute-conductor の直前に表示した get-conductor-class のプレビューを取り除く。
-// 実行には定義（Setting）が必要なため LLM は実行前に get-conductor-class を呼ぶが、
-// そのプレビューと実行画面が並んで同じConductorが2つ表示されてしまうため。
-// ユーザ発言より前（ユーザが閲覧を依頼して表示したもの）は残す。
-// beforeEl … 実行画面の吹き出し（その手前から探す）。null ならチャット欄の末尾から探す。
-removeConductorClassPreviewBefore( toolUse, beforeEl ) {
-    const list = this.elements.chatList;
-    if ( !list ) return;
-    const args = toolUse?.arguments ?? toolUse?.input ?? {};
-    const classId = String( args.conductor_class_id ?? args.conductor_data?.conductor?.id ?? '');
-
-    let item = ( beforeEl && beforeEl.parentElement === list )? beforeEl.previousElementSibling: list.lastElementChild;
-    for ( ; item; item = item.previousElementSibling ) {
-        if ( item.classList.contains('aiAssistantChatUserMessage')) return;
-        const preview = item.querySelector(':scope > .aiAssistantChatAssistantMessageInner > .conductorProgressArea[data-preview-tool="get-conductor-class"]');
-        if ( !preview ) continue;
-        if ( classId !== '' && preview.dataset.classId !== classId ) continue;
-
-        const next = item.nextElementSibling;
-        item.remove();
-        // 取り除いた後の並びに合わせて、次の吹き出しの連続クラスを付け直す
-        if ( next?.classList.contains('aiAssistantChatAssistantMessage')) {
-            const prev = next.previousElementSibling;
-            next.classList.toggle('aiAssistantChatAssistantMessageChain', !!prev?.classList.contains('aiAssistantChatAssistantMessage'));
-        }
-        return;
-    }
-}
-// 履歴復元時に get-conductor-class のConductor構成を再描画する。
+// 履歴復元時に create/update-conductor のConductor構成を再描画する。
 resumeConductorClassPreview( toolUse, toolResult ) {
     if ( !AiAssistantChat.CONDUCTOR_CLASS_TOOLS.includes( toolUse.name )) return;
     const parsed = this.parseToolResultContent( toolResult );
@@ -3320,9 +3357,13 @@ resumeConductorClassPreview( toolUse, toolResult ) {
     if ( !parsed || structured.isError === true || parsed?.result?.isError === true ) return;
     const classId = this._conductorClassIdFromToolUse( toolUse, parsed );
     if ( !classId ) return;
-
+    this.appendConductorClassPreview( classId );
+}
+// Conductor構成（閲覧モード）の吹き出しをチャット欄の末尾に追加する。
+// 履歴復元と、画面専用ツール show_conductor_class で共用する。
+appendConductorClassPreview( classId ) {
     const el = this.createAssistantMessageElement('', false );
-    const preview = this.conductorPreviewElement( classId, toolUse.name );
+    const preview = this.conductorPreviewElement( classId );
     el.querySelector('.aiAssistantChatAssistantMessageInner').replaceChildren( preview );
     const prevItem = this.elements.chatList.lastElementChild;
     if ( prevItem?.classList.contains('aiAssistantChatAssistantMessage')) {
@@ -3330,6 +3371,7 @@ resumeConductorClassPreview( toolUse, toolResult ) {
     }
     this.elements.chatList.append( el );
     this.renderConductorProgress( preview.querySelector('.conductorProgressBody'), classId, 'view', AiAssistantChat.CONDUCTOR_CLASS_MENU );
+    return el;
 }
 // Conductor確認（conductor_class_edit をモーダルで表示）
 async conductorClassOpen( button ) {
@@ -3458,7 +3500,6 @@ resumeConductorExecution( toolUse, toolResult ) {
     if ( !instanceId ) {
         // tool_result がコンテキスト上限で省略されていた場合は、実行画面を復元できない旨を表示する
         if ( this.isToolResultOmitted( toolResult )) {
-            this.removeConductorClassPreviewBefore( toolUse, null );
             const omittedEl = this.createAssistantMessageElement( getMessage.FTE14374, false );
             const prev = this.elements.chatList.lastElementChild;
             if ( prev?.classList.contains('aiAssistantChatAssistantMessage')) {
@@ -3468,9 +3509,6 @@ resumeConductorExecution( toolUse, toolResult ) {
         }
         return;
     }
-
-    // 実行直前の get-conductor-class のプレビューは、実行時と同じく取り除く
-    this.removeConductorClassPreviewBefore( toolUse, null );
 
     const el = this.createAssistantMessageElement('', false );
     const progress = this.conductorProgressElement( instanceId );
@@ -4102,6 +4140,8 @@ _renderChatHistory( history ) {
         // 分裂した選択肢には同じ user ターン内に複数の tool_result を返しているため、
         // 回答の吹き出しは1ターンにつき1つだけ表示する（残りはまとめて処理済みの応答）。
         let choiceAnswerShown = false;
+        // 画面側が自動で送った是正指示（再送）はユーザーの発言ではないため、吹き出しにしない
+        if ( block.role === 'user' && block._corrective === true ) continue;
         if ( fn.typeof( content ) === 'array' && block.role ) {
             for ( const [ itemIndex, item ] of content.entries() ) {
                 const type = item.type;
@@ -4153,7 +4193,7 @@ _renderChatHistory( history ) {
                         this.resumeDriverExecution( item, toolResultMap.get( item.id ));
                         // execute-conductor は Conductor の進捗表示を復元する
                         this.resumeConductorExecution( item, toolResultMap.get( item.id ));
-                        // get-conductor-class は Conductor の構成を復元する
+                        // create/update-conductor は Conductor の構成を復元する
                         this.resumeConductorClassPreview( item, toolResultMap.get( item.id ));
                         // maintenance-all / create-menu なら更新先メニューを控える
                         this.collectUpdatedMenuFromHistory( item, toolResultMap.get( item.id ));
@@ -5599,6 +5639,8 @@ buildTranscript( history, maxLength = 8000, options = {} ) {
     for ( const turn of history ) {
         // システム操作（会話終了など）の指示文は学習事項のノイズになるため除外する
         if ( turn?._displaySystem === true ) continue;
+        // 画面側が自動で送った是正指示（再送）も会話の内容ではないため除外する
+        if ( turn?._corrective === true ) continue;
         if ( !Array.isArray( turn?.content ) ) continue;
         const roleLabel = ( turn.role === 'assistant')? getMessage.FTE14352: getMessage.FTE14353;
         for ( const [ blockIndex, block ] of turn.content.entries() ) {

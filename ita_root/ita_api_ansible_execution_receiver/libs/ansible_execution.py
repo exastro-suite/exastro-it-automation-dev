@@ -500,7 +500,7 @@ def update_result(objdbca, organization_id, workspace_id, execution_no, paramete
                     os.makedirs(tmp_path + file_key, exist_ok=True)
                     os.listdir(os.path.dirname(record_file_paths.rstrip('/')))  # NFSストレージ対策：属性キャッシュ更新を試みる コピー元のみ(コピー先はこの場合無いこともある)
                     with tarfile.open(record_file_paths, 'r:gz') as tar:
-                        tar.extractall(path=tmp_path + file_key)
+                        safe_extractall_tar(tar, tmp_path + file_key)  # noqa: F405
                     g.applogger.debug(f"tarfile.open({record_file_paths}, 'r:gz'):  tar.extractall({tmp_path + file_key})")
                     return True
                 except Exception as e:

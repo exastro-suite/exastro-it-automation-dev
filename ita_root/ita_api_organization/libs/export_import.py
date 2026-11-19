@@ -1010,9 +1010,33 @@ def _format_loadtable_msg(loadtable_msg):
 
     return result_msg
 
+def find_unsafe_zip_members(names, dest_real):
+    """
+        zipのメンバ名のうち、展開先の外に出る不正なものを検出する (Zip Slip対策)
+        検出したメンバは警告ログに出力する
+
+        args:
+            names: メンバ名のリスト (文字コード変換後)
+            dest_real: 展開先ディレクトリの実パス
+
+        return:
+            不正なメンバ名の集合
+    """
+    unsafe = set()
+    for name in names:
+        try:
+            check_zip_member_name(name, dest_real)  # noqa: F405
+        except ValueError as e:
+            unsafe.add(name)
+            g.applogger.warning("Zip Slip detected. skipped unsafe zip entry. entry={}, reason={}, organization_id={}, workspace_id={}, user_id={}".format(
+                repr(name), e, g.get('ORGANIZATION_ID'), g.get('WORKSPACE_ID'), g.get('USER_ID')))
+    return unsafe
+
+
 def unzip_file(fileName, tmp_dir_path, upload_id):
     """
         zipファイルを解凍する
+        展開先の外に出る不正なメンバは展開せず(スキップ)、警告ログを出力する (Zip Slip対策)
 
         args:
             fileName: ファイル名
@@ -1022,10 +1046,17 @@ def unzip_file(fileName, tmp_dir_path, upload_id):
 
     try:
         with zipfile.ZipFile(tmp_dir_path + "/" + fileName) as z:
-            for info in z.infolist():
+            dest_real = os.path.realpath(tmp_dir_path + "/" + upload_id)
+            infos = z.infolist()
+            for info in infos:
                 info.filename = info.orig_filename.encode('cp437').decode('cp932')
                 if os.sep != "/" and os.sep in info.filename:
                     info.filename = info.filename.replace(os.sep, "/")
+            # 展開前に、(文字コード変換後の)メンバ名を全て検証し、不正なメンバは除外する
+            unsafe = find_unsafe_zip_members([info.filename for info in infos], dest_real)
+            for info in infos:
+                if info.filename in unsafe:
+                    continue
                 z.extract(info, path=tmp_dir_path + "/" + upload_id)
 
     except Exception as e:
@@ -1037,6 +1068,7 @@ def unzip_file(fileName, tmp_dir_path, upload_id):
 def unzip_file_cmd(fileName, tmp_dir_path, upload_id):
     """
         zipファイルを解凍する(コマンド)
+        展開先の外に出る不正なメンバは展開せず(unzip -x で除外)、警告ログを出力する (Zip Slip対策)
 
         args:
             fileName: ファイル名
@@ -1046,7 +1078,22 @@ def unzip_file_cmd(fileName, tmp_dir_path, upload_id):
     # tmp配下で解凍する
     to_path = tmp_dir_path + "/" + upload_id
     from_path = tmp_dir_path + "/" + fileName
+    exclude = []
+    try:
+        dest_real = os.path.realpath(to_path)
+        with zipfile.ZipFile(from_path) as z:
+            unsafe = find_unsafe_zip_members(z.namelist(), dest_real)
+        # unzipのワイルドカード文字をエスケープして除外対象に指定する
+        for name in sorted(unsafe):
+            exclude.append(re.sub(r'([\\*?\[])', r'\\\1', name))
+    except Exception as e:
+        g.applogger.info("unzip_file_cmd skipped. unreadable zip. file={}".format(from_path))
+        print_exception_msg(e)
+        return
+
     cmd = ["unzip", "-d", to_path, from_path]
+    if exclude:
+        cmd += ["-x"] + exclude
     cp = subprocess.run(cmd, capture_output=True, text=True)
 
     return
@@ -2078,7 +2125,7 @@ def _check_zip_file(upload_id, organization_id, workspace_id):
                 # 展開対象のファイル名と一致すれば展開
                 if member_item_name in targetfile_list:
                     extract_memberAry.append(member_item)
-            tar.extractall(path=importPath_id, members=extract_memberAry)
+            safe_extractall_tar(tar, importPath_id, members=extract_memberAry)  # noqa: F405
     except Exception as e:
         trace_msg = traceback.format_exc()
         g.applogger.info("[timestamp={}] {}".format(str(get_iso_datetime()), arrange_stacktrace_format(trace_msg)))

@@ -60,7 +60,9 @@ class DummyObjDbca:
         # 　正常なjinja2
         ("Register", "1", "1", None, None, "token", None, None, '{ "key": "{{ header_var }}" }', None, True, []),
         #   不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "1", "1", None, None, "token", None, None, '{% if value %}True', None, False, ["499-01815"]),
+        ("Register", "1", "1", None, None, "token", None, None, '{% if value %}True', None, False, ["MSG-120014"]),
+        #   SSTI（サンドボックスで遮断される属性アクセスのチェーン）
+        ("Register", "1", "1", None, None, "token", None, None, "{\"key\": \"{{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }}\"}", None, False, ["MSG-120014"]),
         #   正常なJSON
         ("Register", "1", "1", None, None, "token", None, None, '{"key": "value"}', None, True, []),
         #   不正なJSON構文 (カンマ抜け)
@@ -73,7 +75,9 @@ class DummyObjDbca:
         #  正常なjinja2
         ("Register", "1", "1", None, None, "token", None, None, None, '{ "key": "{{ header_var }}" }', True, []),
         #  不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "1", "1", None, None, "token", None, None, None, '{% if value %}True', False, ["499-01815"]),
+        ("Register", "1", "1", None, None, "token", None, None, None, '{% if value %}True', False, ["MSG-120014"]),
+        #  SSTI（サンドボックスで遮断される属性アクセスのチェーン）
+        ("Register", "1", "1", None, None, "token", None, None, None, "{\"key\": \"{{ self.__init__.__globals__.__builtins__.__import__('os').popen('id').read() }}\"}", False, ["MSG-120014"]),
         #  正常なJSON
         ("Register", "1", "1", None, None, "token", None, None, None, '{"key": "value"}', True, []),
         #  不正なJSON構文 (カンマ抜け)
@@ -88,7 +92,7 @@ class DummyObjDbca:
         # 　正常なjinja2
         ("Register", "2", "1", "user", "pass", None, None, None, '{ "key": "{{ header_var }}" }', None, True, []),
         #   不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "2", "1", "user", "pass", None, None, None, '{% if value %}True', None, False, ["499-01815"]),
+        ("Register", "2", "1", "user", "pass", None, None, None, '{% if value %}True', None, False, ["MSG-120014"]),
         #   正常なJSON
         ("Register", "2", "1", "user", "pass", None, None, None, '{"key": "value"}', None, True, []),
         #   不正なJSON構文 (カンマ抜け)
@@ -101,7 +105,7 @@ class DummyObjDbca:
         #  正常なjinja2
         ("Register", "2", "1", "user", "pass", None, None, None, None, '{ "key": "{{ header_var }}" }', True, []),
         #  不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "2", "1", "user", "pass", None, None, None, None, '{% if value %}True', False, ["499-01815"]),
+        ("Register", "2", "1", "user", "pass", None, None, None, None, '{% if value %}True', False, ["MSG-120014"]),
         #  正常なJSON
         ("Register", "2", "1", "user", "pass", None, None, None, None, '{"key": "value"}', True, []),
         #  不正なJSON構文 (カンマ抜け)
@@ -116,7 +120,7 @@ class DummyObjDbca:
         # 　正常なjinja2
         ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", '{ "key": "{{ header_var }}" }', None, True, []),
         #   不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", '{% if value %}True', None, False, ["499-01815"]),
+        ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", '{% if value %}True', None, False, ["MSG-120014"]),
         #   正常なJSON
         ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", '{"key": "value"}', None, True, []),
         #   不正なJSON構文 (カンマ抜け)
@@ -129,7 +133,7 @@ class DummyObjDbca:
         #  正常なjinja2
         ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", None, '{ "key": "{{ header_var }}" }', True, []),
         #  不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", None, '{% if value %}True', False, ["499-01815"]),
+        ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", None, '{% if value %}True', False, ["MSG-120014"]),
         #  正常なJSON
         ("Register", "3", "1", None, None, None, "secret_access_key", "access_key_id", None, '{"key": "value"}', True, []),
         #  不正なJSON構文 (カンマ抜け)
@@ -144,7 +148,7 @@ class DummyObjDbca:
         # 　正常なjinja2
         ("Register", "5", "1", None, None, None, None, None, '{ "key": "{{ header_var }}" }', None, True, []),
         #   不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "5", "1", None, None, None, None, None, '{% if value %}True', None, False, ["499-01815"]),
+        ("Register", "5", "1", None, None, None, None, None, '{% if value %}True', None, False, ["MSG-120014"]),
         #   正常なJSON
         ("Register", "5", "1", None, None, None, None, None, '{"key": "value"}', None, True, []),
         #   不正なJSON構文 (カンマ抜け)
@@ -157,7 +161,7 @@ class DummyObjDbca:
         #  正常なjinja2
         ("Register", "5", "1", None, None, None, None, None, None, '{ "key": "{{ header_var }}" }', True, []),
         #  不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Register", "5", "1", None, None, None, None, None, None, '{% if value %}True', False, ["499-01815"]),
+        ("Register", "5", "1", None, None, None, None, None, None, '{% if value %}True', False, ["MSG-120014"]),
         #  正常なJSON
         ("Register", "5", "1", None, None, None, None, None, None, '{"key": "value"}', True, []),
         #  不正なJSON構文 (カンマ抜け)
@@ -173,7 +177,7 @@ class DummyObjDbca:
         #   正常なjinja2
         ("Update", "1", "1", None, None, "token", None, None, '{ "key": "{{ header_var }}" }', None, True, []),
         #   不正なjinja2構文 （制御構文の閉じタグがない）
-        ("Update", "1", "1", None, None, "token", None, None, '{% if value %}True', None, False, ["499-01815"]),
+        ("Update", "1", "1", None, None, "token", None, None, '{% if value %}True', None, False, ["MSG-120014"]),
 
         # 追加テスト
         #   正常なjinja2構文（「ドット（.）」が含まれる）
