@@ -42,7 +42,9 @@ check_auth_menu('menu_definition_and_creation') を実行している)、@tool
   - register-parameter-collection-filter : filter_name・filter_jsonを受け取り、
     「パラメーター集」メニューの検索条件を新規登録する。uuidと
     last_update_date_time(get-parameter-collection-filterで取得した値)を
-    指定した場合は、既存の検索条件を更新する。
+    指定した場合は、既存の検索条件を更新する。返値には登録・更新した検索条件の
+    uuidを含める(新規登録時は登録後に一覧からfilter_nameで特定する。特定できない
+    場合は含めない)。
   - delete-parameter-collection-filter : uuid(get-parameter-collection-filterで
     取得した値)を受け取り、「パラメーター集」メニューの検索条件を削除する。
 
@@ -106,7 +108,10 @@ tools, so that tools/list hides them from users who cannot access that menu.
     filter_json, and registers a new search condition on the "Parameter
     collection" menu. When uuid and last_update_date_time (as fetched via
     get-parameter-collection-filter) are given, the existing search
-    condition is updated instead.
+    condition is updated instead. The return value includes the uuid of the
+    registered/updated search condition (for a new registration it is looked
+    up from the list by filter_name after registering; omitted if it cannot
+    be identified).
   - delete-parameter-collection-filter : accepts uuid (as fetched via
     get-parameter-collection-filter), and deletes that search condition from
     the "Parameter collection" menu.
@@ -844,7 +849,11 @@ def tool_get_parameter_collection_filter(arguments: dict, payload: dict) -> dict
                 "type": "object",
                 "description": (
                     "Search condition. Pass the object form of the filter_json returned by "
-                    "`get-parameter-collection-filter` (a JSON string is also accepted)."
+                    "`get-parameter-collection-filter` (a JSON string is also accepted). "
+                    "Keys: tableDirection, mode ('operation' or 'host'), mainHost, operation (list of operation IDs), "
+                    "mainOperation, host (list of host IDs = managed_system_item_number), "
+                    "parameter (list of parameter SHEET IDs = menu_id; not column/item IDs). "
+                    "Only IDs selectable on the Parameter collection screen are valid; unknown IDs are silently ignored."
                 )
             },
             "last_update_date_time": {
@@ -884,6 +893,8 @@ def tool_register_parameter_collection_filter(arguments: dict, payload: dict) ->
         dict: 検索条件登録・更新結果
             - result: APIレスポンスの登録・更新件数(Register / Update 等)
               / the register/update counts returned by the API
+            - uuid (str): 登録・更新した検索条件のUUID(特定できた場合のみ)
+              / UUID of the registered/updated search condition (only when identified)
             - message (str): 処理結果メッセージ / result message
             - organization_id (str): オーガナイゼーションID / organization id
             - workspace_id (str): ワークスペースID / workspace id
@@ -956,14 +967,68 @@ def tool_register_parameter_collection_filter(arguments: dict, payload: dict) ->
         g.applogger.info("Failed to register parameter collection filter: {} - {}".format(req.status_code, req.text))
         raise HTTPException("register-parameter-collection-filter", req)
 
+    # 登録・更新した検索条件のUUIDを特定する
+    # 更新時は引数のuuidをそのまま使う。新規登録時はAPIがUUIDを返さないため、
+    # 一覧を取得してfilter_name(一意)が一致するものから特定する。
+    # Identify the UUID of the registered/updated search condition.
+    # On update, the uuid argument is used as-is. On a new registration the API does not
+    # return the UUID, so look it up from the list by filter_name (which is unique).
+    result_uuid = uuid
+    if not result_uuid:
+        result_uuid = _find_parameter_collection_filter_uuid(url, filter_name)
+
     # 正常時はAPIのレスポンスをそのまま結果として返す
     # On success, return the API response as the result
-    return {
+    response = {
         "result": req.json(),
         "message": "Parameter collection filter updated successfully." if uuid else "Parameter collection filter registered successfully.",
         "organization_id": organization_id,
         "workspace_id": workspace_id
     }
+    # UUIDを特定できた場合のみ返す(画面側でこの検索条件へのリンクを作るために使用する)
+    # Return the UUID only when it could be identified (used by the UI to build a link to this search condition)
+    if result_uuid:
+        response["uuid"] = result_uuid
+    return response
+
+
+def _find_parameter_collection_filter_uuid(url: str, filter_name: str) -> str:
+    """
+    検索条件の一覧を取得し、filter_nameが一致する検索条件のUUIDを返す
+
+    Fetch the list of search conditions and return the UUID of the one whose
+    filter_name matches.
+
+    登録自体は成功済みのため、ここでの失敗は例外にせず空文字列を返す。
+
+    The registration itself has already succeeded, so a failure here does not raise
+    and returns an empty string instead.
+
+    Parameters:
+        url (str): 検索条件のAPIのURL / URL of the search condition API
+        filter_name (str): 検索条件名 / name of the search condition
+
+    Returns:
+        str: UUID。特定できない場合は空文字列 / the UUID, or an empty string if not found
+    """
+    try:
+        req = requests.get(url, headers=build_forward_headers(method="GET"), timeout=get_downstream_timeout())
+        if req.status_code != 200:
+            g.applogger.info("Failed to look up parameter collection filter uuid: {} - {}".format(req.status_code, req.text))
+            return ""
+
+        body = req.json()
+        # {"data": [...]} 形式と、配列そのままの形式のどちらでも扱う
+        # Handle both the {"data": [...]} form and a bare list
+        items = body.get("data") if isinstance(body, dict) else body
+        if not isinstance(items, list):
+            return ""
+        for item in items:
+            if isinstance(item, dict) and item.get("filter_name") == filter_name:
+                return item.get("uuid") or ""
+    except Exception as e:
+        g.applogger.info("Failed to look up parameter collection filter uuid: {}".format(e))
+    return ""
 
 
 @tool(

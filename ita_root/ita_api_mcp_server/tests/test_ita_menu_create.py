@@ -811,6 +811,46 @@ class TestToolGetParameterCollectionFilter:
 
 
 class TestToolRegisterParameterCollectionFilter:
+    def test_register_new_returns_uuid_found_by_filter_name(self, mock_flask_g, requests_mock):
+        # 正常系: 新規登録時、一覧からfilter_nameが一致する検索条件のuuidが返ること
+        requests_mock.post(_parameter_collection_filter_url(), json={"data": {"Register": "1"}}, status_code=200)
+        requests_mock.get(_parameter_collection_filter_url(), json={"data": [
+            {"uuid": "uuid-other", "filter_name": "other"},
+            {"uuid": "uuid-new", "filter_name": "filter1"},
+        ]}, status_code=200)
+
+        result = menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": {}}, _payload()
+        )
+
+        assert result["uuid"] == "uuid-new"
+
+    def test_register_new_without_uuid_when_lookup_fails(self, mock_flask_g, requests_mock):
+        # 正常系: 登録後の一覧取得に失敗しても例外にならず、uuidは含まれないこと
+        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        requests_mock.get(_parameter_collection_filter_url(), text="boom", status_code=500)
+
+        result = menu_create_tool.tool_register_parameter_collection_filter(
+            {"filter_name": "filter1", "filter_json": {}}, _payload()
+        )
+
+        assert "uuid" not in result
+        assert result["message"] == "Parameter collection filter registered successfully."
+
+    def test_update_returns_given_uuid_without_lookup(self, mock_flask_g, requests_mock):
+        # 正常系: 更新時は引数のuuidをそのまま返し、一覧取得(GET)は行わないこと
+        post = requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        get = requests_mock.get(_parameter_collection_filter_url(), json={"data": []}, status_code=200)
+
+        result = menu_create_tool.tool_register_parameter_collection_filter(
+            {"uuid": "uuid-1", "filter_name": "filter1", "filter_json": {},
+             "last_update_date_time": "2026/01/01 00:00:00.000000"}, _payload()
+        )
+
+        assert result["uuid"] == "uuid-1"
+        assert post.called
+        assert not get.called
+
     def test_register_new_success(self, mock_flask_g, requests_mock):
         # 正常系: uuid未指定で新規登録が成功し、APIレスポンスがそのまま
         # resultに入り、message="...registered successfully."が返ること
