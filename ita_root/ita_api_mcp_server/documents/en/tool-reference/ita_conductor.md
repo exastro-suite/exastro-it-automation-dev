@@ -1,8 +1,17 @@
 # conductor tool reference
-Create and execute Movements that operate with ITA's various drivers in combinations that can pass through sequences, parallel execution, and conditional branches.
+Create and execute Movements that run on various ITA drivers through combinations of sequential, parallel, and conditional branching flows.
 
 ## general attention for conductor control
-When you want to refer to the contents of a Conductor, use the `get_conductor_class` tool to investigate the structure of the Conductor.
+When you want to reference the contents of a Conductor, use the tool `get_conductor_class` to investigate the Conductor's structure.
+
+## Attention for creating new conductor_data
+Prioritize these instructions over sample values for the following items:
+  - Set the contents of `config` as follows:
+    - edgeNumber: The total number of lines (elements containing `"type": "edge"`) in the Conductor plus 1
+    - nodeNumber: The total number of nodes (elements with keys like `"node-N"`) in the Conductor plus 1
+    - terminalNumber: The total number of terminals (elements containing `"type": "in"` or `"type": "out"`) in the Conductor plus 1
+  - Set the x-coordinate of each node as follows:
+    - Adjust the x-coordinate of the node to which each terminal belongs so that the x-coordinate of the `inTerminal` is the x-coordinate of the `outTerminal` set in each line plus 84.
 
 ## Minimal conductor_data Example
 ```json
@@ -1076,9 +1085,6 @@ When you want to refer to the contents of a Conductor, use the `get_conductor_cl
 }
 ```
 
-## Attention for creating new conductor data
-When creating new conductor data, do not only refer to the sample values for the x and y values (coordinates) of nodes, but adjust the spacing appropriately by calculating differences from the w value (width).
-
 ## Confirmation before update-conductor / create-conductor
 Before calling `update-conductor` (or `create-conductor`), always ask the user for
 approval with `ask_user_choice`, following the rules below.
@@ -1098,11 +1104,11 @@ approval with `ask_user_choice`, following the rules below.
 2. Put a short summary in the `question` of `ask_user_choice`
    - Keep the question to about 3–5 lines, in the format "change target + up to 3 key changes".
    - Example:
-     "Will update the Conductor 'sample_conductor_name_before' with the following changes:
+     "Update Conductor 'sample_conductor_name_before' with the following:
        ・Name → sample_conductor_name_after
        ・node-3 Movement: movement_name_before → movement_name_after
-      Other configurations remain unchanged. Proceed with the update?"
-   - When creating a new Conductor, since the configuration diagram has already been shown with `display_html`, there is no need to show a summary of the configuration.
+      All other configurations remain unchanged. Proceed with update?"
+   - When creating a new Conductor, a structure diagram is already shown with `display_html`, so there is no need to summarize the structure.
 
 3. Spell out irreversible effects or risks
    - If any of the following apply, add one line about them to the question:
@@ -1118,5 +1124,5 @@ approval with `ask_user_choice`, following the rules below.
 
 
 ## Attention for execution of conductor
-- Although `conductor_data` in the Request Body is optional, you must always send the `Setting` (JSON format) value that the target Conductor has here.
-- After using the tool `execute-conductor`, notify the user that Conductor processing has started. Then, based on the assigned `conductor_instance_id`, call the tool `get-conductor-instance` as menu `conductor_confirmation` at 5-second intervals yourself to track the work execution status and disclose the situation to the user.
+- Although `conductor_data` in the Request Body is optional, you must always send the value of `Setting` (in JSON format) that the target Conductor has.
+- After using the tool `execute-conductor`, notify the user that Conductor processing has started. Then, based on the issued `conductor_instance_id`, call the tool `get-conductor-instance` as menu `conductor_confirmation` yourself at 5-second intervals to track the work execution status and disclose the situation to the user.
