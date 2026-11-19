@@ -37,13 +37,14 @@ Performs bulk registration, update, discard, restore, and physical deletion of r
 - Use the `list-menu-info` tool in advance to retrieve the attributes of menu items, and specify item values according to those attributes.
 - If the result of the `list-menu-info` tool includes a menu item with `column_type` of `IDColumn`, use the `list-menu-info-pulldown` tool to get the values that can be specified.
 - Optimistic locking is used when performing update, discard, restore, or delete operations. Therefore, use the `menu-filter` tool to retrieve the record and pass it to `records[].parameter` (note: validation is performed using `last_update_date_time`).
+    - However, **for `Discard` and `Restore` you must not pass the retrieved record as-is**. See "Discard / Restore" below.
 
 - When writing to a `FileUploadColumn` field, use one of the following two methods:
     - Set a registered `file_id` in `.records[].fileid.column_name_rest`, and set the file name in `records[].parameter.column_name_rest`.
     - Set the BASE64-encoded value of the file in `.records[].file.column_name_rest`, and set the file name in `records[].parameter.column_name_rest`.
 - If no changes have been made to a `FileUploadColumn` field, the `.records[].file.column_name_rest` and `.records[].fileid.column_name_rest` fields are not required.
 - For items where `column_type` is `IDColumn`, set the value (the name value), not the key value (the ID value).
-- When deleting a record, use `Discard` instead of `Delete`.
+- When deleting a record, use `Discard` instead of `Delete` (for whether physical deletion is possible, see "Physical delete (Delete)" below).
 - `maintenance-all` batch operations are atomic. If one operation fails, the entire batch is rolled back.
 
 ## FileUploadColumn: Which method to use (fileid vs file)
@@ -80,3 +81,40 @@ For columns where `column_type: "IDColumn"`, you must specify the exact display 
 1. Use the `list-menu-info-pulldown` tool with the menu name.
 2. Find the column name in the result.
 3. Use the value (not the key) from the returned mapping.
+
+## Discard / Restore (important)
+For `Discard` / `Restore`, pass **only two things in `parameter`: the primary key column and `last_update_date_time`**. The primary key column name differs per menu (check with `list-menu-info`; e.g. `rule_id`, `filter_id`, `action_id`, `labeling_settings_id`, `label_key_id`).
+
+```json
+{
+  "menu": "rule",
+  "records": [{
+    "type": "Discard",
+    "parameter": {
+      "rule_id": "<ID obtained with menu-filter>",
+      "last_update_date_time": "<value obtained with menu-filter, as-is>"
+    }
+  }]
+}
+```
+- `Restore` takes the same form with `"type": "Restore"`. Because the target is discarded, retrieve it with `menu-filter` specifying `{"discard": {"NORMAL": "1"}}` (see `menu-filter.md`).
+
+**Do not include `discard` in `parameter`.** The records returned by `menu-filter` contain `"discard": "0"` (active) / `"1"` (discarded), and passing it as-is takes precedence over `type`:
+- `Discard` with `"discard": "0"` **returns "Maintenance all completed successfully" but does not discard the record** (it is treated as an update). Because no error is raised, it tends to go unnoticed.
+- `Restore` with `"discard": "1"` fails with `Processing has been canceled because the target record has been deprecated.` (499-00201).
+- A `Discard` with only the primary key plus `"discard": "0"` is validated as an ordinary update on some menus and fails with an unrelated validation error (e.g. `Duplicate filters are selected.` on rule).
+
+**After executing, always re-read the record with `menu-filter` and confirm the `discard` value (`"1"` for discard, `"0"` for restore) before reporting completion.** Do not judge completion from the success message alone.
+
+## Physical delete (Delete)
+- **Physical deletion requires both of the following settings.** Both are disabled by default for many menus (including every OASE menu). Confirmed in the product code (`ita_api_organization/controllers/menu_maintenance_all_controller.py`, `common_libs/loadtable/load_table.py`).
+    1. **Role permission:** in Management console ▶ Role-menu link management, the link between the executing user's role and the target menu must be "Maintenance + delete". Otherwise `Delete` fails with `You do not have access privileges to the target menu. (menu: <menu>) (401-00001)`.
+    2. **Menu delete permission flag:** in Basic console ▶ Menu-table link management, the target menu's "delete permission flag" must be `True` (`row_delete_flag` is `"1"` in `list-menu-info`). Otherwise it fails with `401-00002`.
+- Menu-table link management is not linked to any role by default and is not shown on the screen (in some versions it is in the discarded state). To use it, link "Basic console:Menu-table link management" to the role with "Maintenance" in Role-menu link management (restore it if discarded).
+- **The AI must not make the settings that enable physical deletion (1 and 2 above, and the link to Menu-table link management).** They change system-wide permissions and settings, and physically deleted data cannot be recovered, so explain the steps and the risk and ask the organization administrator to make the settings on the screen.
+- Before running `Delete`, check `row_delete_flag` with `list-menu-info`.
+    - If it is `"0"`, tell the user that the settings above are required and that an administrator makes them. Also show discarding (`Discard`, possible if `row_disuse_flag` is `"1"`) as an alternative available right away, and tell the user honestly that **discarded records remain in the database, so the record count does not decrease**.
+    - If it is `"1"` but `401-00001` still occurs, the role permission (1 above) is missing. Ask the user to have an administrator change the role link to "Maintenance + delete".
+- Physical deletion cannot be undone. List the target records, check and show whether any setting uses them (for OASE, filters, rules, etc.), and run it only after the user approves.
+- The manual "Physical deletion of data" lists event flow, event history, job execution, etc. as not recommended (cannot be deleted). The OASE setting menus (event collection, labels, filters, rules, actions, etc.) are not included.
+- Whether each operation is permitted (`row_insert_flag`/`row_update_flag`/`row_disuse_flag`/`row_reuse_flag`/`row_delete_flag`) can be checked in advance with `list-menu-info`. Check it before saying "I don't know whether I have permission".

@@ -24,6 +24,8 @@ search_documents.DOCUMENT_PATH を個別に上書きし、期待する挙動を�
 異常系では、g.applogger.info の呼び出し回数はチェックせず、送出される
 例外のメッセージ内容で検証する。
 """
+import importlib
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -63,6 +65,109 @@ def _make_model(vector=None):
     model = mock.Mock()
     model.query_embed = mock.Mock(return_value=iter([vector_obj]))
     return model
+
+
+@pytest.fixture
+def reload_search_documents():
+    """モジュール読み込み時の初期化(モデルのロード・Qdrantへの接続)を、
+    fastembed / qdrant_client の偽物を差し替えた状態で実行し直す。
+
+    初期化の処理は import 時に1回だけ動くため、失敗時の分岐を通すには
+    importlib.reload で読み込み直す必要がある。reload は同じモジュール
+    オブジェクトを書き換えるので、テスト後に偽物を元に戻して読み込み直し、
+    ほかのテストに影響が残らないようにする。
+    """
+    fastembed = sys.modules["fastembed"]
+    qdrant_client = sys.modules["qdrant_client"]
+    original = (fastembed.TextEmbedding, qdrant_client.QdrantClient)
+
+    def _reload(text_embedding=None, qdrant=None):
+        if text_embedding is not None:
+            fastembed.TextEmbedding = text_embedding
+        if qdrant is not None:
+            qdrant_client.QdrantClient = qdrant
+        return importlib.reload(search_documents)
+
+    yield _reload
+
+    fastembed.TextEmbedding, qdrant_client.QdrantClient = original
+    importlib.reload(search_documents)
+
+
+def _failing_qdrant_client():
+    """インスタンスは作れるが get_collections() で接続に失敗する QdrantClient の偽物"""
+    client = mock.Mock()
+    client.get_collections.side_effect = ConnectionError("connection refused")
+    return mock.Mock(return_value=client)
+
+
+class TestModuleInitialization:
+    def test_success_keeps_model_and_client(self, reload_search_documents):
+        # 正常系: モデルのロードとQdrantへの接続が成功すれば、init_errorはNoneで、
+        # model / client に作成したオブジェクトが入ること
+        model = mock.Mock()
+        client = mock.Mock()
+        module = reload_search_documents(mock.Mock(return_value=model), mock.Mock(return_value=client))
+
+        assert module.init_error is None
+        assert module.model is model
+        assert module.client is client
+        client.get_collections.assert_called_once_with()
+
+    def test_model_load_failure_is_kept_in_init_error(self, reload_search_documents):
+        # 異常系: モデルのロードに失敗した場合、例外の型と内容がinit_errorに保持され、
+        # モジュールの読み込み自体は失敗しないこと
+        module = reload_search_documents(mock.Mock(side_effect=OSError("model not found")), mock.Mock())
+
+        assert module.init_error == "Failed to load embedding model: OSError: model not found"
+        assert module.model is None
+        assert module.client is not None
+
+    def test_qdrant_connection_failure_is_kept_in_init_error(self, reload_search_documents):
+        # 異常系: Qdrantへの接続(get_collections)に失敗した場合、init_errorに保持され、
+        # client が None に戻ること
+        module = reload_search_documents(mock.Mock(), _failing_qdrant_client())
+
+        assert module.init_error == "Failed to connect to Qdrant: ConnectionError: connection refused"
+        assert module.client is None
+        assert module.model is not None
+
+    def test_qdrant_constructor_failure_is_kept_in_init_error(self, reload_search_documents):
+        # 異常系: QdrantClientの作成自体に失敗した場合も、init_errorに保持されること
+        module = reload_search_documents(mock.Mock(), mock.Mock(side_effect=ValueError("bad host")))
+
+        assert module.init_error == "Failed to connect to Qdrant: ValueError: bad host"
+        assert module.client is None
+
+    def test_both_failures_are_joined(self, reload_search_documents):
+        # 異常系: 両方に失敗した場合、モデルのエラーとQdrantのエラーが "; " でつながること
+        module = reload_search_documents(
+            mock.Mock(side_effect=OSError("model not found")), _failing_qdrant_client()
+        )
+
+        assert module.init_error == (
+            "Failed to load embedding model: OSError: model not found; "
+            "Failed to connect to Qdrant: ConnectionError: connection refused"
+        )
+        assert module.model is None
+        assert module.client is None
+
+    def test_init_error_is_raised_when_search_docs_is_called(self, mock_flask_g, reload_search_documents):
+        # 異常系: 初期化に失敗した状態で search-docs を呼ぶと、init_errorの内容を含む例外になること
+        module = reload_search_documents(mock.Mock(), _failing_qdrant_client())
+
+        with pytest.raises(Exception) as excinfo:
+            module.tool_search_documents({"query": "oase"}, {"user_id": "u1"})
+
+        assert "Failed to connect to Qdrant: ConnectionError: connection refused" in str(excinfo.value)
+
+    def test_reload_fixture_restores_original_state(self, reload_search_documents):
+        # 境界値: 読み込み直した後でも、同じモジュールオブジェクトが使われ続けること
+        # (他のテストが import した search_documents の参照が古くならないこと)
+        module = reload_search_documents(mock.Mock(side_effect=OSError("x")), mock.Mock())
+
+        assert module is search_documents
+        assert sys.modules["tools.search_documents"] is search_documents
 
 
 class TestExtractKeywords:

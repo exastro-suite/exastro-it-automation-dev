@@ -37,13 +37,14 @@
 - `list-menu-info`ツールを使用してメニュー項目の属性を事前に取得し、それらの属性に従って項目の値を指定します
 - `list-menu-info` ツールの結果に `column_type` が `IDColumn` のメニュー項目が含まれている場合、`list-menu-info-pulldown` ツールで指定できる値を取得します
 - 更新、破棄、復元、削除操作を実行する際には、楽観的ロックが使用されます。そのため、`menu-filter`ツールを使用してレコードを取得し、`records[].parameter`に渡してください（注：検証は`last_update_date_time`を使用して行われます）
+    - ただし**破棄（`Discard`）と復元（`Restore`）では、取得したレコードをそのまま渡してはいけません**。下記「破棄（Discard）・復元（Restore）」を参照してください
 
 - `FileUploadColumn`フィールドに書き込む場合は、以下の2つの方法のいずれかを使用してください:
     - 登録済み`file_id` を `.records[].fileid.column_name_rest` に、ファイル名を `records[].parameter.column_name_rest` に設定します
     - ファイルのBASE64エンコード値を`.records[].file.column_name_rest`に設定し、ファイル名を`records[].parameter.column_name_rest`に設定します
 - `FileUploadColumn` フィールドに変更が加えられていない場合、`.records[].file.column_name_rest` および `.records[].fileid.column_name_rest` フィールドは不要です
 - `column_type`が`IDColumn`である項目については、キー値（ID値）ではなく値（名前値）を設定します
-- レコードを削除する際は、`Delete` ではなく`Discard`を使用してください
+- レコードを削除する際は、`Delete` ではなく`Discard`を使用してください（物理削除の可否は下記「物理削除（Delete）」を参照）
 - `maintenance-all` バッチ操作はアトミックです。1 つの操作が失敗した場合、バッチ全体がロールバックされます
 
 ## FileUploadColumn: Which method to use (fileid vs file)
@@ -80,3 +81,40 @@
 1. メニュー名とともに`list-menu-info-pulldown`ツールを使用してください
 2. 結果から列名を見つける
 3. 返されたマッピングから値（キーではない）を使用してください
+
+## 破棄（Discard）・復元（Restore）（重要）
+`Discard`/`Restore`の`parameter`には、**主キー列と`last_update_date_time`の2つだけ**を渡すこと。主キー列の名前はメニューごとに異なる（`list-menu-info`で確認。例: `rule_id`、`filter_id`、`action_id`、`labeling_settings_id`、`label_key_id`）。
+
+```json
+{
+  "menu": "rule",
+  "records": [{
+    "type": "Discard",
+    "parameter": {
+      "rule_id": "<menu-filterで取得したID>",
+      "last_update_date_time": "<menu-filterで取得した値をそのまま>"
+    }
+  }]
+}
+```
+- `Restore`も同じ形で`"type": "Restore"`にする。復元対象は廃止済みなので、`menu-filter`では`{"discard": {"NORMAL": "1"}}`を指定して取得すること（`menu-filter.md`参照）。
+
+**`parameter`に`discard`を含めてはいけない。** `menu-filter`の戻り値には`"discard": "0"`（有効）/`"1"`（廃止済み）が入っており、これをそのまま渡すと`type`より優先されて次のようになる。
+- `Discard`に`"discard": "0"`を含めると、**「Maintenance all completed successfully」と成功が返るのに廃止されない**（更新扱いになる）。エラーにならないため気づきにくい。
+- `Restore`に`"discard": "1"`を含めると`Processing has been canceled because the target record has been deprecated.`（499-00201）になる。
+- 主キーだけに`"discard": "0"`を足した`Discard`は、メニューによっては通常の更新として検証され、無関係なバリデーションエラー（例: ruleの`Duplicate filters are selected.`）になる。
+
+**実行後は必ず`menu-filter`で読み直し、`discard`の値（廃止なら`"1"`、復元なら`"0"`）を確認してから完了を報告すること。** 成功メッセージだけで完了と判断してはいけない。
+
+## 物理削除（Delete）
+- **物理削除には、次の2つの設定が両方とも必要。** どちらも初期状態では無効のメニューが多い（OASEの全メニューを含む）。製品コード（`ita_api_organization/controllers/menu_maintenance_all_controller.py`、`common_libs/loadtable/load_table.py`）で確認した。
+    1. **ロールの権限:** 管理コンソール ▶ ロール-メニュー紐付管理で、実行するユーザーのロールと対象メニューの紐付が「メンテナンス可＋削除可」であること。そうでなければ`Delete`は`You do not have access privileges to the target menu. (menu: <menu>) (401-00001)`になる。
+    2. **メニューの削除許可フラグ:** 基本コンソール ▶ メニュー-テーブル紐付管理で、対象メニューの「削除許可フラグ」が`True`であること（`list-menu-info`の`row_delete_flag`が`"1"`）。そうでなければ`401-00002`になる。
+- メニュー-テーブル紐付管理は、初期状態ではロールに紐付いておらず、画面に表示されない（バージョンによっては廃止扱い）。使うには、ロール-メニュー紐付管理で「基本コンソール:メニュー-テーブル紐付管理」をロールに「メンテナンス可」で紐付ける（廃止されていれば復活させる）。
+- **物理削除を有効にする設定（上の1・2とメニュー-テーブル紐付管理の紐付）は、AIが行ってはいけない。** システム全体の権限と設定を変える操作で、物理削除したデータは元に戻せないため、手順と危険性を説明し、組織の管理者に画面で設定してもらうこと。
+- `Delete`を実行する前に、`list-menu-info`で`row_delete_flag`を確認すること。
+    - `"0"`のときは、上の設定が必要なことと、設定は管理者が行うことを伝える。あわせて、すぐできる代わりの方法として廃止（`Discard`、`row_disuse_flag`が`"1"`なら可能）を示す。**廃止したレコードはDBに残るため、レコード数は減らない**ことも伝えること。
+    - `"1"`でも`401-00001`になる場合は、ロールの権限（上の1）が足りない。管理者にロールの紐付を「メンテナンス可＋削除可」にしてもらうよう案内する。
+- 物理削除は元に戻せない。対象のレコードを一覧で示し、使っている設定が無いか（OASEならフィルター・ルールなど）を調べて示してから、ユーザーの承認を取って実行すること。
+- マニュアル「データの物理削除」では、イベントフロー・イベント履歴・作業実行などは削除非推奨（削除不可）とされている。OASEの設定メニュー（収集設定・ラベル・フィルター・ルール・アクション等）は含まれていない。
+- 権限の可否（`row_insert_flag`/`row_update_flag`/`row_disuse_flag`/`row_reuse_flag`/`row_delete_flag`）は`list-menu-info`で事前に分かる。「権限があるか分からない」と言う前に確認すること。

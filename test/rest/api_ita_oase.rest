@@ -1,0 +1,442 @@
+###### OASE (Agentic AI menu-reference の手順の確認用) ######
+# documents/{ja,en}/menu-reference の OASE 関連ドキュメント(event_collection / label_creation /
+# labeling / deduplication / filter / action / rule / oase_scenario_building)で Agentic AI に
+# 案内している API の呼び出し方を、実際の API で確かめるためのリクエスト集。
+# 上から順に実行すると、テスト用の収集設定〜ルールを登録し、テストイベントを送り、
+# 最後に登録したものを廃止する(OASE のメニューは物理削除できないため、廃止で片付ける)。
+# ID と last_update_date_time は、直前の GET(# @name の付いたリクエスト)の結果を使う。
+# ITA の filter API は discard を指定しないと廃止済みも返す(MCP の menu-filter は既定で discard=0 を付ける)ため、
+# GET には "discard": {"NORMAL": "0"} を付けている(付けないと、前回廃止したレコードの値を拾ってしまう)。
+
+# Global values
+# not quate strings
+@org-user-id = test_user
+@org-user-pw = password
+@base_org_url = http://platform-auth:{{org-mng-port}}
+@organization_id = org1
+@workspace_id = ws1
+
+# プルダウン項目は表示名で渡すため、値は実行するユーザーの言語設定で変わる。
+# MCP サーバーは ITA へ常に英語(Language: en)で問い合わせるので、ドキュメントの例は英語の表示名になっている。
+# 日本語のユーザーで実行する場合は、各変数の下のコメントの値に置き換える(合わないと「利用できない値です」で失敗する)
+@connection_method = Bearer Authentication
+# 日本語: Bearer認証
+@type_string = string
+# 日本語: 文字列
+@search_condition = Unique
+# 日本語: ユニーク
+
+# テスト用に登録するレコードの名前(既存の設定と重ならない名前にする)
+@collection_name = rest_test_collection
+@label_key = rest_test_alert_type
+@labeling_name = rest_test_labeling
+@filter_name = rest_test_filter
+@rule_name = rest_test_rule
+
+
+###
+# 収集設定を登録する
+# Bearer Authentication では request_header / parameter を省略すると System Error(999-99999)になるため、
+# 空のJSONオブジェクトを文字列で渡す。ttl は API では既定値が入らないため必ず渡す
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/event_collection/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Register",
+    "parameter": {
+      "event_collection_settings_name": "{{collection_name}}",
+      "connection_method_name": "{{connection_method}}",
+      "request_method_name": "GET",
+      "url": "http://zabbix.example.com/api_jsonrpc.php",
+      "auth_token": "dummy-token-for-rest-test",
+      "request_header": "{}",
+      "parameter": "{}",
+      "ttl": "3600"
+    },
+    "file": {}
+  }
+]
+
+###
+# ラベルキーを登録する
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/label_creation/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Register",
+    "parameter": {
+      "label_key_name": "{{label_key}}",
+      "color_code": "#FF0000"
+    },
+    "file": {}
+  }
+]
+
+###
+# ラベル付与を登録する(イベントの event.type が cpu_high なら、ラベル rest_test_alert_type=cpu_high を付ける)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/labeling/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Register",
+    "parameter": {
+      "labeling_settings_name": "{{labeling_name}}",
+      "event_collection_settings_name": "{{collection_name}}",
+      "search_key_name": "event.type",
+      "type_name": "{{type_string}}",
+      "comparison_method": "==",
+      "search_value_name": "cpu_high",
+      "label_key_name": "{{label_key}}",
+      "label_value_name": "cpu_high"
+    },
+    "file": {}
+  }
+]
+
+###
+# フィルターを登録する(結論イベントは対象外にする)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/filter/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Register",
+    "parameter": {
+      "available_flag": "True",
+      "filter_name": "{{filter_name}}",
+      "filter_condition_json": "[[\"_exastro_type\", \"≠\", \"conclusion\"], [\"{{label_key}}\", \"==\", \"cpu_high\"]]",
+      "search_condition_id": "{{search_condition}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# アクションの無いルールを登録する(マッチしても Conductor は動かず、評価結果にだけ残る)
+# conclusion_label_settings に "[]" を渡すと DB に NULL で保存され、ワークスペースの判定全体が止まるため、
+# 結論ラベルが不要でも、ホスト名を引き継ぐ値(Jinja2 で A._exastro_host を参照する値)を渡す。
+# REST Client の変数と区別するため、Jinja2 の波かっこは JSON のエスケープ \u007b \u007d で書いている
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Register",
+    "parameter": {
+      "available_flag": "True",
+      "rule_name": "{{rule_name}}",
+      "rule_label_name": "rest_test_rule",
+      "rule_priority": "1",
+      "filter_a": "{{filter_name}}",
+      "conclusion_label_settings": "[[\"_exastro_host\", \"\u007b\u007b A._exastro_host \u007d\u007d\"]]",
+      "action_label_inheritance_flag": "True",
+      "event_label_inheritance_flag": "False",
+      "ttl": "3600"
+    },
+    "file": {}
+  }
+]
+
+###
+# 登録した収集設定を取得する(テストイベントの送信と廃止で ID を使う)
+# 認証トークンはパスワード項目のため null で返る(消えたわけではない)
+
+# @name get_collection
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/event_collection/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "event_collection_settings_name": {
+    "NORMAL": "{{collection_name}}"
+  },
+  "discard": {
+    "NORMAL": "0"
+  }
+}
+
+###
+# テストイベントを送る(OASE の受信API。MCP ツールからは送れないため、ユーザーがこの API で送る)
+# event 配列の1要素が1件のイベントで、ラベル付与の search_key_name(JMESPath)はこの要素に対して評価される。
+# search_key_name が event.type なので {"event": {"type": ...}} の形にする({"type": ...} ではラベルが付かない)
+# fetched_time は送る時刻の UNIX 時間(秒)
+@collection_id = {{get_collection.response.body.data.[0].parameter.event_collection_settings_id}}
+
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/oase_agent/events
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "events": [
+    {
+      "event": [
+        {"event": {"type": "cpu_high", "host": "rest-test-host", "message": "OASE rest test event"}}
+      ],
+      "fetched_time": {{$timestamp}},
+      "event_collection_settings_name": "{{collection_name}}",
+      "event_collection_settings_id": "{{collection_id}}",
+      "agent": {"name": "rest-test", "version": "2.x"}
+    }
+  ]
+}
+
+###
+# 評価結果を取得する(判定処理が動いていれば、アクションの無いルールはすぐ Completed になる)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/evaluation_results/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "rule_name": {
+    "NORMAL": "{{rule_name}}"
+  }
+}
+
+###
+# 登録したルールを取得する(廃止で ID と last_update_date_time を使う)
+# conclusion_label_settings は DB に NULL があると "[]" と表示される(見た目では区別できない)
+
+# @name get_rule
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "rule_name": {
+    "NORMAL": "{{rule_name}}"
+  },
+  "discard": {
+    "NORMAL": "0"
+  }
+}
+
+###
+# ルールを廃止する(先に get_rule を実行すること)
+# Discard / Restore の parameter には主キーと last_update_date_time だけを渡す。
+# discard を含めると、Discard は成功と返るのに廃止されず、Restore はエラーになる
+@rule_id = {{get_rule.response.body.data.[0].parameter.rule_id}}
+@ludt_rule = {{get_rule.response.body.data.[0].parameter.last_update_date_time}}
+
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Discard",
+    "parameter": {
+      "rule_id": "{{rule_id}}",
+      "last_update_date_time": "{{ludt_rule}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# 廃止したルールを取得する(同じ名前の廃止済みが過去の実行で残っていることがあるため、ID で絞る)
+
+# @name get_discarded_rule
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "rule_id": {
+    "NORMAL": "{{rule_id}}"
+  },
+  "discard": {
+    "NORMAL": "1"
+  }
+}
+
+###
+# 廃止したルールを復元する(先に get_discarded_rule を実行すること)
+@ludt_discarded_rule = {{get_discarded_rule.response.body.data.[0].parameter.last_update_date_time}}
+
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Restore",
+    "parameter": {
+      "rule_id": "{{rule_id}}",
+      "last_update_date_time": "{{ludt_discarded_rule}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# 復元後のルールを取得する(復元で last_update_date_time が変わるため取り直す)
+
+# @name get_restored_rule
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "rule_name": {
+    "NORMAL": "{{rule_name}}"
+  },
+  "discard": {
+    "NORMAL": "0"
+  }
+}
+
+###
+# 物理削除は OASE のメニューではできない(row_delete_flag が "0" のため 401-00001 になる。権限の問題ではない)
+@ludt_restored_rule = {{get_restored_rule.response.body.data.[0].parameter.last_update_date_time}}
+
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Delete",
+    "parameter": {
+      "rule_id": "{{rule_id}}",
+      "last_update_date_time": "{{ludt_restored_rule}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# 後片付け: 使う側から順に廃止する(ルール → フィルター → ラベル付与 → ラベルキー → 収集設定)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/rule/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Discard",
+    "parameter": {
+      "rule_id": "{{rule_id}}",
+      "last_update_date_time": "{{ludt_restored_rule}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# @name get_filter
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/filter/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "filter_name": {
+    "NORMAL": "{{filter_name}}"
+  },
+  "discard": {
+    "NORMAL": "0"
+  }
+}
+
+###
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/filter/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Discard",
+    "parameter": {
+      "filter_id": "{{get_filter.response.body.data.[0].parameter.filter_id}}",
+      "last_update_date_time": "{{get_filter.response.body.data.[0].parameter.last_update_date_time}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# @name get_labeling
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/labeling/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "labeling_settings_name": {
+    "NORMAL": "{{labeling_name}}"
+  },
+  "discard": {
+    "NORMAL": "0"
+  }
+}
+
+###
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/labeling/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Discard",
+    "parameter": {
+      "labeling_settings_id": "{{get_labeling.response.body.data.[0].parameter.labeling_settings_id}}",
+      "last_update_date_time": "{{get_labeling.response.body.data.[0].parameter.last_update_date_time}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# @name get_label_key
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/label_creation/filter/?file=no
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+{
+  "label_key_name": {
+    "NORMAL": "{{label_key}}"
+  },
+  "discard": {
+    "NORMAL": "0"
+  }
+}
+
+###
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/label_creation/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Discard",
+    "parameter": {
+      "label_key_id": "{{get_label_key.response.body.data.[0].parameter.label_key_id}}",
+      "last_update_date_time": "{{get_label_key.response.body.data.[0].parameter.last_update_date_time}}"
+    },
+    "file": {}
+  }
+]
+
+###
+# 収集設定を廃止する(get_collection の値を使う。登録後に収集設定は変更していない)
+POST {{base_org_url}}/api/{{organization_id}}/workspaces/{{workspace_id}}/ita/menu/event_collection/maintenance/all
+Authorization: Basic {{org-user-id}} {{org-user-pw}}
+content-type: application/json
+
+[
+  {
+    "type": "Discard",
+    "parameter": {
+      "event_collection_settings_id": "{{get_collection.response.body.data.[0].parameter.event_collection_settings_id}}",
+      "last_update_date_time": "{{get_collection.response.body.data.[0].parameter.last_update_date_time}}"
+    },
+    "file": {}
+  }
+]
+
+###

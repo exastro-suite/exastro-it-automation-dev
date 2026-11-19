@@ -1,0 +1,139 @@
+# labeling reference
+
+OASE labeling settings. Based on the value of a specific field in a received event, assigns a value to a label key created in `label_creation` (or a fixed label). **`event_collection` (collection settings) and `label_creation` (label key) must be created beforehand.**
+
+## event_collection_settings_name column
+
+- Specify the name of a collection setting already created in the `event_collection` menu (specifying a non-existent name results in an error).
+
+## There are three assignment patterns (decide which one you need first)
+
+The behaviour of `labeling` changes depending on which combination of fields you specify. **Work backwards from what you want to achieve and pick the pattern.**
+
+| | What you want | `search_key_name` | `type_name`/`comparison_method`/`search_value_name` | `label_value_name` |
+|---|---|---|---|---|
+| Pattern A | Assign a fixed value only when a condition matches | specified | specified | specified |
+| Pattern B | Always assign a fixed value, without a condition | **blank** | **all blank** | required |
+| Pattern C | **Use the event field's value itself as the label value (value extraction)** | specified | **all `null`** | **`null`** |
+
+- A request like "I want to take the XX field of the event out as a label so it can be used in conditions" is **Pattern C**. Trying to emulate it with Pattern A means creating one record per possible value, which does not scale.
+- A threshold (magnitude comparison) request such as "target it only when XX **exceeds** YY" is **Pattern A**. A `filter` only has `==`/`≠`, so the magnitude comparison is done here in `labeling` and the filter then checks the assigned label with `==` - a two-stage construction (see the "When you need a threshold (magnitude comparison) condition" section of `filter.md`). **Extracting the value with Pattern C does not give you a threshold decision** (a filter cannot express `> 80`).
+- See the "Pattern C" section below for details.
+
+## Pattern C: extracting an event field's value into a label as-is
+
+- Specify only `search_key_name` and pass `type_name`/`comparison_method`/`search_value_name`/`label_value_name` as **explicit `null`**; the value of that field then becomes the label value as-is.
+- **There is no need to create one record per possible value. A single record covers every value of that field.**
+
+```json
+{
+  "menu": "labeling",
+  "records": [
+    {
+      "type": "Register",
+      "parameter": {
+        "labeling_settings_name": "Severity label assignment",
+        "event_collection_settings_name": "Zabbix monitoring event collection",
+        "search_key_name": "event.severity",
+        "type_name": null,
+        "comparison_method": null,
+        "search_value_name": null,
+        "label_key_name": "severity",
+        "label_value_name": null
+      }
+    }
+  ]
+}
+```
+
+- **The keys themselves must not be omitted.** Omitting them results in `{"0": {"Individual check": ["Required keys ['type_name', 'comparison_method', 'search_value_name', 'label_value_name'] are missing."]}}` (499-00201).
+- **Empty strings `""` must not be used either.** They result in `{"0": {"type_name": ["The input value is an invalid value.(input value:)"], "comparison_method": ["The input value is an invalid value.(input value:)"]}}` (499-00201). Always pass JSON `null`.
+- Unless it is a fixed label, the destination `label_key_name` **must be created in `label_creation` beforehand**. Creating the label key alone does not populate any value, so always propose `label_creation` and `labeling` together.
+
+## search_key_name column
+
+- Specify a key inside the received event JSON using JMESPath format.
+- Allowed characters: regular expression `^[a-zA-Z0-9!#%&()*+,-.;<=>?@[\]^_{|}~]+$`
+- **Which field name applies depends on the actual event JSON structure.** If you guessed it, say so explicitly and confirm with the user. If an existing `labeling` record for the same collection setting has a `search_key_name` (e.g. `event.type`), following its prefix is the safer choice.
+- Note that trying to inspect received event data in the `event_history` menu does not work: `menu-filter` fails with `System Error (999-99999)`. **Do not try `event_history` as a way to learn the event structure** (it only wastes turns).
+- If left blank, `type_name`/`comparison_method`/`search_value_name` must also all be blank (Pattern B: always attaches a fixed label value without using a search condition). In that case `label_value_name` is required.
+
+## Behavior when the event field is missing, has a mismatched type, or holds multiple values
+
+Confirmed in `libs/label_event.py` (oase-receiver).
+
+- **If the field matching `search_key_name` is missing from the event, an ordinary comparison does not attach a label (and raises no error).** The one exception is the empty-value check (`type_name: "falsy"`, `comparison_method: "=="`), which treats a missing field as "empty" and attaches the label.
+- **A type mismatch also just skips the label; it does not stop processing.** For example, if a numeric comparison (`>`, etc.) is run against a string that cannot be converted to a number, or a regular-expression comparison is run against an array, that single labeling setting is skipped internally (and logged), while the other labeling settings and other events continue to be processed.
+- **Multiple values (arrays/objects) are handled the same way: if the comparison cannot be made, it is silently skipped.** The empty-value check still works directly on arrays/objects (`[]` is empty, `[1,2]` is not).
+- As a result, **a misconfigured labeling setting, or an event structure that differs from what was assumed, does not crash processing**, but it can show up as "the label was supposed to be attached but wasn't," which is hard to notice. When a field that might be missing or of a mismatched type is used as a label condition, tell the user before registering that "if this field is missing or has a different type, the label will not be attached, and any filter/rule relying on that label will not react either."
+
+## type_name column and comparison_method column (compatibility table)
+
+The data type of the value and the comparison method must be combined correctly. Combinations not in the table below result in a validation error.
+
+| type_name (data type of the value) | Allowed comparison_method |
+|---|---|
+| `string`, `integer`, `float` | Any of `==` (equal), `≠` (not equal), `<`, `<=`, `>`, `>=` (regular-expression types are not allowed) |
+| `bool`, `object`, `array`, `falsy` | `==` or `≠` only |
+| `any` (other) | Only `RegExp` (regular expression, no option), `RegExp(DOTALL)`, or `RegExp(MULTILINE)` |
+
+- **`<`/`<=`/`>`/`>=` are available only in this `labeling` menu; they do not exist in a filter condition (`condition_type`).** For a requirement that narrows events by a threshold, do the magnitude comparison here to assign a label, and have the `filter` check that label with `==`.
+- When `type_name` is `integer`, `search_value_name` must be convertible to an integer. When `float`, it must be convertible to a float. When `bool`, it must be either `"true"` or `"false"` (case-insensitive).
+- When `type_name` is `object`, `search_value_name` must be valid JSON starting with `{` and ending with `}`. When `array`, it must be valid JSON starting with `[` and ending with `]`.
+- When `type_name` is `falsy`, `search_value_name` must be empty (specifying a value is an error). Also, when `comparison_method` is `≠`, `label_value_name` is required.
+- When using a regular expression with `type_name` set to `any`, `search_value_name` must be a valid regular expression (an error occurs if it fails to compile).
+- **There is no partial-match / substring comparison method.** Values such as `Contains`, `contains`, `LIKE` or `in` do not exist and fail with `{"comparison_method": ["The input value is an invalid value.(input value:Contains)"]}` (499-00201). To match on a substring (e.g. "the trigger name contains `CPU`"), use `type_name: "any"` + `comparison_method: "RegExp"` + `search_value_name: ".*CPU.*"`.
+- The exact set of accepted values can be confirmed with `list-menu-info-pulldown` on this menu.
+
+## When using regular expressions (pre-registration check; important)
+
+- **Instead of creating many labeling settings, one per value, they can be combined with a regular expression.** Example: if the alert names are `CPU high`, `CPU warning` and `CPU critical`, do not create three; create one with `type_name: "any"`, `comparison_method: "RegExp"`, `search_value_name: "^CPU (high|warning|critical)$"`. As the number of labeling settings grows, processing gets heavier because every setting is checked for each received event.
+- **Beware of regular expressions that match too broadly.** Patterns that match almost anything, such as `.*`, `.+` or `.*CPU.*`, attach labels to unrelated events too, and rules using the label may run by mistake. Bound the range with `^` and `$` as much as possible and match only the necessary words.
+- **Before registering, show examples that match and that do not match, and confirm with the user.** Use actual event values (pasted by the user) and make a table of "matches this value / does not match this value". When using a broad match such as `.*`, also state the reason and the impact (which rules may run).
+- Regular expressions are evaluated with Python `re` (`RegExp(DOTALL)` / `RegExp(MULTILINE)` with those flags). A regular expression that cannot be compiled causes a registration error.
+
+## label_key_name column
+
+- Required. Specify the destination label key name (one created in `label_creation`, or a fixed label).
+
+## label_value_name column
+
+- The label value to assign.
+- When using a regular expression (`RegExp` type), capture groups can be referenced as `\1`, `\2`, etc. If left blank, the entire match result is used as-is.
+- Passing `null` selects Pattern C (the field value at `search_key_name` is assigned as-is). An empty string `""` and `null` mean different things; do not confuse them.
+
+## Minimal example for new registration (Pattern A: assign the measured value to label_value when CPU usage exceeds 80)
+
+```json
+{
+  "menu": "labeling",
+  "records": [
+    {
+      "type": "Register",
+      "parameter": {
+        "labeling_settings_name": "CPU usage label assignment",
+        "event_collection_settings_name": "Zabbix monitoring event collection",
+        "search_key_name": "cpu.usage",
+        "type_name": "float",
+        "comparison_method": ">",
+        "search_value_name": "80",
+        "label_key_name": "cpu_usage",
+        "label_value_name": ""
+      }
+    }
+  ]
+}
+```
+
+## Copying existing labeling settings to another event collection setting
+
+- **A labeling setting is applied only to events fetched by the matching event collection setting (`event_collection_settings_name`).** When you add an event collection setting (e.g. one more monitoring tool of the same kind), events from the new collection get no labels at all (not even `_exastro_host`) unless you create labeling settings for that collection.
+- Copy procedure:
+  1. With `menu-filter`, specify `{"event_collection_settings_name": {"NORMAL": "<source collection name>"}}` and retrieve all source labeling settings.
+  2. Register them one by one with `Register`, passing only the following in `parameter`:
+      - `labeling_settings_name`: a distinguishable name (e.g. append ` (zabbix-02)`). It is not unique, so the same name can be registered, but change it because they become indistinguishable
+      - `event_collection_settings_name`: the destination collection name
+      - `search_key_name` / `type_name` / `comparison_method` / `search_value_name` / `label_key_name` / `label_value_name`: the source values as-is (pass `null` as JSON `null`; do not turn the Pattern C `null`s into empty strings or omit the keys)
+  3. **Do not pass `labeling_settings_id` / `last_update_date_time` / `discard` / `last_updated_user`.** `labeling_settings_id` is a unique ID, so passing the source ID collides with the existing record.
+- Label keys (`label_creation`) do not depend on the event collection setting, so you do not need to create new ones.
+- Register the destination event collection setting before the labeling settings (a non-existent collection name cannot be specified).
