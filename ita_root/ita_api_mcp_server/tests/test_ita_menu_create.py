@@ -870,14 +870,15 @@ class TestToolRegisterParameterCollectionFilter:
         # 正常系: 新規登録時、uuid/last_update_date_timeは空文字で送信され、
         # dictのfilter_jsonはJSON文字列(ensure_ascii=False)に変換され、
         # POSTなのでContent-Typeヘッダーが付与されること
-        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        post = requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
 
         filter_json = {"operation": ["オペレーション1"], "host": []}
         menu_create_tool.tool_register_parameter_collection_filter(
             {"filter_name": "filter1", "filter_json": filter_json}, _payload()
         )
 
-        last_request = requests_mock.last_request
+        # 新規登録時は登録後に一覧取得(GET)も行われるため、POSTのモックから取得する
+        last_request = post.last_request
         assert last_request.url == _parameter_collection_filter_url()
         assert last_request.method == "POST"
         assert last_request.headers["Content-Type"] == "application/json"
@@ -892,26 +893,26 @@ class TestToolRegisterParameterCollectionFilter:
     def test_empty_uuid_treated_as_new_registration(self, mock_flask_g, requests_mock):
         # 境界値: uuidが空文字の場合は新規登録として扱われ、
         # last_update_date_time未指定でもエラーにならないこと
-        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        post = requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
 
         result = menu_create_tool.tool_register_parameter_collection_filter(
             {"uuid": "", "filter_name": "filter1", "filter_json": {}}, _payload()
         )
 
         assert result["message"] == "Parameter collection filter registered successfully."
-        assert requests_mock.last_request.json()["uuid"] == ""
+        assert post.last_request.json()["uuid"] == ""
 
     def test_none_uuid_and_last_update_date_time_sent_as_empty_string(self, mock_flask_g, requests_mock):
         # 境界値: uuid/last_update_date_timeにNoneが渡された場合は
         # 空文字に変換して送信されること
-        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        post = requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
 
         menu_create_tool.tool_register_parameter_collection_filter(
             {"uuid": None, "filter_name": "filter1", "filter_json": {}, "last_update_date_time": None},
             _payload(),
         )
 
-        sent_body = requests_mock.last_request.json()
+        sent_body = post.last_request.json()
         assert sent_body["uuid"] == ""
         assert sent_body["last_update_date_time"] == ""
 
@@ -940,35 +941,35 @@ class TestToolRegisterParameterCollectionFilter:
     def test_filter_json_string_sent_as_is(self, mock_flask_g, requests_mock):
         # 正常系: filter_jsonがJSON文字列で渡された場合は再変換されず、
         # そのまま送信されること
-        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        post = requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
 
         filter_json = '{"operation":["ope1"]}'
         menu_create_tool.tool_register_parameter_collection_filter(
             {"filter_name": "filter1", "filter_json": filter_json}, _payload()
         )
 
-        assert requests_mock.last_request.json()["filter_json"] == filter_json
+        assert post.last_request.json()["filter_json"] == filter_json
 
     def test_filter_json_list_serialized(self, mock_flask_g, requests_mock):
         # 境界値: filter_jsonがlistで渡された場合もJSON文字列に変換されること
-        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        post = requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
 
         menu_create_tool.tool_register_parameter_collection_filter(
             {"filter_name": "filter1", "filter_json": []}, _payload()
         )
 
-        assert requests_mock.last_request.json()["filter_json"] == "[]"
+        assert post.last_request.json()["filter_json"] == "[]"
 
     def test_empty_dict_filter_json_is_accepted(self, mock_flask_g, requests_mock):
         # 境界値: filter_jsonが空dictの場合は未指定扱いにならず、"{}"として
         # 送信されること
-        requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
+        post = requests_mock.post(_parameter_collection_filter_url(), json={}, status_code=200)
 
         menu_create_tool.tool_register_parameter_collection_filter(
             {"filter_name": "filter1", "filter_json": {}}, _payload()
         )
 
-        assert requests_mock.last_request.json()["filter_json"] == "{}"
+        assert post.last_request.json()["filter_json"] == "{}"
 
     def test_request_timeout_uses_downstream_timeout(self, mock_flask_g, requests_mock, monkeypatch):
         # 正常系: POSTリクエストのtimeoutにget_downstream_timeout()の値
