@@ -47,7 +47,7 @@ def single_text_column(objtable_dict_fixture, request):
     ],
     indirect=['single_text_column']  # フィクスチャを間接的に呼び出す
 )
-def test_check_basic_valid_failure_with_invalid_chars(app_context_with_mock_g, single_text_column, value, expected_msg, monkeypatch):
+def test_check_basic_valid_failure_with_invalid_chars(app_context_with_mock_g, single_text_column, value, expected_msg):
     """
     check_basic_validの失敗ケース（不正な文字）をテスト
     """
@@ -56,9 +56,11 @@ def test_check_basic_valid_failure_with_invalid_chars(app_context_with_mock_g, s
         assert msg_id == 'MSG-00009'
         return expected_msg
 
-    monkeypatch.setattr(g.appmsg, 'get_api_message', mock_get_api_message)
-
-    with patch.object(text_column_class.TextColumn, 'check_basic_valid', return_value=(True,)):
+    # g.appmsg はsession scopeのMagicMockを全テストで共有している。
+    # monkeypatch.setattr(g.appmsg, ...) だと pytest 9.2.0 以降、復元時に属性が削除扱いになり
+    # 後続のテストで g.appmsg.get_api_message が参照できなくなるため、patch.objectで差し替える。
+    with patch.object(g.appmsg, 'get_api_message', side_effect=mock_get_api_message), \
+            patch.object(text_column_class.TextColumn, 'check_basic_valid', return_value=(True,)):
         result = single_text_column.check_basic_valid(value)
         assert result[0] is False
         assert result[1] == expected_msg
