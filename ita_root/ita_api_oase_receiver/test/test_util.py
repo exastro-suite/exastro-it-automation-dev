@@ -132,7 +132,8 @@ class TestGetTmpFilePath:
         result = get_tmp_file_path("", "")
 
         # 検証
-        expected = "/tmp/test_org/tmp/test-uuid/"
+        # safe_path_join の normpath により末尾スラッシュは除去される
+        expected = "/tmp/test_org/tmp/test-uuid"
         assert result == {"file_path": expected}
 
     @patch('common_libs.common.util.uuid_lib.uuid4')
