@@ -5397,9 +5397,11 @@ class CreateAnsibleExecFiles():
             return False, mt_host_vars, mt_pioneer_template_host_vars
 
         operation_date = rows[0]['OPERATION_DATE']
-        operation_name = rows[0]['OPERATION_NAME']
-        operationStr = ""
-        operationStr = "{}_{}:{}".format(operation_date, in_operation_id, operation_name)
+        # オペレーション名から両脇のクォーテーションを省く
+        operation_name_strip = re.sub(r"""^(['"])(.*)\1$""", r"\2", rows[0]['OPERATION_NAME'], flags=re.DOTALL)
+        # クォーテーションをエスケープしつつ、playbookで文字列として扱えるようにする
+        operation_name_str = "'{}'".format(operation_name_strip.replace("'", "''"))
+        operationStr = "{}_{}:{}".format(operation_date, in_operation_id, rows[0]['OPERATION_NAME'])
 
         # オペレーション用の予約変数生成
         for host_name, hostinfo in ina_hostinfolist.items():
@@ -5407,7 +5409,7 @@ class CreateAnsibleExecFiles():
                 mt_host_vars[host_name] = {}
             mt_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_STRING] = operationStr
             mt_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_ID] = in_operation_id
-            mt_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_NAME] = operation_name
+            mt_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_NAME] = operation_name_str
             mt_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_DATETIME] = operation_date
 
             if self.getAnsibleDriverID() == self.AnscObj.DF_PIONEER_DRIVER_ID:
@@ -5415,7 +5417,7 @@ class CreateAnsibleExecFiles():
                     mt_pioneer_template_host_vars[host_name] = {}
                 mt_pioneer_template_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_STRING] = operationStr
                 mt_pioneer_template_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_ID] = in_operation_id
-                mt_pioneer_template_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_NAME] = operation_name
+                mt_pioneer_template_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_NAME] = operation_name_str
                 mt_pioneer_template_host_vars[host_name][self.AnscObj.ITA_SP_VAR_OPERATION_DATETIME] = operation_date
         return True, mt_host_vars, mt_pioneer_template_host_vars
 
