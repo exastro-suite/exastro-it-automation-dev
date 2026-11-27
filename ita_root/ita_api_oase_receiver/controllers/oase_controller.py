@@ -225,7 +225,7 @@ def post_events(body: str, organization_id: str, workspace_id: str) -> tuple:  #
             if len(collection_progress) != 0:
                 last_fetched_time = int(collection_progress[0]["FETCHED_TIME"])
                 # OASEエージェントの障害復旧時を想定し、過去データの受信をブロックする
-                # ただし、同時発生障害の複数リクエストの受信を許可するため、「未満」にする（上記ケースの障害時に同一fetched_timeのイベントを受信するリスクは許容する）
+                # ただし、例えばイベント駆動のようなキューイングされずにイベントをAPI送信する仕組みを利用する場合の、同一ferched_timeの複数リクエストのイベント受信を許可するため、「未満」にする（上記ケースの障害時に同一fetched_timeのイベントを再受信するリスクは許容する）
                 if collection_group_data["FETCHED_TIME"] < last_fetched_time:
                     # fetched_timeが最新ではないため、イベントは保存されませんでした。(イベント収集設定id:{}, 最新のfetched_time:{}）
                     msg = g.appmsg.get_log_message("499-01818", [event_collection_settings_id, collection_group_data["FETCHED_TIME"], last_fetched_time])
