@@ -159,6 +159,7 @@ class APIClientCommon:
             # g.applogger.debug("URL................{}".format(self.url))
             # g.applogger.debug("AUTH_TOKEN.........{}".format(self.auth_token))
             # g.applogger.debug("verify.............{}".format(self.verify))
+            # g.applogger.debug("headers....................{}".format(self.headers))
             # g.applogger.debug("env.NO_PROXY.......{}".format(os.environ['NO_PROXY']))
             # g.applogger.debug("proxies............{}".format(proxies))
             g.applogger.debug("Request Parameter..........{}".format(self.parameter))
